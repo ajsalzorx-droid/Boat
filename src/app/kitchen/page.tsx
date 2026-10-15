@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Check, Clock, Utensils, AlertCircle, RefreshCw, LogOut, BellOff } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { completeOrder as completeOrderAction, clearPendingOrders } from "@/app/admin/actions";
+import { actionFailed } from "@/app/admin/client-helpers";
 
 interface Order {
   id: string;
@@ -71,14 +73,14 @@ export default function KitchenPage() {
 
   const completeOrder = async (id: string) => {
     stopRinging();
-    await supabase.from('orders').update({ status: 'completed' }).eq('id', id);
+    if (actionFailed(await completeOrderAction(id))) return;
     loadOrders();
   };
 
   const clearAll = async () => {
     if (confirm("Are you sure you want to clear all pending orders?")) {
       stopRinging();
-      await supabase.from('orders').delete().eq('status', 'pending');
+      if (actionFailed(await clearPendingOrders())) return;
       loadOrders();
     }
   };

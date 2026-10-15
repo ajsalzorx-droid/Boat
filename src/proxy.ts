@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isAdminEmail } from '@/lib/admin-emails'
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -7,8 +8,8 @@ export async function proxy(request: NextRequest) {
   })
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder',
     {
       cookies: {
         getAll() {
@@ -31,15 +32,20 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (
-    !user &&
-    request.nextUrl.pathname.startsWith('/admin') &&
-    !request.nextUrl.pathname.startsWith('/admin/login')
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
-    const url = request.nextUrl.clone()
-    url.pathname = '/admin/login'
-    return NextResponse.redirect(url)
+  const { pathname } = request.nextUrl
+  const isProtected =
+    (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) ||
+    pathname.startsWith('/kitchen')
+
+  if (isProtected) {
+    // Verified token (getUser above) + email must be in ADMIN_EMAILS (server env, no DB function needed)
+    if (!user || !isAdminEmail(user.email)) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin/login'
+      url.search = ''
+      url.searchParams.set('next', pathname)
+      return NextResponse.redirect(url)
+    }
   }
 
   return supabaseResponse

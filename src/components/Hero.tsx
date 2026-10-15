@@ -71,13 +71,13 @@ export default function Hero() {
         >
           <Link
             href="/menu"
-            className="group relative bg-ocean text-navy py-[14px] px-[36px] md:px-[44px] font-jost text-[11px] font-bold tracking-[2.5px] uppercase no-underline inline-block transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden shadow-2xl hover:bg-white"
+            className="group relative bg-ocean text-navy rounded-lg py-[14px] px-[36px] md:px-[44px] font-jost max-md:whitespace-nowrap text-[11px] font-bold tracking-[2.5px] uppercase no-underline inline-block transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden shadow-2xl hover:bg-white"
           >
             Order Online
           </Link>
           <a
             href="#loc"
-            className="group flex items-center gap-3 text-white/80 text-[11px] tracking-[3px] uppercase no-underline transition-colors font-bold hover:text-white"
+            className="group flex items-center gap-3 text-white/80 text-[11px] tracking-[3px] uppercase max-md:whitespace-nowrap no-underline transition-colors font-bold hover:text-white"
           >
             Find Us
             <ArrowRight size={16} className="transition-transform group-hover:translate-x-1.5" />

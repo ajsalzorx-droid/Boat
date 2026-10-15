@@ -31,7 +31,7 @@ export default function Origin() {
           </p>
           <a
             href="#exp"
-            className="group inline-flex items-center gap-4 bg-navy text-cream py-4 px-10.5 font-jost text-[10px] font-light tracking-[3px] uppercase no-underline transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-ocean hover:text-navy"
+            className="group inline-flex items-center gap-4 bg-navy text-cream rounded-lg py-4 px-10.5 font-jost text-[10px] font-light max-md:whitespace-nowrap max-md:px-7 tracking-[3px] uppercase no-underline transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-ocean hover:text-navy"
           >
             Our Experience
             <ArrowRight size={16} className="transition-transform group-hover:translate-x-1.5" />

@@ -6,6 +6,10 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 
+// Desktop grid is 4 columns x 2 rows = 8 cells: 2 tall cards (2 cells each) + 4 normal = 8
+const SHOWCASE_SIZE = 6;
+const TALL_POSITIONS = [0, 3];
+
 export default function MenuShowcase() {
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const supabase = createClient();
@@ -17,14 +21,24 @@ export default function MenuShowcase() {
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: true })
-        .limit(6);
-      
+        .order('id', { ascending: true }) // stable order when created_at ties
+        .limit(SHOWCASE_SIZE * 3);
+
       if (data) {
-        setMenuItems(data.map(item => ({
+        // Skip duplicate dishes (same name) so the grid shows 6 different items
+        const seen = new Set<string>();
+        const unique = data.filter((item) => {
+          const key = item.name.trim().toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        setMenuItems(unique.slice(0, SHOWCASE_SIZE).map((item, i) => ({
           ...item,
           image: item.image_url,
-          tall: item.is_tall,
-          wide: item.is_wide
+          // Layout is fixed by position so the 4x2 desktop grid is always filled exactly
+          tall: TALL_POSITIONS.includes(i),
         })));
       }
     }
@@ -34,14 +48,12 @@ export default function MenuShowcase() {
   return (
     <section className="bg-cream pt-12 pb-0" id="menu">
 
-      <div className="grid grid-cols-1 md:grid-cols-[1.35fr_1fr_1fr_1.35fr] md:grid-rows-[480px_310px] gap-[3px]">
-        {menuItems.map((item, i) => (
+      <div className="grid grid-cols-1 md:grid-cols-[1.35fr_1fr_1fr_1.35fr] md:grid-rows-[480px_310px] md:grid-flow-dense gap-[3px]">
+        {menuItems.map((item) => (
           <div
             key={item.id}
-            className={`group relative overflow-hidden bg-cream 
-              ${item.tall ? "md:row-span-2" : ""} 
-              ${item.wide ? "md:col-span-2" : ""}
-              ${!item.tall && !item.wide ? "aspect-[4/3] md:aspect-auto" : ""}
+            className={`group relative overflow-hidden bg-cream aspect-[4/3] md:aspect-auto
+              ${item.tall ? "md:row-span-2" : ""}
             `}
           >
             <img
@@ -76,7 +88,7 @@ export default function MenuShowcase() {
       >
         <Link
           href="/menu"
-          className="group inline-flex items-center gap-4 bg-navy text-cream py-4 px-10.5 font-jost text-[10px] font-bold tracking-[3px] uppercase no-underline transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-ocean hover:text-navy"
+          className="group inline-flex items-center gap-4 bg-navy text-cream rounded-lg py-4 px-10.5 font-jost text-[10px] font-bold max-md:whitespace-nowrap max-md:px-7 tracking-[3px] uppercase no-underline transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-ocean hover:text-navy"
         >
           View Full Menu
           <ArrowRight size={16} className="transition-transform group-hover:translate-x-1.5" />

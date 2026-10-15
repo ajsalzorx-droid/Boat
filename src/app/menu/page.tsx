@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { createClient } from "@/utils/supabase/client";
+import { placeOrder, type PlaceOrderResult } from "./actions";
 
 const categories = [
   "All",
@@ -41,7 +42,7 @@ function MenuContent() {
     async function fetchMenu() {
       const { data, error } = await supabase.from('menu_items').select('*').eq('is_active', true).order('created_at', { ascending: true });
       if (error) {
-        console.error("Error fetching menu:", error);
+        console.error("Error fetching menu:", error.message || error);
       }
       if (data) {
         // Map database fields to MenuItem structure if needed
@@ -73,24 +74,20 @@ function MenuContent() {
   const submitOrder = async () => {
     setOrderStatus('submitting');
     
-    // Create the order payload
-    const newOrder = {
-      table: tableNumber || "Takeaway",
-      items: cart.map(c => ({ name: c.item.name, quantity: c.quantity })),
-      total: cartTotal,
-      status: 'pending'
-    };
-
+    // Sent through a server action: the database prices the items, so the
+    // browser can't choose the total or insert into orders directly.
+    let result: PlaceOrderResult;
     try {
-      const { error } = await supabase
-        .from('orders')
-        .insert(newOrder);
-
-      if (error) {
-        console.error("Error saving order to Supabase:", error);
-      }
+      result = await placeOrder(tableNumber, cart.map(c => ({ id: c.item.id, quantity: c.quantity })));
     } catch (e) {
       console.error("Unexpected error saving order:", e);
+      result = { ok: false, error: "Could not send your order. Please try again or ask a waiter." };
+    }
+
+    if (!result.ok) {
+      setOrderStatus('idle');
+      alert(result.error);
+      return;
     }
 
     setOrderStatus('complete');
@@ -197,9 +194,9 @@ function MenuContent() {
                   </div>
                   <button 
                     onClick={() => handleAddToCart(item)}
-                    className="absolute bottom-4 right-4 bg-navy text-cream p-4 rounded-full shadow-2xl md:translate-y-4 md:opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 hover:bg-ocean hover:text-navy opacity-100 translate-y-0"
+                    className="absolute bottom-3 right-3 md:bottom-4 md:right-4 bg-navy text-cream p-2.5 md:p-4 rounded-full shadow-2xl md:translate-y-4 md:opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 hover:bg-ocean hover:text-navy opacity-100 translate-y-0"
                   >
-                    {showSuccess === item.id ? <Check size={20} /> : <Plus size={20} />}
+                    {showSuccess === item.id ? <Check size={20} className="w-4 h-4 md:w-5 md:h-5" /> : <Plus size={20} className="w-4 h-4 md:w-5 md:h-5" />}
                   </button>
                 </div>
                 
@@ -310,7 +307,7 @@ function MenuContent() {
                   </div>
                   <button 
                     onClick={handlePlaceOrder}
-                    className="w-full bg-ocean text-navy py-5 font-jost text-[10px] font-bold tracking-[3px] uppercase transition-all hover:bg-white"
+                    className="w-full bg-ocean text-navy rounded-lg py-5 font-jost text-[10px] font-bold tracking-[3px] uppercase transition-all hover:bg-white"
                   >
                     {tableNumber ? "Send to Kitchen" : "Place Order Now"}
                   </button>
@@ -353,13 +350,13 @@ function MenuContent() {
                   <div className="flex flex-col gap-4">
                     <button 
                       onClick={submitOrder}
-                      className="w-full bg-navy text-white py-5 font-jost text-[10px] font-bold tracking-[3px] uppercase hover:bg-ocean hover:text-navy transition-all"
+                      className="w-full bg-navy text-white rounded-lg py-5 font-jost text-[10px] font-bold tracking-[3px] uppercase hover:bg-ocean hover:text-navy transition-all"
                     >
                       Yes, Confirm Order
                     </button>
                     <button 
                       onClick={() => setIsConfirming(false)}
-                      className="w-full border border-navy/20 py-5 font-jost text-[10px] font-bold tracking-[3px] uppercase text-navy/70 hover:text-navy hover:border-navy transition-all"
+                      className="w-full border border-navy/20 rounded-lg py-5 font-jost text-[10px] font-bold tracking-[3px] uppercase text-navy/70 hover:text-navy hover:border-navy transition-all"
                     >
                       Go Back
                     </button>

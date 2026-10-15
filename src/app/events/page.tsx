@@ -174,7 +174,7 @@ export default function EventsPage() {
         <div className="mt-20 text-center">
           <Link
             href="https://wa.me/971500000000"
-            className="group relative bg-ocean text-navy py-5 px-14 font-jost text-[10px] font-bold tracking-[3px] uppercase no-underline inline-block transition-all duration-500 overflow-hidden shadow-2xl hover:bg-white"
+            className="group relative bg-ocean text-navy rounded-lg py-5 px-14 font-jost max-md:whitespace-nowrap max-md:px-8 text-[10px] font-bold tracking-[3px] uppercase no-underline inline-block transition-all duration-500 overflow-hidden shadow-2xl hover:bg-white"
           >
             Book Your Event
           </Link>

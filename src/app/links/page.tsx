@@ -160,7 +160,7 @@ export default function LinksPage() {
               href="/menu"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-3 w-full p-4 rounded-2xl bg-gradient-to-br from-[#C49A3C] to-[#8B6914] text-[#0A1628] font-medium tracking-wider shadow-[0_4px_20px_rgba(196,154,60,0.25),0_1px_3px_rgba(0,0,0,0.15)] hover:shadow-[0_6px_28px_rgba(196,154,60,0.35),0_2px_6px_rgba(0,0,0,0.2)] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
+              className="flex items-center justify-center gap-3 w-full p-4 rounded-lg bg-gradient-to-br from-[#C49A3C] to-[#8B6914] text-[#0A1628] font-medium tracking-wider shadow-[0_4px_20px_rgba(196,154,60,0.25),0_1px_3px_rgba(0,0,0,0.15)] hover:shadow-[0_6px_28px_rgba(196,154,60,0.35),0_2px_6px_rgba(0,0,0,0.2)] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 4h16v16H4z"/><path d="M4 10h16"/><path d="M10 4v16"/>
@@ -179,7 +179,7 @@ export default function LinksPage() {
               href="/offer"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-3 w-full p-4 rounded-2xl bg-[#D4C5A9]/5 text-[#D4C5A9] border border-[#D4C5A9]/15 backdrop-blur-md hover:border-[#D4C5A9]/30 hover:text-[#e4d5b9] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
+              className="flex items-center justify-center gap-3 w-full p-4 rounded-lg bg-[#D4C5A9]/5 text-[#D4C5A9] border border-[#D4C5A9]/15 backdrop-blur-md hover:border-[#D4C5A9]/30 hover:text-[#e4d5b9] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
@@ -198,7 +198,7 @@ export default function LinksPage() {
               href="https://share.google/6sDV8BO7ZwyKB4VK0"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-3 w-full p-4 rounded-2xl bg-[#A8C5B8]/10 text-[#A8C5B8] border border-[#A8C5B8]/20 backdrop-blur-md hover:border-[#A8C5B8]/40 hover:text-[#c2ddd2] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
+              className="flex items-center justify-center gap-3 w-full p-4 rounded-lg bg-[#A8C5B8]/10 text-[#A8C5B8] border border-[#A8C5B8]/20 backdrop-blur-md hover:border-[#A8C5B8]/40 hover:text-[#c2ddd2] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -217,7 +217,7 @@ export default function LinksPage() {
               href="https://share.google/m3vxo1gRP57YEAX5S"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-3 w-full p-4 rounded-2xl bg-[#D4C5A9]/5 text-[#D4C5A9] border border-[#D4C5A9]/15 backdrop-blur-md hover:border-[#D4C5A9]/30 hover:text-[#e4d5b9] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
+              className="flex items-center justify-center gap-3 w-full p-4 rounded-lg bg-[#D4C5A9]/5 text-[#D4C5A9] border border-[#D4C5A9]/15 backdrop-blur-md hover:border-[#D4C5A9]/30 hover:text-[#e4d5b9] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
@@ -236,7 +236,7 @@ export default function LinksPage() {
               href="/events"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-3 w-full p-4 rounded-2xl bg-[#D4C5A9]/5 text-[#D4C5A9] border border-[#D4C5A9]/15 backdrop-blur-md hover:border-[#D4C5A9]/30 hover:text-[#e4d5b9] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
+              className="flex items-center justify-center gap-3 w-full p-4 rounded-lg bg-[#D4C5A9]/5 text-[#D4C5A9] border border-[#D4C5A9]/15 backdrop-blur-md hover:border-[#D4C5A9]/30 hover:text-[#e4d5b9] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
@@ -253,7 +253,7 @@ export default function LinksPage() {
           >
             <button
               onClick={saveContact}
-              className="flex items-center justify-center gap-3 w-full p-4 rounded-2xl bg-[#D4C5A9]/5 text-[#D4C5A9] border border-[#D4C5A9]/15 backdrop-blur-md hover:border-[#D4C5A9]/30 hover:text-[#e4d5b9] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
+              className="flex items-center justify-center gap-3 w-full p-4 rounded-lg bg-[#D4C5A9]/5 text-[#D4C5A9] border border-[#D4C5A9]/15 backdrop-blur-md hover:border-[#D4C5A9]/30 hover:text-[#e4d5b9] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
@@ -270,7 +270,7 @@ export default function LinksPage() {
           >
             <Link
               href="/your-fish"
-              className="flex items-center justify-center gap-3 w-full p-4 rounded-2xl bg-[#D4C5A9]/5 text-[#D4C5A9] border border-[#D4C5A9]/15 backdrop-blur-md hover:border-[#D4C5A9]/30 hover:text-[#e4d5b9] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
+              className="flex items-center justify-center gap-3 w-full p-4 rounded-lg bg-[#D4C5A9]/5 text-[#D4C5A9] border border-[#D4C5A9]/15 backdrop-blur-md hover:border-[#D4C5A9]/30 hover:text-[#e4d5b9] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 3c.5 1.5-.5 1.5 0 3M12 2.5c.5 1.5-.5 1.5 0 3M15 3c.5 1.5-.5 1.5 0 3" />
@@ -289,7 +289,7 @@ export default function LinksPage() {
           >
             <button
               onClick={sharePage}
-              className="flex items-center justify-center gap-3 w-full p-4 rounded-2xl bg-[#D4C5A9]/5 text-[#D4C5A9] border border-[#D4C5A9]/15 backdrop-blur-md hover:border-[#D4C5A9]/30 hover:text-[#e4d5b9] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
+              className="flex items-center justify-center gap-3 w-full p-4 rounded-lg bg-[#D4C5A9]/5 text-[#D4C5A9] border border-[#D4C5A9]/15 backdrop-blur-md hover:border-[#D4C5A9]/30 hover:text-[#e4d5b9] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>

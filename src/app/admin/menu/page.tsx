@@ -2,11 +2,30 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Plus, Edit, Trash2, X, Upload } from "lucide-react";
+import { saveMenuItem, deleteMenuItem } from "../actions";
+import { actionFailed, uploadAdminImage } from "../client-helpers";
+import { Plus, Edit, Trash2, X, Upload, ChevronLeft, ChevronRight } from "lucide-react";
+
+const PAGE_SIZE = 8;
+
+// Page numbers to show, with "…" gaps once there are many pages (0-based pages)
+function getPageNumbers(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i);
+  const pages = new Set([0, total - 1, current - 1, current, current + 1]);
+  const sorted = [...pages].filter((p) => p >= 0 && p < total).sort((a, b) => a - b);
+  const result: (number | "…")[] = [];
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) result.push("…");
+    result.push(p);
+  });
+  return result;
+}
 
 export default function AdminMenuPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -29,16 +48,54 @@ export default function AdminMenuPage() {
     "Desserts", "Beverages"
   ];
 
-  useEffect(() => {
-    fetchItems();
-  }, []);
+  // Bumped to refetch the current page after add/edit/delete
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const fetchItems = async () => {
+  // Server-side pagination: skip = page * PAGE_SIZE, fetch only PAGE_SIZE rows (OFFSET/LIMIT)
+  useEffect(() => {
+    let cancelled = false;
+    const skip = page * PAGE_SIZE;
+
+    supabase
+      .from("menu_items")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true }) // tie-breaker so rows don't shift between pages
+      .range(skip, skip + PAGE_SIZE - 1)
+      .then(({ data, count, error }) => {
+        if (cancelled) return; // a newer page was requested meanwhile
+        if (error) {
+          // PGRST103: the page no longer exists (e.g. items were deleted) - go back to the first page
+          if (error.code === "PGRST103" && page > 0) {
+            setPage(0);
+            return;
+          }
+          console.error("Error fetching menu items:", error.message);
+        }
+        if (data) setItems(data);
+        setTotalCount(count ?? 0);
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [page, reloadKey]);
+
+  // Loading is set here (not inside the effect) so page changes show the loading row
+  const goToPage = (p: number) => {
     setLoading(true);
-    const { data, error } = await supabase.from("menu_items").select("*").order("created_at", { ascending: false });
-    if (data) setItems(data);
-    setLoading(false);
+    setPage(p);
   };
+
+  const reload = () => {
+    setLoading(true);
+    setReloadKey((k) => k + 1);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const firstShown = totalCount === 0 ? 0 : page * PAGE_SIZE + 1;
+  const lastShown = Math.min((page + 1) * PAGE_SIZE, totalCount);
 
   const handleOpenModal = (item: any = null) => {
     if (item) {
@@ -70,21 +127,8 @@ export default function AdminMenuPage() {
         throw new Error('You must select an image to upload.');
       }
 
-      const file = e.target.files[0];
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `menu/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const { data } = supabase.storage.from('images').getPublicUrl(filePath);
-      setFormData({ ...formData, image_url: data.publicUrl });
+      const publicUrl = await uploadAdminImage("menu", e.target.files[0]);
+      if (publicUrl) setFormData({ ...formData, image_url: publicUrl });
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -107,41 +151,48 @@ export default function AdminMenuPage() {
       is_wide: formData.is_wide
     };
 
-    if (editingId) {
-      await supabase.from("menu_items").update(payload).eq("id", editingId);
-    } else {
-      await supabase.from("menu_items").insert(payload);
-    }
+    // Token is verified on the server before the item is saved
+    const res = await saveMenuItem(editingId, payload);
+    if (actionFailed(res)) return;
 
-    setIsModalOpen(false);
-    fetchItems();
+    if (editingId) {
+      setIsModalOpen(false);
+      reload();
+    } else {
+      setIsModalOpen(false);
+      // Newest items are listed first, so show page 1
+      if (page === 0) reload();
+      else goToPage(0);
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this menu item?")) {
-      await supabase.from("menu_items").delete().eq("id", id);
-      fetchItems();
+      if (actionFailed(await deleteMenuItem(id))) return;
+      // Deleting the last item on a page: step back a page
+      if (items.length === 1 && page > 0) goToPage(page - 1);
+      else reload();
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-playfair font-bold text-navy mb-2">Menu Management</h1>
-          <p className="text-gray-500">Add, edit, or remove items from your restaurant menu.</p>
+      <div className="flex flex-col items-end md:flex-row md:justify-between md:items-center gap-3">
+        <div className="min-w-0 w-full md:w-auto">
+          <h1 className="text-2xl md:text-3xl font-playfair font-bold text-navy mb-1 md:mb-2 leading-tight md:leading-normal">Menu Management</h1>
+          <p className="text-sm md:text-base text-gray-500">Add, edit, or remove items from your restaurant menu.</p>
         </div>
         <button 
           onClick={() => handleOpenModal()}
-          className="bg-ocean text-navy px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-ocean-light transition-colors"
+          className="bg-ocean text-navy px-3 py-1.5 text-sm md:px-4 md:py-2 md:text-base rounded-lg font-bold flex items-center gap-1.5 md:gap-2 whitespace-nowrap shrink-0 hover:bg-ocean-light transition-colors"
         >
-          <Plus size={18} /> Add New Item
+          <Plus size={18} className="w-4 h-4 md:w-[18px] md:h-[18px]" /> Add New Item
         </button>
       </div>
 
       {/* Items Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-left border-collapse">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden max-md:overflow-x-auto admin-scroll">
+        <table className="w-full max-md:min-w-[640px] text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-500">
               <th className="p-4 w-16">Image</th>
@@ -184,10 +235,64 @@ export default function AdminMenuPage() {
         </table>
       </div>
 
+      {/* Pagination */}
+      {totalCount > 0 && (
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          <p className="text-sm text-gray-500">
+            Showing <span className="font-semibold text-navy">{firstShown}–{lastShown}</span> of{" "}
+            <span className="font-semibold text-navy">{totalCount}</span> items
+          </p>
+
+          {totalPages > 1 && (
+            <nav className="flex items-center gap-1" aria-label="Menu items pages">
+              <button
+                onClick={() => goToPage(page - 1)}
+                disabled={page === 0 || loading}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium text-navy hover:bg-white hover:shadow-sm disabled:opacity-40 disabled:pointer-events-none transition-all"
+                aria-label="Previous page"
+              >
+                <ChevronLeft size={16} />
+                <span className="hidden sm:inline">Prev</span>
+              </button>
+
+              {getPageNumbers(page, totalPages).map((p, i) =>
+                p === "…" ? (
+                  <span key={`gap-${i}`} className="px-2 text-gray-400 text-sm">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => goToPage(p)}
+                    disabled={loading}
+                    aria-current={p === page ? "page" : undefined}
+                    className={`min-w-9 h-9 px-2 rounded-lg text-sm font-semibold transition-all ${
+                      p === page
+                        ? "bg-navy text-white shadow-sm"
+                        : "text-navy hover:bg-white hover:shadow-sm"
+                    }`}
+                  >
+                    {p + 1}
+                  </button>
+                )
+              )}
+
+              <button
+                onClick={() => goToPage(page + 1)}
+                disabled={page >= totalPages - 1 || loading}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium text-navy hover:bg-white hover:shadow-sm disabled:opacity-40 disabled:pointer-events-none transition-all"
+                aria-label="Next page"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight size={16} />
+              </button>
+            </nav>
+          )}
+        </div>
+      )}
+
       {/* Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto admin-scroll">
             <div className="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
               <h2 className="text-xl font-bold text-navy">{editingId ? "Edit Menu Item" : "Add New Item"}</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">

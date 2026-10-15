@@ -27,7 +27,10 @@ export default function AdminLogin() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push("/admin");
+      // Only follow same-site paths so ?next= can't redirect off the site
+      const next = new URLSearchParams(window.location.search).get("next");
+      const target = next && /^\/(?![/\\])/.test(next) ? next : "/admin";
+      router.push(target);
       router.refresh();
     }
   };
@@ -66,7 +69,8 @@ export default function AdminLogin() {
                   <Mail size={18} />
                 </div>
                 <input 
-                  type="email" 
+                  type="email"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-black/20 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:outline-none focus:border-ocean focus:ring-1 focus:ring-ocean transition-all"
@@ -83,7 +87,8 @@ export default function AdminLogin() {
                   <Lock size={18} />
                 </div>
                 <input 
-                  type="password" 
+                  type="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-black/20 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:outline-none focus:border-ocean focus:ring-1 focus:ring-ocean transition-all"

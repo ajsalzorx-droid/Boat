@@ -121,7 +121,7 @@ export default function YourFishPage() {
       <section className="relative min-h-screen flex items-center">
         {/* cream bg left, image right */}
         <div className="absolute inset-0 grid grid-cols-1 md:grid-cols-2">
-          <div className="bg-[#F7F3EA]" />
+          <div className="bg-[#F7F3EA] hidden md:block" />
           <div className="relative overflow-hidden">
             <Image
               src="/images/your-fish/02-hero-grilled-fish-closeup.png"
@@ -129,12 +129,12 @@ export default function YourFishPage() {
               fill
               className="object-cover"
               priority
-              sizes="50vw"
+              sizes="(min-width: 768px) 50vw, 100vw"
             />
             {/* left-edge blend */}
             <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-[#F7F3EA] to-transparent hidden md:block" />
-            {/* dark veil on mobile */}
-            <div className="absolute inset-0 bg-[#F7F3EA]/60 md:hidden" />
+            {/* cream veil on mobile: image fills the whole hero, text stays readable */}
+            <div className="absolute inset-0 bg-[#F7F3EA]/85 md:hidden" />
           </div>
         </div>
 
@@ -188,14 +188,14 @@ export default function YourFishPage() {
                 href="https://wa.me/971500000000?text=Hello%2C%20I%20want%20to%20bring%20my%20own%20fish%20for%20preparation"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group inline-flex items-center gap-2.5 bg-[#0E2A47] text-white font-jost text-[11px] font-semibold tracking-[3px] uppercase px-9 py-4 rounded-full transition-all duration-300 hover:bg-[#C89B4B] hover:shadow-lg hover:shadow-[#C89B4B]/25 hover:-translate-y-0.5"
+                className="group inline-flex items-center gap-2.5 bg-[#0E2A47] text-white font-jost text-[11px] font-semibold tracking-[3px] uppercase px-9 py-4 max-md:whitespace-nowrap max-md:px-6 rounded-lg transition-all duration-300 hover:bg-[#C89B4B] hover:shadow-lg hover:shadow-[#C89B4B]/25 hover:-translate-y-0.5"
               >
                 Book a Table
                 <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
               </a>
               <a
                 href="#styles"
-                className="inline-flex items-center gap-2 border-2 border-[#0E2A47]/20 text-[#0E2A47] font-jost text-[11px] font-semibold tracking-[3px] uppercase px-9 py-4 rounded-full transition-all duration-300 hover:border-[#C89B4B] hover:text-[#C89B4B] hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 border-2 border-[#0E2A47]/20 text-[#0E2A47] font-jost text-[11px] font-semibold tracking-[3px] uppercase px-9 py-4 max-md:whitespace-nowrap max-md:px-6 rounded-lg transition-all duration-300 hover:border-[#C89B4B] hover:text-[#C89B4B] hover:-translate-y-0.5"
               >
                 View Styles
               </a>
@@ -361,7 +361,7 @@ export default function YourFishPage() {
           <motion.div {...fadeUp(0.2)} className="flex justify-center">
             <a
               href="/menu"
-              className="group inline-flex items-center gap-3 bg-[#0E2A47] text-white font-jost text-[11px] font-semibold tracking-[3px] uppercase px-10 py-4 rounded-full transition-all duration-300 hover:bg-[#C89B4B] hover:shadow-lg hover:shadow-[#C89B4B]/25 hover:-translate-y-0.5"
+              className="group inline-flex items-center gap-3 bg-[#0E2A47] text-white font-jost text-[11px] font-semibold tracking-[3px] uppercase px-10 py-4 max-md:whitespace-nowrap max-md:px-7 rounded-lg transition-all duration-300 hover:bg-[#C89B4B] hover:shadow-lg hover:shadow-[#C89B4B]/25 hover:-translate-y-0.5"
             >
               And Much More
               <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
@@ -473,7 +473,7 @@ export default function YourFishPage() {
                 href="https://wa.me/971500000000?text=Hello%2C%20I%20want%20to%20bring%20my%20own%20fish%20for%20preparation"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group inline-flex items-center gap-2.5 bg-[#C89B4B] text-[#0E2A47] font-jost text-[11px] font-bold tracking-[3px] uppercase px-10 py-4 rounded-full transition-all duration-300 hover:bg-white hover:shadow-xl hover:shadow-[#C89B4B]/30 hover:-translate-y-0.5"
+                className="group inline-flex items-center gap-2.5 bg-[#C89B4B] text-[#0E2A47] font-jost text-[11px] font-bold tracking-[3px] uppercase px-10 py-4 max-md:whitespace-nowrap max-md:px-7 rounded-lg transition-all duration-300 hover:bg-white hover:shadow-xl hover:shadow-[#C89B4B]/30 hover:-translate-y-0.5"
               >
                 Book a Table
                 <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
@@ -482,7 +482,7 @@ export default function YourFishPage() {
                 href="https://wa.me/971500000000"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2.5 border-2 border-white/20 text-white font-jost text-[11px] font-semibold tracking-[3px] uppercase px-10 py-4 rounded-full transition-all duration-300 hover:border-[#C89B4B]/60 hover:text-[#C89B4B] hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2.5 border-2 border-white/20 text-white font-jost text-[11px] font-semibold tracking-[3px] uppercase px-10 py-4 max-md:whitespace-nowrap max-md:px-7 rounded-lg transition-all duration-300 hover:border-[#C89B4B]/60 hover:text-[#C89B4B] hover:-translate-y-0.5"
               >
                 Contact Us
               </a>

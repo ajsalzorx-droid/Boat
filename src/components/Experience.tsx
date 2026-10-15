@@ -93,7 +93,7 @@ export default function Experience() {
           >
             <a
               href="#loc"
-              className="group inline-flex items-center gap-3.5 border border-ocean-light/50 text-ocean-light py-[15px] px-10 font-jost text-[10px] font-light tracking-[3px] uppercase no-underline transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-ocean hover:text-navy hover:border-ocean"
+              className="group inline-flex items-center gap-3.5 border border-ocean-light/50 rounded-lg text-ocean-light py-[15px] px-10 font-jost max-md:whitespace-nowrap max-md:px-7 text-[10px] font-light tracking-[3px] uppercase no-underline transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-ocean hover:text-navy hover:border-ocean"
             >
               Get Directions
               <ArrowRight size={16} className="transition-transform group-hover:translate-x-1.5" />

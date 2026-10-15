@@ -54,7 +54,7 @@ export default function Location() {
           href="https://www.google.com/maps?vet=10CAAQoqAOahcKEwjYxrvuv5iUAxUAAAAAHQAAAAAQBQ..i&pvq=Cg0vZy8xMXcyZmRna2QyIlYKUEJPQVQgU0VBRk9PRCBSRVNUQVVSQU5UIC_Zhdi32LnZhSDYp9mE2YXYsdmD2Kgg2YTZhNmF2KLZg9mI2YTYp9iqINin2YTYqNit2LHZitipEAIYAw&lqi=ClBCT0FUIFNFQUZPT0QgUkVTVEFVUkFOVCAv2YXYt9i52YUg2KfZhNmF2LHZg9ioINmE2YTZhdii2YPZiNmE2KfYqiDYp9mE2KjYrdix2YrYqUiCi53WibuAgAhafRAAEAEQAhADEAQQBRAGGAAYARgCGAMYBBgFGAYiT2JvYXQgc2VhZm9vZCByZXN0YXVyYW50INmF2LfYudmFINin2YTZhdix2YPYqCDZhNmE2YXYotmD2YjZhNin2Kog2KfZhNio2K3YsdmK2KkqDggCEAAQARACEAQQBRAGkgESc2VhZm9vZF9yZXN0YXVyYW50mgFEQ2k5RFFVbFJRVU52WkVOb2RIbGpSamx2VDI1YWQxVkZiRXhqZW1oSFpETnNTV05XWkZaYVZGcHVZVEZzVDJSWVl4QUL6AQQIABBK&fvr=1&cs=0&um=1&ie=UTF-8&fb=1&gl=ae&sa=X&geocode=KQ2ydF9RW18-MWmWtPuHlIzY&daddr=Waterfront+-+Daira+-+Corniche+Deira+-+Deira+-+Dubai"
           target="_blank"
           rel="noopener noreferrer"
-          className="group inline-flex items-center gap-3.5 border border-ocean-light/50 text-ocean-light py-[15px] px-10 font-jost text-[10px] font-light tracking-[3px] uppercase no-underline transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-ocean hover:text-navy hover:border-ocean"
+          className="group inline-flex items-center gap-3.5 border border-ocean-light/50 rounded-lg text-ocean-light py-[15px] px-10 font-jost max-md:whitespace-nowrap max-md:px-7 text-[10px] font-light tracking-[3px] uppercase no-underline transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-ocean hover:text-navy hover:border-ocean"
         >
           Get Directions
           <ArrowRight size={16} className="transition-transform group-hover:translate-x-1.5" />

@@ -48,7 +48,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      {/* Browser extensions (e.g. ColorZilla's cz-shortcut-listen) add attributes to <body> before hydration */}
       <body
+        suppressHydrationWarning
         className={`${playfair.variable} ${jost.variable} ${cormorant.variable} ${outfit.variable} antialiased selection:bg-navy selection:text-cream`}
       >
         <CartProvider>

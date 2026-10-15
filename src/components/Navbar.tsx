@@ -1,15 +1,45 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { Menu as MenuIcon, X, ShoppingBag } from "lucide-react";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
+
+const smoothEase = [0.16, 1, 0.3, 1] as const;
+
+const mobileLinks = [
+  { href: "/menu", label: "Menu" },
+  { href: "/#exp", label: "Experience" },
+  { href: "/#loc", label: "Location" },
+  { href: "/events", label: "Events" },
+  { href: "/offer", label: "Offer" },
+  { href: "/your-fish", label: "Fresh Catch", accent: true },
+];
+
+// Panel unfolds downward, then links fade/slide in one after another
+const mobileMenuVariants: Variants = {
+  closed: {
+    opacity: 0,
+    y: -12,
+    clipPath: "inset(0% 0% 100% 0%)",
+    transition: { duration: 0.35, ease: smoothEase, staggerChildren: 0.03, staggerDirection: -1 },
+  },
+  open: {
+    opacity: 1,
+    y: 0,
+    clipPath: "inset(0% 0% 0% 0%)",
+    transition: { duration: 0.5, ease: smoothEase, staggerChildren: 0.06, delayChildren: 0.1 },
+  },
+};
+
+const mobileItemVariants: Variants = {
+  closed: { opacity: 0, y: -10, transition: { duration: 0.2 } },
+  open: { opacity: 1, y: 0, transition: { duration: 0.45, ease: smoothEase } },
+};
 
 export default function Navbar() {
   const { cartCount, setIsCartOpen } = useCart();
-  const pathname = usePathname();
-  const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileDeliveryOpen, setIsMobileDeliveryOpen] = useState(false);
@@ -26,7 +56,8 @@ export default function Navbar() {
   return (
     <nav 
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-        isScrolled ? "-translate-y-[38px]" : "translate-y-0"
+        // Only shift on desktop, where the 38px top contact bar exists
+        isScrolled ? "md:-translate-y-[38px]" : "translate-y-0"
       }`}
     >
       {/* Top Contact Bar */}
@@ -49,8 +80,8 @@ export default function Navbar() {
       <div
         className={`flex items-center justify-between transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isScrolled
-            ? "px-8 md:px-16 py-1.5 bg-ink/95 backdrop-blur-md shadow-2xl"
-            : "px-8 md:px-16 py-3 bg-ink/80 backdrop-blur-sm"
+            ? "px-8 md:px-16 pt-3 pb-1.5 md:py-1.5 bg-ink/95 backdrop-blur-md shadow-2xl"
+            : "px-8 md:px-16 pt-4 pb-3 md:py-3 bg-ink/80 backdrop-blur-sm"
         }`}
       >
         <Link
@@ -59,7 +90,8 @@ export default function Navbar() {
         >
           <img 
             src="/logo.png" 
-            alt="Boat Seafood Logo" 
+            alt="Boat Seafood Logo"
+            fetchPriority="high"
             className={`max-h-full w-auto object-contain transition-all duration-500 ${isScrolled ? "brightness-0 invert opacity-90" : "brightness-0 invert"}`} 
           />
         </Link>
@@ -76,22 +108,22 @@ export default function Navbar() {
             </Link>
           </li>
           <li>
-            <a
+            <Link
               href="/#exp"
               className="text-white/65 hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group"
             >
               Experience
               <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
-            </a>
+            </Link>
           </li>
           <li>
-            <a
+            <Link
               href="/#loc"
               className="text-white/65 hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group"
             >
               Location
               <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
-            </a>
+            </Link>
           </li>
           <li>
             <Link
@@ -128,7 +160,7 @@ export default function Navbar() {
             <button 
               className="flex flex-col items-center justify-center text-white/80 hover:text-white transition-colors"
             >
-              <img src="/images-removebg-preview.png" alt="Delivery" style={{ height: "36px", width: "auto" }} className="brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity" />
+              <img src="/images-removebg-preview.png" alt="Delivery" loading="lazy" decoding="async" style={{ height: "36px", width: "auto" }} className="brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity" />
               <span className="text-[10px] tracking-[1px] uppercase mt-1 text-white">Delivery</span>
             </button>
             
@@ -156,16 +188,12 @@ export default function Navbar() {
             </div>
           </div>
 
-          <button 
-            onClick={() => {
-              if (pathname !== "/menu") {
-                router.push("/menu");
-              }
-              setIsCartOpen(true);
-            }}
+          <Link
+            href="/menu"
+            onClick={() => setIsCartOpen(true)}
             className="relative group"
           >
-            <div className="bg-ocean text-navy py-3 px-8 text-[14px] font-bold tracking-[2px] uppercase transition-all hover:bg-white flex items-center gap-3 whitespace-nowrap">
+            <div className="bg-ocean text-navy rounded-lg py-3 px-8 text-[14px] font-bold tracking-[2px] uppercase transition-all hover:bg-white flex items-center gap-3 whitespace-nowrap">
               Order Online
               {cartCount > 0 && (
                 <span className="flex items-center justify-center w-5 h-5 bg-navy text-white text-[10px] rounded-full">
@@ -173,7 +201,7 @@ export default function Navbar() {
                 </span>
               )}
             </div>
-          </button>
+          </Link>
         </div>
 
         {/* Mobile Cart & Menu Button */}
@@ -188,70 +216,69 @@ export default function Navbar() {
           )}
           <button
             className="text-white"
+            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMobileMenuOpen}
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
-            {isMobileMenuOpen ? <X size={24} /> : <MenuIcon size={24} />}
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={isMobileMenuOpen ? "close" : "open"}
+                initial={{ rotate: -90, opacity: 0 }}
+                animate={{ rotate: 0, opacity: 1 }}
+                exit={{ rotate: 90, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="block"
+              >
+                {isMobileMenuOpen ? <X size={24} /> : <MenuIcon size={24} />}
+              </motion.span>
+            </AnimatePresence>
           </button>
         </div>
       </div>
 
       {/* Mobile Menu */}
+      <AnimatePresence>
       {isMobileMenuOpen && (
-        <div className="absolute top-full left-0 right-0 bg-ink/95 backdrop-blur-md flex flex-col items-center py-8 gap-6 md:hidden border-t border-white/5">
-          <Link
-            href="/menu"
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="text-white text-[15px] font-light tracking-[3px] uppercase"
-          >
-            Menu
-          </Link>
-          <a
-            href="/#exp"
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="text-white text-[15px] font-light tracking-[3px] uppercase"
-          >
-            Experience
-          </a>
-          <a
-            href="/#loc"
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="text-white text-[15px] font-light tracking-[3px] uppercase"
-          >
-            Location
-          </a>
-          <Link
-            href="/events"
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="text-white text-[15px] font-light tracking-[3px] uppercase"
-          >
-            Events
-          </Link>
-          <Link
-            href="/offer"
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="text-white text-[15px] font-light tracking-[3px] uppercase"
-          >
-            Offer
-          </Link>
-          <Link
-            href="/your-fish"
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="text-[#C49A3C] text-[15px] font-light tracking-[3px] uppercase"
-          >
-            Fresh Catch
-          </Link>
+        <motion.div
+          key="mobile-menu"
+          variants={mobileMenuVariants}
+          initial="closed"
+          animate="open"
+          exit="closed"
+          className="absolute top-full left-0 right-0 bg-ink/95 backdrop-blur-md flex flex-col items-center py-8 gap-6 md:hidden border-t border-white/5"
+        >
+          {mobileLinks.map((link) => (
+            <motion.div key={link.href} variants={mobileItemVariants}>
+              <Link
+                href={link.href}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`${link.accent ? "text-[#C49A3C]" : "text-white"} text-[15px] font-light tracking-[3px] uppercase`}
+              >
+                {link.label}
+              </Link>
+            </motion.div>
+          ))}
 
-          <div className="flex flex-col items-center w-full">
-            <button 
+          <motion.div variants={mobileItemVariants} className="flex flex-col items-center w-full">
+            <button
               onClick={() => setIsMobileDeliveryOpen(!isMobileDeliveryOpen)}
               className="flex items-center gap-3 text-white text-[15px] font-light tracking-[3px] uppercase"
             >
-              <img src="/images-removebg-preview.png" alt="Delivery" style={{ height: "24px", width: "auto" }} className="brightness-0 invert" />
+              <img src="/images-removebg-preview.png" alt="Delivery" decoding="async" style={{ height: "24px", width: "auto" }} className="brightness-0 invert" />
               Delivery
             </button>
-            
+
+            <AnimatePresence initial={false}>
             {isMobileDeliveryOpen && (
-              <div className="flex flex-col items-center gap-4 mt-6 w-full">
+              <motion.div
+                key="mobile-delivery"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.4, ease: smoothEase }}
+                className="overflow-hidden w-full"
+              >
+              <div className="flex flex-col items-center gap-4 pt-6 w-full">
                 <a href="https://www.talabat.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-[12px] text-white/80 transition-colors tracking-[2px] uppercase">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#FF5A00]"></span>
                   Talabat
@@ -265,10 +292,13 @@ export default function Navbar() {
                   Keeta
                 </a>
               </div>
+              </motion.div>
             )}
-          </div>
-        </div>
+            </AnimatePresence>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </nav>
   );
 }

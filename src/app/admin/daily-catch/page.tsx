@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { saveDailyCatch, deleteDailyCatch, setDailyCatchAvailability } from "../actions";
+import { actionFailed, uploadAdminImage } from "../client-helpers";
 import { Plus, Edit, Trash2, X, AlertCircle, Upload } from "lucide-react";
 
 export default function AdminDailyCatchPage() {
@@ -58,21 +60,8 @@ export default function AdminDailyCatchPage() {
         throw new Error('You must select an image to upload.');
       }
 
-      const file = e.target.files[0];
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `daily-catch/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const { data } = supabase.storage.from('images').getPublicUrl(filePath);
-      setFormData({ ...formData, image_url: data.publicUrl });
+      const publicUrl = await uploadAdminImage("daily-catch", e.target.files[0]);
+      if (publicUrl) setFormData({ ...formData, image_url: publicUrl });
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -89,15 +78,11 @@ export default function AdminDailyCatchPage() {
       price: parseFloat(formData.price),
       description: formData.description,
       image_url: formData.image_url,
-      is_available: formData.is_available,
-      updated_at: new Date().toISOString()
+      is_available: formData.is_available
     };
 
-    if (editingId) {
-      await supabase.from("daily_catch").update(payload).eq("id", editingId);
-    } else {
-      await supabase.from("daily_catch").insert(payload);
-    }
+    // Token is verified on the server before the catch is saved
+    if (actionFailed(await saveDailyCatch(editingId, payload))) return;
 
     setIsModalOpen(false);
     fetchItems();
@@ -105,28 +90,28 @@ export default function AdminDailyCatchPage() {
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this fresh catch?")) {
-      await supabase.from("daily_catch").delete().eq("id", id);
+      if (actionFailed(await deleteDailyCatch(id))) return;
       fetchItems();
     }
   };
 
   const toggleAvailability = async (id: string, currentStatus: boolean) => {
-    await supabase.from("daily_catch").update({ is_available: !currentStatus, updated_at: new Date().toISOString() }).eq("id", id);
+    if (actionFailed(await setDailyCatchAvailability(id, !currentStatus))) return;
     fetchItems();
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-playfair font-bold text-navy mb-2">Daily Catch</h1>
-          <p className="text-gray-500">Manage the fresh catches of the day displayed on the homepage.</p>
+      <div className="flex flex-col items-end md:flex-row md:justify-between md:items-center gap-3">
+        <div className="min-w-0 w-full md:w-auto">
+          <h1 className="text-2xl md:text-3xl font-playfair font-bold text-navy mb-1 md:mb-2 leading-tight md:leading-normal">Daily Catch</h1>
+          <p className="text-sm md:text-base text-gray-500">Manage the fresh catches of the day displayed on the homepage.</p>
         </div>
         <button 
           onClick={() => handleOpenModal()}
-          className="bg-ocean text-navy px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-ocean-light transition-colors"
+          className="bg-ocean text-navy px-3 py-1.5 text-sm md:px-4 md:py-2 md:text-base rounded-lg font-bold flex items-center gap-1.5 md:gap-2 whitespace-nowrap shrink-0 hover:bg-ocean-light transition-colors"
         >
-          <Plus size={18} /> Add Fresh Catch
+          <Plus size={18} className="w-4 h-4 md:w-[18px] md:h-[18px]" /> Add Fresh Catch
         </button>
       </div>
 
@@ -135,8 +120,8 @@ export default function AdminDailyCatchPage() {
         <p className="text-sm">These items appear in the "Today's Catch" section on the homepage. You can easily mark them as sold out instead of deleting them when they run out.</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-left border-collapse">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden max-md:overflow-x-auto admin-scroll">
+        <table className="w-full max-md:min-w-[640px] text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-500">
               <th className="p-4 w-16">Image</th>
@@ -192,7 +177,7 @@ export default function AdminDailyCatchPage() {
       {/* Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto admin-scroll">
             <div className="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
               <h2 className="text-xl font-bold text-navy">{editingId ? "Edit Catch" : "Add Fresh Catch"}</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">

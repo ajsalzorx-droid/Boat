@@ -21,4 +21,63 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Page scrollbar: slim, in the navbar's ink colour */
+html::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+html::-webkit-scrollbar-track {
+  background: var(--color-ink);
+}
+
+html::-webkit-scrollbar-thumb {
+  background: var(--color-ocean);
+  border-radius: 9999px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ocean-light);
+}
+
+html::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Admin panels: slim grey scrollbar */
+.admin-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.admin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-scroll::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border-radius: 9999px;
+}
+
+.admin-scroll::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+.admin-scroll::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Firefox (Chrome ignores ::-webkit-scrollbar when these are set, so keep them Firefox-only) */
+@supports not selector(::-webkit-scrollbar) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ocean) var(--color-ink);
+  }
+
+  .admin-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #9ca3af transparent;
+  }
+}
+
 /* We'll use Framer Motion for scroll reveal animations instead of global CSS */

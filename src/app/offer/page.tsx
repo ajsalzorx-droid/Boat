@@ -171,7 +171,7 @@ export default function OfferPage() {
           <div className="mt-24 text-center">
             <Link
               href="https://wa.me/971500000000"
-              className="group relative bg-white text-navy py-5 px-14 font-jost text-[10px] font-bold tracking-[3px] uppercase no-underline inline-block transition-all duration-500 overflow-hidden shadow-2xl hover:bg-ocean"
+              className="group relative bg-white text-navy rounded-lg py-5 px-14 font-jost max-md:whitespace-nowrap max-md:px-8 text-[10px] font-bold tracking-[3px] uppercase no-underline inline-block transition-all duration-500 overflow-hidden shadow-2xl hover:bg-ocean"
             >
               Join Member Circle
             </Link>

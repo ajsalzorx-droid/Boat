@@ -23,6 +23,8 @@ export default function FloatingActions() {
   const pathname = usePathname();
   const { cartCount } = useCart();
   const isMenuPage = pathname === "/menu";
+  // Customer shortcuts cover staff controls on small screens
+  const isStaffPage = pathname.startsWith("/admin") || pathname.startsWith("/kitchen");
 
   useEffect(() => {
     const handleScroll = () => {
@@ -37,9 +39,9 @@ export default function FloatingActions() {
   };
 
   return (
-    <div className={`fixed right-8 z-40 flex flex-col items-end gap-3 transition-all duration-500 ${
-      cartCount > 0 ? "bottom-32 md:bottom-8" : "bottom-8"
-    }`}>
+    <div className={`fixed right-4 md:right-8 z-40 flex flex-col items-end gap-2.5 md:gap-3 transition-all duration-500 ${
+      cartCount > 0 ? "bottom-32 md:bottom-8" : "bottom-5 md:bottom-8"
+    } ${isStaffPage ? "max-md:hidden" : ""}`}>
 
       {/* Scroll to Top */}
       <AnimatePresence>
@@ -49,9 +51,9 @@ export default function FloatingActions() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0 }}
             onClick={scrollToTop}
-            className="w-14 h-14 flex items-center justify-center bg-navy/80 backdrop-blur-md text-white rounded-full shadow-lg border border-white/10 hover:bg-ocean hover:text-navy transition-all duration-300"
+            className="w-11 h-11 md:w-14 md:h-14 flex items-center justify-center bg-navy/80 backdrop-blur-md text-white rounded-full shadow-lg border border-white/10 hover:bg-ocean hover:text-navy transition-all duration-300"
           >
-            <ChevronUp size={24} />
+            <ChevronUp size={24} className="w-5 h-5 md:w-6 md:h-6" />
           </motion.button>
         )}
       </AnimatePresence>
@@ -59,14 +61,14 @@ export default function FloatingActions() {
       {/* Always visible: View Menu or Back Home */}
       <Link
         href={isMenuPage ? "/" : "/menu"}
-        className={`w-14 h-14 flex items-center justify-center rounded-full shadow-2xl border transition-all duration-300 overflow-hidden ${
+        className={`w-11 h-11 md:w-14 md:h-14 flex items-center justify-center rounded-full shadow-2xl border transition-all duration-300 overflow-hidden ${
           isMenuPage 
             ? "bg-navy/90 text-white border-white/10 hover:bg-ocean hover:text-navy" 
             : "bg-ocean text-navy border-ocean/30 hover:bg-white hover:text-navy"
         }`}
       >
         {isMenuPage ? (
-          <Home size={24} className="shrink-0" />
+          <Home size={24} className="shrink-0 w-5 h-5 md:w-6 md:h-6" />
         ) : (
           <MenuIcon size={56} />
         )}
@@ -77,9 +79,9 @@ export default function FloatingActions() {
         href="https://wa.me/971500000000"
         target="_blank"
         rel="noopener noreferrer"
-        className="w-14 h-14 flex items-center justify-center bg-[#25D366] text-white rounded-full shadow-2xl border border-[#25D366]/30 hover:bg-white hover:text-[#25D366] transition-all duration-300"
+        className="w-11 h-11 md:w-14 md:h-14 flex items-center justify-center bg-[#25D366] text-white rounded-full shadow-2xl border border-[#25D366]/30 hover:bg-white hover:text-[#25D366] transition-all duration-300"
       >
-        <MessageCircle size={32} className="shrink-0" />
+        <MessageCircle size={32} className="shrink-0 w-6 h-6 md:w-8 md:h-8" />
       </a>
 
     </div>
