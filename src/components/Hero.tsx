@@ -53,6 +53,7 @@ export default function Hero() {
           Where the<br />Ocean Meets<br />
           <em className="italic text-ocean block font-semibold">the City.</em>
         </motion.h1>
+        <p className="text-white mb-6">helloworld</p>
 
         <motion.p
           initial={{ opacity: 0, y: 30 }}
