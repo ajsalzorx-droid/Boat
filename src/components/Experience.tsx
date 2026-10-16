@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { ArrowRight, Anchor, Fish, Users, ChefHat } from "lucide-react";
 
 
-
 const features = [
   {
     title: "Waterfront Setting",
