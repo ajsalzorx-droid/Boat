@@ -1,17 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-
-const items = [
-  "Fresh Daily Catch",
-  "Waterfront Market · Dubai",
-  "Open 12 PM — 11 PM Daily",
-  "Premium Seafood Since 2021",
-  "Private Events Available",
-  "Expertly Prepared · Honestly Served",
-];
+import { useSection } from "@/context/ContentContext";
 
 export default function Ticker() {
+  const items = useSection("ticker").items.map((item) => item.text).filter(Boolean);
   // Duplicate items to ensure smooth infinite loop
   const tickerItems = [...items, ...items, ...items, ...items];
 
@@ -29,6 +22,8 @@ export default function Ticker() {
         {tickerItems.map((item, i) => (
           <span
             key={i}
+            // Copies after the first set only keep the loop seamless; screen readers read the set once
+            aria-hidden={i >= items.length || undefined}
             className="inline-flex items-center gap-4 px-9 text-[9.5px] tracking-[3px] uppercase text-white/40 font-light"
           >
             <span className="w-[3px] h-[3px] rounded-full bg-ocean shrink-0"></span>

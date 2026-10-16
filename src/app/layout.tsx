@@ -31,21 +31,27 @@ const outfit = Outfit({
 import SmoothScroll from "@/components/SmoothScroll";
 import FloatingActions from "@/components/FloatingActions";
 
+// Fallback for pages without their own SEO entry (admin, kitchen). Public pages set their
+// title/description from the SEO dashboard via pageMetadata() in their page or layout.
 export const metadata: Metadata = {
-  title: "Boat Seafood Dubai | Premium Seafood Restaurant at Waterfront Market",
-  description: "Premium seafood dining in Dubai’s Waterfront Market. Fresh daily catch, signature seafood dishes, private dining, and elegant waterfront experience.",
+  title: "Boat Seafood Dubai",
   icons: {
     icon: "/icon.png",
   },
 };
 
 import { CartProvider } from "@/context/CartContext";
+import { ContentProvider } from "@/context/ContentContext";
+import { getSiteContent } from "@/lib/content";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Editable site text (SEO Studio) for every client component, via useSection()
+  const content = await getSiteContent();
+
   return (
     <html lang="en">
       {/* Browser extensions (e.g. ColorZilla's cz-shortcut-listen) add attributes to <body> before hydration */}
@@ -53,12 +59,14 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${playfair.variable} ${jost.variable} ${cormorant.variable} ${outfit.variable} antialiased selection:bg-navy selection:text-cream`}
       >
-        <CartProvider>
-          <SmoothScroll>
-            {children}
-            <FloatingActions />
-          </SmoothScroll>
-        </CartProvider>
+        <ContentProvider content={content}>
+          <CartProvider>
+            <SmoothScroll>
+              {children}
+              <FloatingActions />
+            </SmoothScroll>
+          </CartProvider>
+        </ContentProvider>
       </body>
     </html>
   );

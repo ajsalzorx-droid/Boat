@@ -3,25 +3,29 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { useSection } from "@/context/ContentContext";
+import { Heading } from "./ContentText";
 
 export default function Hero() {
+  const c = useSection("hero");
   return (
     <section id="hero" className="relative min-h-screen flex items-center pt-40 overflow-hidden bg-ink">
 
       {/* ── Full-screen video background ── */}
       <video
+        aria-hidden="true"
         autoPlay
         muted
         loop
         playsInline
-        poster="/images/custom/hero_waterfront_dubai_1777327086914.png"
+        poster={c.fields.image}
         className="absolute inset-0 w-full h-full object-cover"
       >
         <source src="/hero.mp4" type="video/mp4" />
         {/* Fallback image if video fails */}
         <img
-          src="/images/custom/hero_waterfront_dubai_1777327086914.png"
-          alt="Hero Background"
+          src={c.fields.image}
+          alt={c.fields.image_alt}
           className="absolute inset-0 w-full h-full object-cover"
         />
       </video>
@@ -40,7 +44,7 @@ export default function Hero() {
         >
           <div className="w-[38px] h-[1px] bg-white/50"></div>
           <span className="text-[8px] tracking-[4px] uppercase text-white/80 font-bold">
-            Est. 2021 · Waterfront Market · Dubai, UAE
+            {c.fields.eyebrow}
           </span>
         </motion.div>
 
@@ -50,8 +54,7 @@ export default function Hero() {
           transition={{ duration: 1.1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="font-playfair text-[clamp(30px,4vw,56px)] font-bold leading-[0.98] text-white mb-6 drop-shadow-xl"
         >
-          Where the<br />Ocean Meets<br />
-          <em className="italic text-ocean block font-semibold">the City.</em>
+          <Heading c={c} emClassName="italic text-ocean block font-semibold" />
         </motion.h1>
 
         <motion.p
@@ -60,7 +63,7 @@ export default function Hero() {
           transition={{ duration: 1.1, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
           className="text-[13px] font-medium leading-[2.0] text-white/80 max-w-[400px] mb-10 tracking-[0.2px]"
         >
-          Seafood is not just food — it is an experience, a story, and a connection to the sea. Crafted daily at Dubai's finest waterfront.
+          {c.fields.body}
         </motion.p>
 
         <motion.div
@@ -73,13 +76,13 @@ export default function Hero() {
             href="/menu"
             className="group relative bg-ocean text-navy rounded-lg py-[14px] px-[36px] md:px-[44px] font-jost max-md:whitespace-nowrap text-[11px] font-bold tracking-[2.5px] uppercase no-underline inline-block transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden shadow-2xl hover:bg-white"
           >
-            Order Online
+            {c.fields.cta}
           </Link>
           <a
             href="#loc"
             className="group flex items-center gap-3 text-white/80 text-[11px] tracking-[3px] uppercase max-md:whitespace-nowrap no-underline transition-colors font-bold hover:text-white"
           >
-            Find Us
+            {c.fields.cta2}
             <ArrowRight size={16} className="transition-transform group-hover:translate-x-1.5" />
           </a>
         </motion.div>

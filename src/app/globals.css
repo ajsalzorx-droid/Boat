@@ -67,6 +67,29 @@ html::-webkit-scrollbar-button {
   display: none;
 }
 
+/* SEO Studio: extra-thin scrollbars on every scroll area (page, sidebar, section chips) */
+.studio ::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.studio ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.studio ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.studio ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.studio ::-webkit-scrollbar-button {
+  display: none;
+}
+
 /* Firefox (Chrome ignores ::-webkit-scrollbar when these are set, so keep them Firefox-only) */
 @supports not selector(::-webkit-scrollbar) {
   html {
@@ -77,6 +100,11 @@ html::-webkit-scrollbar-button {
   .admin-scroll {
     scrollbar-width: thin;
     scrollbar-color: #9ca3af transparent;
+  }
+
+  .studio * {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
   }
 }
 

@@ -4,9 +4,11 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSection } from "@/context/ContentContext";
 
 export default function LinksPage() {
   const [particles, setParticles] = useState<any[]>([]);
+  const c = useSection("links_page").fields;
 
   useEffect(() => {
     // Generate ambient floating particles
@@ -57,7 +59,7 @@ export default function LinksPage() {
       navigator
         .share({
           title: "Boat Seafood Restaurant",
-          text: "Welcome to Boat Seafood Restaurant. View our menu, leave a review, or follow us on social media.",
+          text: c.share_text,
           url: typeof window !== "undefined" ? window.location.href : "",
         })
         .catch((error) => console.log("Error sharing", error));
@@ -98,6 +100,8 @@ export default function LinksPage() {
       `}</style>
 
       <main className="relative z-10 w-full max-auto max-w-[420px] px-7 py-12 md:py-16 flex flex-col items-center text-center">
+        <h1 className="sr-only">{c.title}</h1>
+
         {/* Logo */}
         <motion.div
           initial={{ opacity: 0, scale: 0.85, y: 20 }}
@@ -107,7 +111,7 @@ export default function LinksPage() {
         >
           <Image
             src="/logo.png"
-            alt="Boat Seafood Restaurant"
+            alt={c.logo_alt}
             width={280}
             height={100}
             className="w-full h-auto brightness-0 invert"
@@ -123,7 +127,7 @@ export default function LinksPage() {
           transition={{ duration: 0.6, delay: 0.7 }}
           className="font-outfit text-[0.82rem] font-light tracking-[0.22em] uppercase text-[#A8C5B8] mb-1.5"
         >
-          Seafood Restaurant
+          {c.tagline}
         </motion.p>
 
         {/* Location */}
@@ -137,7 +141,7 @@ export default function LinksPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
             <circle cx="12" cy="9" r="2.5" />
           </svg>
-          Dubai · Waterfront Market
+          {c.location}
         </motion.div>
 
         {/* Divider */}
@@ -149,7 +153,7 @@ export default function LinksPage() {
         />
 
         {/* Actions */}
-        <div className="w-full flex flex-col gap-3.5 mb-9">
+        <nav aria-label="Quick links" className="w-full flex flex-col gap-3.5 mb-9">
           {/* 1. View Menu */}
           <motion.div
             initial={{ opacity: 0, y: 18 }}
@@ -165,7 +169,7 @@ export default function LinksPage() {
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 4h16v16H4z"/><path d="M4 10h16"/><path d="M10 4v16"/>
               </svg>
-              View Menu
+              {c.btn_menu}
             </Link>
           </motion.div>
 
@@ -184,7 +188,7 @@ export default function LinksPage() {
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
               </svg>
-              Special Offers
+              {c.btn_offers}
             </Link>
           </motion.div>
 
@@ -195,7 +199,7 @@ export default function LinksPage() {
             transition={{ duration: 0.6, delay: 1.2 }}
           >
             <a
-              href="https://share.google/6sDV8BO7ZwyKB4VK0"
+              href={c.review_url}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-3 w-full p-4 rounded-lg bg-[#A8C5B8]/10 text-[#A8C5B8] border border-[#A8C5B8]/20 backdrop-blur-md hover:border-[#A8C5B8]/40 hover:text-[#c2ddd2] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
@@ -203,7 +207,7 @@ export default function LinksPage() {
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
               </svg>
-              Review Us
+              {c.btn_review}
             </a>
           </motion.div>
 
@@ -214,7 +218,7 @@ export default function LinksPage() {
             transition={{ duration: 0.6, delay: 1.25 }}
           >
             <a
-              href="https://share.google/m3vxo1gRP57YEAX5S"
+              href={c.visit_url}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-3 w-full p-4 rounded-lg bg-[#D4C5A9]/5 text-[#D4C5A9] border border-[#D4C5A9]/15 backdrop-blur-md hover:border-[#D4C5A9]/30 hover:text-[#e4d5b9] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300"
@@ -222,7 +226,7 @@ export default function LinksPage() {
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
               </svg>
-              Visit Us
+              {c.btn_visit}
             </a>
           </motion.div>
 
@@ -241,7 +245,7 @@ export default function LinksPage() {
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
               </svg>
-              Events
+              {c.btn_events}
             </Link>
           </motion.div>
 
@@ -258,7 +262,7 @@ export default function LinksPage() {
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
               </svg>
-              Save Contact
+              {c.btn_contact}
             </button>
           </motion.div>
 
@@ -277,7 +281,7 @@ export default function LinksPage() {
                 <path d="M17 11.5l-13.6 1.8A2 2 0 002 15.3v.1A2 2 0 003.8 17.4l11.4 1A2 2 0 0017.3 16.6l1-5.1z" />
                 <path d="M18 11.5l5-1" />
               </svg>
-              Fresh Catch
+              {c.btn_fresh}
             </Link>
           </motion.div>
 
@@ -294,10 +298,10 @@ export default function LinksPage() {
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
               </svg>
-              Share
+              {c.btn_share}
             </button>
           </motion.div>
-        </div>
+        </nav>
 
         {/* Social Links */}
         <motion.div
@@ -320,7 +324,7 @@ export default function LinksPage() {
               target="_blank"
               rel="noopener noreferrer"
               className="w-12 h-12 rounded-full flex items-center justify-center bg-white/5 border border-white/10 hover:bg-white/10 hover:border-[#C49A3C]/35 hover:-translate-y-1 active:scale-[0.92] transition-all duration-300 group"
-              aria-label={social.id}
+              aria-label={social.id.charAt(0).toUpperCase() + social.id.slice(1)}
             >
               <svg className="w-5 h-5 fill-[#D4C5A9] group-hover:fill-[#C49A3C] transition-colors duration-300" viewBox="0 0 24 24">
                 {social.icon}
@@ -336,7 +340,7 @@ export default function LinksPage() {
           transition={{ duration: 0.8, delay: 2.4 }}
           className="text-[0.72rem] font-light text-[#D4C5A9]/30 tracking-[0.15em] uppercase"
         >
-          Boat Seafood · Dubai
+          {c.footer}
         </motion.p>
       </main>
     </div>

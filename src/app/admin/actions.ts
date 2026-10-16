@@ -1,7 +1,11 @@
 'use server'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { updateTag } from 'next/cache'
 import { AuthError, verifyAdmin } from '@/lib/auth'
+import { DEFAULT_BUSINESS, SEO_PAGES, SEO_TAG, type BusinessInfo } from '@/lib/seo'
+import { CONTENT_TAG, getSectionDef, type FieldType, type SectionData } from '@/lib/content'
+import { MENU_TAG } from '@/lib/menu-data'
 
 // Every admin write goes through here: verify the token first, then touch the database.
 // Server Actions are reachable by direct POST, so the check must live inside each action.
@@ -10,9 +14,13 @@ export type ActionResult<T = undefined> =
   | { ok: true; data?: T }
   | { ok: false; error: string; status?: number }
 
-async function withAdmin<T>(fn: (db: SupabaseClient) => Promise<T>): Promise<ActionResult<T>> {
+// role 'seo' = SEO Studio actions, also allowed for SEO_EMAILS accounts
+async function withAdmin<T>(
+  fn: (db: SupabaseClient) => Promise<T>,
+  role: 'admin' | 'seo' = 'admin'
+): Promise<ActionResult<T>> {
   try {
-    const { db } = await verifyAdmin()
+    const { db } = await verifyAdmin(role)
     return { ok: true, data: await fn(db) }
   } catch (e) {
     if (e instanceof AuthError) return { ok: false, error: e.message, status: e.status }
@@ -82,12 +90,14 @@ export async function saveMenuItem(id: string | null, input: MenuItemInput) {
 
     if (id) check(await db.from('menu_items').update(row).eq('id', id))
     else check(await db.from('menu_items').insert(row))
+    updateTag(MENU_TAG) // the site reads dishes from cache (src/lib/menu-data.ts)
   })
 }
 
 export async function deleteMenuItem(id: string) {
   return withAdmin(async (db) => {
     check(await db.from('menu_items').delete().eq('id', id))
+    updateTag(MENU_TAG)
   })
 }
 
@@ -116,12 +126,14 @@ export async function saveDailyCatch(id: string | null, input: DailyCatchInput) 
 
     if (id) check(await db.from('daily_catch').update(row).eq('id', id))
     else check(await db.from('daily_catch').insert(row))
+    updateTag(MENU_TAG)
   })
 }
 
 export async function deleteDailyCatch(id: string) {
   return withAdmin(async (db) => {
     check(await db.from('daily_catch').delete().eq('id', id))
+    updateTag(MENU_TAG)
   })
 }
 
@@ -133,6 +145,7 @@ export async function setDailyCatchAvailability(id: string, isAvailable: boolean
         .update({ is_available: !!isAvailable, updated_at: new Date().toISOString() })
         .eq('id', id)
     )
+    updateTag(MENU_TAG)
   })
 }
 
@@ -150,15 +163,128 @@ export async function clearPendingOrders() {
   })
 }
 
+// ---------- SEO Studio: draft saves + publish ----------
+// Saves only write to the database (the site keeps showing its cached values). publishSite()
+// is the "event" that expires the cache tags, so every page reads the latest values again.
+
+async function markChanged(db: SupabaseClient) {
+  check(await db.from('site_publish').upsert({ id: 1, changed_at: new Date().toISOString() }))
+}
+
+export async function publishSite() {
+  return withAdmin(async (db) => {
+    const publishedAt = new Date().toISOString()
+    check(await db.from('site_publish').upsert({ id: 1, published_at: publishedAt }))
+    updateTag(SEO_TAG)
+    updateTag(CONTENT_TAG)
+    return { publishedAt }
+  }, 'seo')
+}
+
+export type SeoPageInput = {
+  title: string
+  description: string
+  og_image: string
+  noindex: boolean
+}
+
+export async function saveSeoPage(path: string, input: SeoPageInput) {
+  return withAdmin(async (db) => {
+    if (!SEO_PAGES.some((p) => p.path === path)) fail('Unknown page.')
+    const row = {
+      path,
+      title: text(input?.title, 'Title', 120),
+      description: text(input?.description, 'Description', 320),
+      og_image: imageUrl(input?.og_image),
+      noindex: !!input?.noindex,
+      updated_at: new Date().toISOString(),
+    }
+    check(await db.from('seo_pages').upsert(row))
+    await markChanged(db)
+  }, 'seo')
+}
+
+export async function saveBusinessInfo(input: BusinessInfo) {
+  return withAdmin(async (db) => {
+    const row: Record<string, string | number> = { id: 1, updated_at: new Date().toISOString() }
+    for (const key of Object.keys(DEFAULT_BUSINESS) as (keyof BusinessInfo)[]) {
+      row[key] = text(input?.[key], key.replace(/_/g, ' '), 300)
+    }
+    for (const key of ['site_url', 'instagram', 'facebook', 'tiktok'] as const) {
+      if (row[key] && !String(row[key]).startsWith('https://')) fail(`${key.replace(/_/g, ' ')} must start with https://`)
+    }
+    for (const key of ['opens', 'closes'] as const) {
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(row[key]))) fail(`${key} must be a time like 12:00`)
+    }
+    for (const key of ['latitude', 'longitude'] as const) {
+      if (row[key] && !Number.isFinite(Number(row[key]))) fail(`${key} must be a number`)
+    }
+    row.default_og_image = imageUrl(input?.default_og_image)
+    check(await db.from('business_info').upsert(row))
+    await markChanged(db)
+  }, 'seo')
+}
+
+// ---------- Page content ----------
+
+const CONTENT_MAX: Record<FieldType, number> = { text: 200, textarea: 2000, image: 1000, link: 1000, alt: 250 }
+const LINK_PREFIXES = ['/', '#', 'https://', 'tel:', 'mailto:']
+
+function contentValue(value: unknown, label: string, type: FieldType) {
+  // Keep new lines (they become line breaks on the site); trim spaces only
+  const s = typeof value === 'string' ? value.replace(/\r\n/g, '\n').replace(/^[ \t]+|[ \t]+$/g, '') : ''
+  if (s.length > CONTENT_MAX[type]) fail(`${label} is too long (max ${CONTENT_MAX[type]} characters).`)
+  if (type === 'image') return imageUrl(s)
+  if (type === 'link' && s && !LINK_PREFIXES.some((p) => s.startsWith(p)))
+    fail(`${label} must start with /, https://, tel: or mailto:`)
+  if (type === 'alt' && s.includes('\n')) fail(`${label} must be a single line.`)
+  return s
+}
+
+export async function saveContentSection(sectionId: string, input: SectionData) {
+  return withAdmin(async (db) => {
+    const def = getSectionDef(sectionId)
+    if (!def) fail('Unknown section.')
+
+    const fields = Object.fromEntries(
+      def.fields.map((f) => [f.key, contentValue(input?.fields?.[f.key], f.label, f.type)])
+    )
+    const rawItems = def.list && Array.isArray(input?.items) ? input.items : []
+    if (def.list && rawItems.length > def.list.max) fail(`At most ${def.list.max} ${def.list.label.toLowerCase()}.`)
+    const items = rawItems.map((item, i) =>
+      Object.fromEntries(
+        def.list!.fields.map((f) => [f.key, contentValue(item?.[f.key], `${def.list!.itemLabel} ${i + 1} ${f.label}`, f.type)])
+      )
+    )
+
+    check(
+      await db
+        .from('site_content')
+        .upsert({ section: sectionId, data: { fields, items }, updated_at: new Date().toISOString() })
+    )
+    await markChanged(db)
+  }, 'seo')
+}
+
+export async function resetContentSection(sectionId: string) {
+  return withAdmin(async (db) => {
+    if (!getSectionDef(sectionId)) fail('Unknown section.')
+    check(await db.from('site_content').delete().eq('section', sectionId))
+    await markChanged(db)
+  }, 'seo')
+}
+
 // ---------- Image upload ----------
 
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif']
 
 // Returns a one-time signed upload URL so the browser can upload the file straight to
 // Storage (no Server Action body-size limit) - only after the token has been verified.
-export async function createImageUploadUrl(folder: 'menu' | 'daily-catch', fileName: string) {
+export type UploadFolder = 'menu' | 'daily-catch' | 'seo' | 'content'
+
+export async function createImageUploadUrl(folder: UploadFolder, fileName: string) {
   return withAdmin(async (db) => {
-    if (folder !== 'menu' && folder !== 'daily-catch') fail('Invalid upload folder.')
+    if (!['menu', 'daily-catch', 'seo', 'content'].includes(folder)) fail('Invalid upload folder.')
     const ext = String(fileName).split('.').pop()?.toLowerCase() ?? ''
     if (!IMAGE_EXTENSIONS.includes(ext)) fail(`Only ${IMAGE_EXTENSIONS.join(', ')} images are allowed.`)
 
@@ -168,5 +294,5 @@ export async function createImageUploadUrl(folder: 'menu' | 'daily-catch', fileN
 
     const { data: pub } = db.storage.from('images').getPublicUrl(path)
     return { path, token: data.token, publicUrl: pub.publicUrl }
-  })
+  }, folder === 'seo' || folder === 'content' ? 'seo' : 'admin')
 }

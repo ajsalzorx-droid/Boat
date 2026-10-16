@@ -3,7 +3,7 @@
 import { ReactNode, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Menu as MenuIcon, Fish, Settings, FileText, LogOut, PanelLeft, X, ArrowLeft } from "lucide-react";
+import { LayoutDashboard, Menu as MenuIcon, Fish, Settings, LogOut, PanelLeft, X, ArrowLeft, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -31,7 +31,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
     { name: "Menu", href: "/admin/menu", icon: MenuIcon },
     { name: "Daily Catch", href: "/admin/daily-catch", icon: Fish },
-    { name: "Content", href: "/admin/content", icon: FileText },
+    { name: "SEO Studio", href: "/seo", icon: Search },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];
 

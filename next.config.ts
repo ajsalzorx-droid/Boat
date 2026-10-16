@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "**.pexels.com",
       },
+      // Photos uploaded in the SEO Studio / admin (Supabase Storage)
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+      },
     ],
   },
 };

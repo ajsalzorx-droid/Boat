@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { createImageUploadUrl, type ActionResult } from "./actions";
+import { createImageUploadUrl, type ActionResult, type UploadFolder } from "./actions";
 
 const MAX_IMAGE_MB = 5;
 
@@ -15,7 +15,7 @@ export function actionFailed(res: ActionResult<unknown>): boolean {
 }
 
 // Server verifies the token and returns a one-time upload URL; the file goes straight to Storage.
-export async function uploadAdminImage(folder: "menu" | "daily-catch", file: File): Promise<string | null> {
+export async function uploadAdminImage(folder: UploadFolder, file: File): Promise<string | null> {
   if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
     alert(`Image is too large (max ${MAX_IMAGE_MB} MB).`);
     return null;

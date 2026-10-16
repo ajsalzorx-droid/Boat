@@ -1,9 +1,6 @@
-import { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Links | Boat Seafood Restaurant",
-  description: "Welcome to Boat Seafood Restaurant. View our menu, leave a review, or follow us on social media.",
-};
+export const generateMetadata = () => pageMetadata("/links");
 
 export default function LinksLayout({
   children,
