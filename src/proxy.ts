@@ -33,6 +33,9 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
+  // Staff pages are never linked from the site; this header keeps search engines from indexing
+  // them if someone finds the URL. (Not listed in robots.txt, which would advertise the path.)
+  const isStaffPage = pathname.startsWith('/admin') || pathname.startsWith('/kitchen')
   const isProtected =
     (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) ||
     pathname.startsWith('/kitchen')
@@ -44,9 +47,13 @@ export async function proxy(request: NextRequest) {
       url.pathname = '/admin/login'
       url.search = ''
       url.searchParams.set('next', pathname)
-      return NextResponse.redirect(url)
+      const redirect = NextResponse.redirect(url)
+      redirect.headers.set('X-Robots-Tag', 'noindex, nofollow')
+      return redirect
     }
   }
+
+  if (isStaffPage) supabaseResponse.headers.set('X-Robots-Tag', 'noindex, nofollow')
 
   return supabaseResponse
 }

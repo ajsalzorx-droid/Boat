@@ -2,6 +2,8 @@
 
 import { motion } from "framer-motion";
 import { ArrowRight, Anchor, Fish, Users, ChefHat } from "lucide-react";
+console.log("jjs");
+
 
 const features = [
   {
@@ -30,14 +32,14 @@ export default function Experience() {
   return (
     <section className="bg-navy relative overflow-hidden" id="exp">
       <div className="absolute -top-[300px] -right-[300px] w-[700px] h-[700px] rounded-full bg-[radial-gradient(circle,rgba(102,155,188,0.06)_0%,transparent_70%)] pointer-events-none"></div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr]">
         <div className="relative min-h-[500px] lg:min-h-[700px] overflow-hidden">
           {/* Fallback Image */}
           <img src="/images/custom/experience_plating_chef_1777327114148.png" alt="Experience Background" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
-          
+
           <div className="absolute inset-0 bg-gradient-to-r from-navy/40 via-navy/60 to-navy lg:to-navy"></div>
-          
+
           <div className="absolute bottom-12 -right-6 grid grid-rows-2 gap-1.5 w-[190px] hidden md:grid">
             <img src="/images/custom/menu_gourmet_spices_saffron_1777327205314.png" alt="Kitchen" loading="lazy" className="w-full h-[126px] object-cover border-[1.5px] border-ocean-light/20 transition-all group-hover:scale-105" />
             <img src="/images/custom/menu_tiger_prawns_grilled_1777327142301.png" alt="Dining" loading="lazy" className="w-full h-[126px] object-cover border-[1.5px] border-ocean-light/20 transition-all group-hover:scale-105" />
