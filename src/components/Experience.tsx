@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ArrowRight, Anchor, Fish, Users, ChefHat } from "lucide-react";
-console.log("jjs");
+
 
 
 const features = [
