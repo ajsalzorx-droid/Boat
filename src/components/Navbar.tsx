@@ -36,6 +36,7 @@ export default function Navbar() {
   const nav = useSection("navbar").fields;
   const mobileLinks = [
     { href: "/menu", label: nav.nav_menu },
+    { href: "/seafood-menu-book", label: nav.nav_book },
     { href: "/#exp", label: nav.nav_experience },
     { href: "/#loc", label: nav.nav_location },
     { href: "/events", label: nav.nav_events },
@@ -82,13 +83,13 @@ export default function Navbar() {
       <div
         className={`flex items-center justify-between transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isScrolled
-            ? "px-8 md:px-16 pt-3 pb-1.5 md:py-1.5 bg-ink/95 backdrop-blur-md shadow-2xl"
-            : "px-8 md:px-16 pt-4 pb-3 md:py-3 bg-ink/80 backdrop-blur-sm"
+            ? "px-8 md:px-16 lg:px-8 xl:px-16 pt-3 pb-1.5 md:py-1.5 bg-ink/95 backdrop-blur-md shadow-2xl"
+            : "px-8 md:px-16 lg:px-8 xl:px-16 pt-4 pb-3 md:py-3 bg-ink/80 backdrop-blur-sm"
         }`}
       >
         <Link
           href="/"
-          className="relative h-16 md:h-20 w-52 md:w-80 no-underline flex items-center"
+          className="relative h-16 md:h-20 w-52 md:w-auto shrink-0 no-underline flex items-center"
         >
           <img 
             src="/logo.png" 
@@ -99,12 +100,12 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop Menu */}
-        <nav aria-label="Main" className="hidden md:block">
-          <ul className="flex items-center gap-11 list-none m-0 p-0">
+        <nav aria-label="Main" className="hidden lg:block">
+          <ul className="flex items-center gap-5 min-[1440px]:gap-11 list-none m-0 p-0">
             <li>
               <Link
                 href="/menu"
-                className="text-white/65 hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group"
+                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
               >
                 {nav.nav_menu}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
@@ -112,8 +113,17 @@ export default function Navbar() {
             </li>
             <li>
               <Link
+                href="/seafood-menu-book"
+                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group whitespace-nowrap"
+              >
+                {nav.nav_book}
+                <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
+              </Link>
+            </li>
+            <li>
+              <Link
                 href="/#exp"
-                className="text-white/65 hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group"
+                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
               >
                 {nav.nav_experience}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
@@ -122,7 +132,7 @@ export default function Navbar() {
             <li>
               <Link
                 href="/#loc"
-                className="text-white/65 hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group"
+                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
               >
                 {nav.nav_location}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
@@ -131,7 +141,7 @@ export default function Navbar() {
             <li>
               <Link
                 href="/events"
-                className="text-white/65 hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group"
+                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
               >
                 {nav.nav_events}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
@@ -140,7 +150,7 @@ export default function Navbar() {
             <li>
               <Link
                 href="/offer"
-                className="text-white/65 hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group"
+                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
               >
                 {nav.nav_offer}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
@@ -149,7 +159,7 @@ export default function Navbar() {
             <li>
               <Link
                 href="/your-fish"
-                className="text-[#C49A3C] hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group whitespace-nowrap"
+                className="text-[#C49A3C] hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group whitespace-nowrap"
               >
                 {nav.nav_fresh}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-[#C49A3C] scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
@@ -158,9 +168,9 @@ export default function Navbar() {
           </ul>
         </nav>
         
-        <div className="hidden md:flex items-center gap-6">
+        <div className="hidden lg:flex items-center gap-4 min-[1440px]:gap-6">
           {/* Delivery Button with Dropdown */}
-          <div className="relative ml-11 group pb-2 -mb-2">
+          <div className="relative ml-4 min-[1440px]:ml-11 group pb-2 -mb-2">
             <button 
               className="flex flex-col items-center justify-center text-white/80 hover:text-white transition-colors"
             >
@@ -197,7 +207,7 @@ export default function Navbar() {
             onClick={() => setIsCartOpen(true)}
             className="relative group"
           >
-            <div className="bg-ocean text-navy rounded-lg py-3 px-8 text-[14px] font-bold tracking-[2px] uppercase transition-all hover:bg-white flex items-center gap-3 whitespace-nowrap">
+            <div className="bg-ocean text-navy rounded-lg py-3 px-5 min-[1440px]:px-8 text-[12px] min-[1440px]:text-[14px] font-bold tracking-[2px] uppercase transition-all hover:bg-white flex items-center gap-3 whitespace-nowrap">
               {nav.order}
               {cartCount > 0 && (
                 <span className="flex items-center justify-center w-5 h-5 bg-navy text-white text-[10px] rounded-full">
@@ -209,7 +219,7 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Cart & Menu Button */}
-        <div className="flex items-center gap-5 md:hidden">
+        <div className="flex items-center gap-5 lg:hidden">
           {cartCount > 0 && (
             <Link href="/menu" className="relative text-white">
               <ShoppingBag size={22} />
@@ -250,7 +260,7 @@ export default function Navbar() {
           initial="closed"
           animate="open"
           exit="closed"
-          className="absolute top-full left-0 right-0 bg-ink/95 backdrop-blur-md flex flex-col items-center py-8 gap-6 md:hidden border-t border-white/5"
+          className="absolute top-full left-0 right-0 bg-ink/95 backdrop-blur-md flex flex-col items-center py-8 gap-6 lg:hidden border-t border-white/5"
         >
           {mobileLinks.map((link) => (
             <motion.div key={link.href} variants={mobileItemVariants}>

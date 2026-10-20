@@ -53,6 +53,8 @@ insert into public.seo_pages (path, title, description) values
                  'Current seafood offers at Boat Seafood Dubai: lunch menus, family feasts and seasonal deals at Waterfront Market.'),
   ('/your-fish', 'Bring Your Own Fish – We Cook It | Boat Seafood Dubai',
                  'Buy fresh fish at Waterfront Market and our chefs will clean, cook and serve it your way. Grilled, fried or curry.'),
+  ('/seafood-menu-book', 'Seafood Menu Book | Boat Seafood Dubai',
+                 'Flip through the Boat Seafood menu book: fresh fish, prawns, lobster and sharing platters with prices, at Waterfront Market, Deira, Dubai.'),
   ('/links',     'Links | Boat Seafood Restaurant',
                  'Welcome to Boat Seafood Restaurant. View our menu, leave a review, or follow us on social media.')
 on conflict (path) do nothing;

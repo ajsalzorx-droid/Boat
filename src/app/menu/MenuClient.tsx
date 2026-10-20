@@ -5,23 +5,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Utensils, Truck } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import type { MenuItem } from "@/data/menu";
+import { MENU_CATEGORIES, type MenuItem } from "@/data/menu";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { useSection } from "@/context/ContentContext";
 import { placeOrder, type PlaceOrderResult } from "./actions";
 
-const categories = [
-  "All",
-  "Appetizers",
-  "Soups & Salads",
-  "Main Courses",
-  "Signature Dishes",
-  "Sharing Platters",
-  "Market Fresh",
-  "Desserts",
-  "Beverages",
-];
+const categories = ["All", ...MENU_CATEGORIES];
 
 // Dishes come from the server (page.tsx), so they are in the HTML Google reads.
 // tableNumber = ?table= from the QR code on the restaurant table.

@@ -1,3 +1,15 @@
+// Menu categories in display order (menu page tabs, menu book pages)
+export const MENU_CATEGORIES = [
+  "Appetizers",
+  "Soups & Salads",
+  "Main Courses",
+  "Signature Dishes",
+  "Sharing Platters",
+  "Market Fresh",
+  "Desserts",
+  "Beverages",
+];
+
 export interface MenuItem {
   id: string;
   tag: string;

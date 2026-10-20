@@ -43,6 +43,13 @@ export const SEO_PAGES = [
       'Buy fresh fish at Waterfront Market and our chefs will clean, cook and serve it your way. Grilled, fried or curry.',
   },
   {
+    path: '/seafood-menu-book',
+    label: 'Menu Book',
+    title: 'Seafood Menu Book | Boat Seafood Dubai',
+    description:
+      'Flip through the Boat Seafood menu book: fresh fish, prawns, lobster and sharing platters with prices, at Waterfront Market, Deira, Dubai.',
+  },
+  {
     path: '/links',
     label: 'Links',
     title: 'Links | Boat Seafood Restaurant',

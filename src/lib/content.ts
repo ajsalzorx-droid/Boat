@@ -39,6 +39,7 @@ export const STUDIO_PAGES = [
   { slug: 'offers', name: 'Offers', href: '/offer', seoPath: '/offer' },
   { slug: 'your-fish', name: 'Your Fish', href: '/your-fish', seoPath: '/your-fish' },
   { slug: 'links', name: 'Links (QR page)', href: '/links', seoPath: '/links' },
+  { slug: 'menu-book', name: 'Menu Book', href: '/seafood-menu-book', seoPath: '/seafood-menu-book' },
   { slug: 'site', name: 'Header & Footer', href: '/', seoPath: null },
 ] as const
 
@@ -121,6 +122,7 @@ export const CONTENT_SECTIONS = [
       text('address', 'Top bar – address', 'Waterfront Market, Deira, Dubai'),
       text('hours', 'Top bar – hours', 'Open Daily: 12:00 PM - 12:00 AM'),
       text('nav_menu', 'Link – Menu', 'Menu'),
+      text('nav_book', 'Link – Flipbook', 'Flipbook'),
       text('nav_experience', 'Link – Experience', 'Experience'),
       text('nav_location', 'Link – Location', 'Location'),
       text('nav_events', 'Link – Events', 'Events'),
@@ -630,6 +632,58 @@ export const CONTENT_SECTIONS = [
       text('cta2', 'Second button', 'Contact Us'),
       link('cta2_link', 'Second button link', WHATSAPP),
       text('note', 'Small note', 'Perfect for family meals, special catches, and seafood lovers.'),
+    ],
+  },
+
+  // ================= Menu Book (/seafood-menu-book) =================
+  // Dish pages are built from the menu in Admin → Menu; these are the fixed pages around them.
+  {
+    id: 'book_intro',
+    page: 'menu-book',
+    label: 'Top of page (above the book)',
+    fields: [
+      eyebrow('Boat Seafood · Menu Book'),
+      ...heading('Our Seafood', 'Menu Book'),
+      body('Turn the pages of our menu — fresh catch, signature platters and coastal classics, cooked daily at Waterfront Market, Dubai.'),
+      text('hint', 'Help text under the book', 'Drag a page corner, swipe, or use the arrows to turn the pages.'),
+    ],
+  },
+  {
+    id: 'book_cover',
+    page: 'menu-book',
+    label: 'Front cover',
+    fields: [
+      text('title', 'Cover title', 'Boat Seafood'),
+      text('subtitle', 'Cover subtitle', 'The Menu'),
+      text('tagline', 'Cover tagline', 'Waterfront Market · Dubai'),
+      fixedAlt('logo_alt', 'Logo – alt text', '/logo.png', 'Boat Seafood Restaurant logo'),
+      ...image('/images/custom/hero_waterfront_dubai_1777327086914.png', 'Boat Seafood restaurant at Waterfront Market, Dubai', 'Cover photo'),
+    ],
+  },
+  {
+    id: 'book_story',
+    page: 'menu-book',
+    label: 'Our Story page + Contents page',
+    fields: [
+      eyebrow('Our Story'),
+      text('title', 'Story heading', 'Fresh from the market, cooked with care'),
+      body('Born at the heart of Waterfront Market, Boat Seafood serves only the freshest catch — chosen at dawn, prepared by our chefs and honestly presented. Pick from our menu, or bring your own fish from the market and we will cook it your way.'),
+      ...image('/images/custom/experience_plating_chef_1777327114148.png', 'Chef plating a seafood dish at Boat Seafood'),
+      text('contents_title', 'Contents page heading', 'Contents'),
+    ],
+  },
+  {
+    id: 'book_back',
+    page: 'menu-book',
+    label: 'Back cover',
+    fields: [
+      text('title', 'Heading', 'Visit Us'),
+      area('address', 'Address', 'Waterfront Market, Al Khaleej Rd\nDeira, Dubai, UAE'),
+      text('hours', 'Hours', 'Every day · 12:00 PM – 11:00 PM'),
+      text('phone', 'Phone', '+971 4 XXX XXXX'),
+      text('cta', 'Button text', 'Order Online'),
+      link('cta_link', 'Button link', '/menu'),
+      text('closing', 'Closing line', 'Thank you for dining with us'),
     ],
   },
 

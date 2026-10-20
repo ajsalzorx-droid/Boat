@@ -67,6 +67,33 @@ html::-webkit-scrollbar-button {
   display: none;
 }
 
+/* Menu book pages (src/components/FlipBook.tsx): sizes inside a page use cqw/cqh units,
+   so a page scales as a whole, like a printed page, at any book size */
+.flip-page {
+  container-type: size;
+  overflow: hidden;
+}
+
+/* Shadow along the spine of an open spread (page-flip marks pages --left / --right) */
+.flipbook-mount .stf__item.--soft::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 10%;
+  pointer-events: none;
+}
+
+.flipbook-mount .stf__item.--soft.--left::after {
+  right: 0;
+  background: linear-gradient(to left, rgba(0, 20, 30, 0.22), transparent);
+}
+
+.flipbook-mount .stf__item.--soft.--right::after {
+  left: 0;
+  background: linear-gradient(to right, rgba(0, 20, 30, 0.22), transparent);
+}
+
 /* SEO Studio: extra-thin scrollbars on every scroll area (page, sidebar, section chips) */
 .studio ::-webkit-scrollbar {
   width: 4px;
