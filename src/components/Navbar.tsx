@@ -6,6 +6,7 @@ import { useCart } from "@/context/CartContext";
 import { Menu as MenuIcon, X, ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useSection } from "@/context/ContentContext";
+import CatboFishing from "./CatboFishing";
 
 const smoothEase = [0.16, 1, 0.3, 1] as const;
 
@@ -88,6 +89,8 @@ export default function Navbar() {
             : "px-8 md:px-16 lg:px-8 xl:px-16 pt-4 pb-3 md:py-3 bg-ink/80 backdrop-blur-sm"
         }`}
       >
+        {/* Logo, with Catbo fishing on it (coming-soon teaser) */}
+        <div className="relative shrink-0">
         <Link
           href="/"
           className="relative h-16 md:h-20 w-52 md:w-auto shrink-0 no-underline flex items-center"
@@ -96,9 +99,11 @@ export default function Navbar() {
             src="/logo.png" 
             alt={nav.logo_alt}
             fetchPriority="high"
-            className={`max-h-full w-auto object-contain transition-all duration-500 ${isScrolled ? "brightness-0 invert opacity-90" : "brightness-0 invert"}`} 
+            className={`max-h-full w-auto object-contain transition-all duration-500 ${isScrolled ? "brightness-0 invert opacity-90" : "brightness-0 invert"}`}
           />
         </Link>
+          <CatboFishing compact={isScrolled} />
+        </div>
 
         {/* Desktop Menu */}
         <nav aria-label="Main" className="hidden lg:block">
