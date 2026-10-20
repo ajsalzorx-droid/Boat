@@ -28,8 +28,9 @@ export default function FloatingActions() {
   const isMenuPage = pathname === "/menu";
   // Customer shortcuts cover staff controls on small screens
   const isStaffPage = pathname.startsWith("/admin") || pathname.startsWith("/kitchen");
-  // Not on the SEO Studio itself (they would cover the editor); its live preview still shows them
-  const hidden = pathname.startsWith("/seo");
+  // Not on the SEO Studio itself (they would cover the editor); its live preview still shows them.
+  // Also not on the standalone flipbook viewer
+  const hidden = pathname.startsWith("/seo") || pathname === "/seafood-menu-book";
 
   useEffect(() => {
     const handleScroll = () => {

@@ -36,7 +36,8 @@ export default function Navbar() {
   const nav = useSection("navbar").fields;
   const mobileLinks = [
     { href: "/menu", label: nav.nav_menu },
-    { href: "/seafood-menu-book", label: nav.nav_book },
+    // The flipbook opens on its own, in a new tab (like a Heyzine flipbook)
+    { href: "/seafood-menu-book", label: nav.nav_book, newTab: true },
     { href: "/#exp", label: nav.nav_experience },
     { href: "/#loc", label: nav.nav_location },
     { href: "/events", label: nav.nav_events },
@@ -114,6 +115,8 @@ export default function Navbar() {
             <li>
               <Link
                 href="/seafood-menu-book"
+                target="_blank"
+                rel="noopener"
                 className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group whitespace-nowrap"
               >
                 {nav.nav_book}
@@ -266,6 +269,7 @@ export default function Navbar() {
             <motion.div key={link.href} variants={mobileItemVariants}>
               <Link
                 href={link.href}
+                {...(link.newTab && { target: "_blank", rel: "noopener" })}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={`${link.accent ? "text-[#C49A3C]" : "text-white"} text-[15px] font-light tracking-[3px] uppercase`}
               >

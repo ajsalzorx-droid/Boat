@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import FlipBook from "@/components/FlipBook";
 import { Heading, Lines } from "@/components/ContentText";
 import { MENU_CATEGORIES, type MenuItem } from "@/data/menu";
@@ -154,53 +154,67 @@ export default async function MenuBookPage() {
     ),
   });
 
+  // Standalone viewer (opened in a new tab from the navbar), like a Heyzine flipbook:
+  // no site header/footer, just a slim top bar and the book filling the screen
   return (
-    <>
-      <Navbar />
-      <main className="relative min-h-screen overflow-hidden bg-ink text-white">
+    <div className="relative flex min-h-dvh flex-col overflow-hidden bg-ink text-white">
+      {/* Soft light shapes, like a magazine reader backdrop */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_0%,rgba(102,155,188,0.18),transparent_60%),linear-gradient(115deg,transparent_55%,rgba(255,255,255,0.04)_55%,rgba(255,255,255,0.04)_70%,transparent_70%),linear-gradient(180deg,#001a24_0%,#002433_100%)]"
+      />
+
+      <header className="relative z-10 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-ink/60 px-4 backdrop-blur-md md:px-8">
+        <Link href="/" aria-label="Boat Seafood home" className="shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt={cover.logo_alt} className="h-10 w-auto brightness-0 invert" />
+        </Link>
+        <div className="min-w-0 text-center">
+          <p className="hidden text-[9px] font-bold uppercase tracking-[4px] text-ocean sm:block">{intro.fields.eyebrow}</p>
+          <h1 className="truncate font-playfair text-lg font-bold leading-tight md:text-2xl">
+            <Heading c={intro} emClassName="italic text-ocean" />
+          </h1>
+        </div>
+        <Link
+          href="/"
+          className="flex shrink-0 items-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[2px] text-white/80 transition-colors hover:border-ocean hover:text-white md:px-4"
+        >
+          <span className="hidden sm:inline">Visit website</span>
+          <ArrowUpRight size={16} aria-hidden="true" />
+          <span className="sr-only sm:hidden">Visit website</span>
+        </Link>
+      </header>
+
+      <main className="relative flex flex-1 flex-col justify-center px-4 py-6 md:px-10">
         {/* Menu schema: Google reads the dishes and prices */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(menuJsonLd(business, items)).replace(/</g, "\\u003c") }}
         />
-        {/* Soft light shapes, like a magazine reader backdrop */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_0%,rgba(102,155,188,0.18),transparent_60%),linear-gradient(115deg,transparent_55%,rgba(255,255,255,0.04)_55%,rgba(255,255,255,0.04)_70%,transparent_70%),linear-gradient(180deg,#001a24_0%,#002433_100%)]"
-        />
+        {/* Intro text for Google and screen readers (the viewer keeps the screen for the book) */}
+        <p className="sr-only">{intro.fields.body}</p>
 
-        <div className="relative px-4 md:px-12 pt-36 md:pt-44 pb-20">
-          <header className="text-center mx-auto mb-10 md:mb-14">
-            <p className="text-[10px] tracking-[5px] uppercase text-ocean font-bold mb-4">{intro.fields.eyebrow}</p>
-            <h1 className="font-playfair font-bold text-[clamp(34px,5vw,64px)] leading-[1.05]">
-              <Heading c={intro} emClassName="italic text-ocean" />
-            </h1>
-            <p className="mt-5 text-[15px] leading-relaxed text-white/60 font-light">{intro.fields.body}</p>
-          </header>
+        <FlipBook label={`${cover.title} ${cover.subtitle}`} titles={pages.map((p) => p.title)}>
+          {pages.map((p, i) => (
+            <section
+              key={i}
+              className={`flip-page ${p.dark ? "bg-navy text-white" : "bg-[#fbf6ea] text-navy"}`}
+              data-density={p.hard ? "hard" : "soft"}
+              aria-label={`Page ${i + 1}: ${p.title}`}
+            >
+              {p.body}
+              {!p.hard && (
+                <span className="absolute bottom-[3cqw] left-0 right-0 text-center text-[2cqw] tabular-nums opacity-40" aria-hidden="true">
+                  {i + 1}
+                </span>
+              )}
+            </section>
+          ))}
+        </FlipBook>
 
-          <FlipBook label={`${cover.title} ${cover.subtitle}`} titles={pages.map((p) => p.title)}>
-            {pages.map((p, i) => (
-              <section
-                key={i}
-                className={`flip-page ${p.dark ? "bg-navy text-white" : "bg-[#fbf6ea] text-navy"}`}
-                data-density={p.hard ? "hard" : "soft"}
-                aria-label={`Page ${i + 1}: ${p.title}`}
-              >
-                {p.body}
-                {!p.hard && (
-                  <span className="absolute bottom-[3cqw] left-0 right-0 text-center text-[2cqw] tabular-nums opacity-40" aria-hidden="true">
-                    {i + 1}
-                  </span>
-                )}
-              </section>
-            ))}
-          </FlipBook>
-
-          <p className="mt-6 text-center text-xs tracking-[2px] text-white/40">{intro.fields.hint}</p>
-        </div>
+        <p className="mt-4 text-center text-xs tracking-[2px] text-white/40">{intro.fields.hint}</p>
       </main>
-      <Footer />
-    </>
+    </div>
   );
 }
 

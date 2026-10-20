@@ -95,7 +95,10 @@ export default function FlipBook({
       book.on("flip", (e) => {
         setPage(e.data);
         if (soundRef.current) playFlipSound();
-        window.history.replaceState(null, "", `#page-${e.data + 1}`);
+        // #page-N for pages after the cover (shareable); the cover keeps a clean address
+        const hash = e.data > 0 ? `#page-${e.data + 1}` : "";
+        if (window.location.hash !== hash)
+          window.history.replaceState(null, "", hash || window.location.pathname + window.location.search);
       });
       book.on("changeOrientation", (e) => setOrientation(e.data));
 
@@ -174,14 +177,14 @@ export default function FlipBook({
       {/* The animated book (filled in the browser) */}
       <div
         ref={mountRef}
-        className={`flipbook-mount mx-auto w-full transition-opacity duration-700 ${ready ? "opacity-100" : "opacity-0"}`}
+        className={`flipbook-mount mx-auto w-full transition-opacity duration-700 ${ready ? "opacity-100" : "opacity-0 aspect-square sm:aspect-[2/1]"}`}
         style={{
           // Keep the whole book on screen: two square pages side by side, or one on phones
-          maxWidth: orientation === "landscape" ? "min(1280px, calc((100dvh - 190px) * 2))" : "min(640px, calc(100dvh - 190px))",
+          maxWidth: orientation === "landscape" ? "min(1280px, calc((100dvh - 200px) * 2))" : "min(640px, calc(100dvh - 200px))",
         }}
       />
       {!ready && (
-        <div className="absolute inset-x-0 top-0 mx-auto aspect-square md:aspect-[2/1] max-w-[1280px] w-full flex items-center justify-center">
+        <div className="absolute inset-x-0 top-0 mx-auto aspect-square sm:aspect-[2/1] max-w-[1280px] w-full flex items-center justify-center">
           <div className="w-10 h-10 border-2 border-white/20 border-t-ocean rounded-full animate-spin" aria-hidden="true" />
         </div>
       )}
