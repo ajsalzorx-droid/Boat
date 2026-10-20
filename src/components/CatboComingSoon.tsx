@@ -97,7 +97,16 @@ export default function CatboComingSoon() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.35 }}
               >
-                <span className="text-[34px] md:text-[40px] font-semibold tracking-[1px]">CATBO</span>{" "}
+                {/* CATBO wordmark (navy cut-out of the brand logo, 666 x 184) */}
+                <Image
+                  src="/images/catbo/catbo-wordmark.png"
+                  alt="CATBO"
+                  width={666}
+                  height={184}
+                  sizes="150px"
+                  className="inline-block h-[32px] md:h-[38px] w-auto align-baseline mr-2"
+                  draggable={false}
+                />
                 <span className="text-[16px] md:text-[19px] font-medium uppercase">
                   is coming<span className="text-[#e4473a]">!!</span>
                 </span>
