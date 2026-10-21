@@ -47,7 +47,14 @@ export const SEO_PAGES = [
     label: 'Menu Book',
     title: 'Seafood Menu Book | Boat Seafood Dubai',
     description:
-      'Flip through the Boat Seafood menu book: fresh fish, prawns, lobster and sharing platters with prices, at Waterfront Market, Deira, Dubai.',
+      'Flip through the BOAT Seafood Restaurant book: authentic Arabic and Indian seafood, your fish our preparation, and waterfront hospitality at Waterfront Market, Dubai.',
+  },
+  {
+    path: '/profile',
+    label: 'Profile',
+    title: 'Company Profile | Boat Seafood Restaurant Dubai',
+    description:
+      'Flip through the BOAT Seafood Restaurant profile: authentic Arabic and Indian seafood, your fish our preparation, and waterfront hospitality at Waterfront Market, Dubai.',
   },
   {
     path: '/links',
