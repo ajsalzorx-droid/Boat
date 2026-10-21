@@ -103,21 +103,23 @@ export default function FlipBook({
         maxHeight: 640,
         showCover: true,
         drawShadow: true,
-        maxShadowOpacity: 0.45,
-        flippingTime: reduceMotion ? 250 : 900,
+        // A quick, light turn with soft shadows, like a Heyzine flipbook
+        maxShadowOpacity: 0.28,
+        flippingTime: reduceMotion ? 250 : 700,
         usePortrait: !twoPages,
         mobileScrollSupport: true,
         showPageCorners: true,
       });
 
       book.on("init", (e) => {
+        void loadFlipSounds();
         setPage(e.data.page);
         pageRef.current = e.data.page;
         setReady(true);
       });
       // Sound as the page starts to move (button, key, click or a released drag)
       book.on("changeState", (e) => {
-        if (e.data === "flipping" && soundRef.current) playFlipSound();
+        if (e.data === "flipping" && soundRef.current) void playFlipSound();
       });
       book.on("flip", (e) => {
         setPage(e.data);
@@ -155,6 +157,43 @@ export default function FlipBook({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Scrolling turns the pages: mouse wheel or trackpad, up/down or sideways. Down or right is the
+  // next page. One gesture turns one page: a trackpad keeps sending scroll events while it coasts,
+  // so the next page needs a new scroll after a short pause.
+  useEffect(() => {
+    let total = 0; // scroll distance gathered in this gesture
+    let lastEvent = 0;
+    let turnedInGesture = false;
+
+    const onWheel = (e: WheelEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (e.ctrlKey || target?.closest("[data-own-scroll]")) return; // pinch zoom, the contents list
+      e.preventDefault(); // no page scroll, and no browser back/forward swipe
+
+      const now = performance.now();
+      if (now - lastEvent > 250) {
+        // A new gesture after a pause
+        total = 0;
+        turnedInGesture = false;
+      }
+      lastEvent = now;
+      if (turnedInGesture) return;
+
+      const lineHeight = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+      const delta = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * lineHeight;
+      total += delta;
+      if (Math.abs(total) < 60) return;
+
+      if (total > 0) bookRef.current?.flipNext();
+      else bookRef.current?.flipPrev();
+      total = 0;
+      turnedInGesture = true;
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
   }, []);
 
   useEffect(() => {
@@ -208,7 +247,7 @@ export default function FlipBook({
       ref={wrapperRef}
       role="region"
       aria-label={label}
-      className={`relative w-full ${fullscreen ? `h-full flex flex-col items-center justify-center p-4 ${light ? "bg-[#d4d4d4]" : "bg-ink"}` : ""}`}
+      className={`flipbook-region relative w-full ${fullscreen ? `h-full flex flex-col items-center justify-center p-4 ${light ? "bg-[#d4d4d4]" : "bg-ink"}` : ""}`}
     >
       {/* Server-rendered pages: what Google and screen readers read */}
       <div ref={sourceRef} className="sr-only">
@@ -223,8 +262,8 @@ export default function FlipBook({
             // Keep the whole book on screen: two pages side by side, or one on phones
             maxWidth:
               orientation === "landscape"
-                ? `min(${Math.round(1280 * pageRatio)}px, calc((100dvh - 200px) * ${2 * pageRatio}))`
-                : `min(${Math.round(640 * pageRatio)}px, calc((100dvh - 200px) * ${pageRatio}))`,
+                ? `min(${Math.round(1280 * pageRatio)}px, calc((100dvh - var(--book-reserve)) * ${2 * pageRatio}))`
+                : `min(${Math.round(640 * pageRatio)}px, calc((100dvh - var(--book-reserve)) * ${pageRatio}))`,
             // A closed book (front cover, or a back cover on its own) sits in the middle, not on one half
             transform: `translateX(${shift}%)`,
           }}
@@ -254,7 +293,7 @@ export default function FlipBook({
 
       {/* Controls (a little tighter on small phones, so they stay on one line) */}
       <div
-        className={`relative z-20 mt-6 mx-auto flex w-fit max-w-full flex-wrap items-center justify-center sm:gap-1 rounded-full backdrop-blur-md border px-1 sm:px-2 py-1 sm:py-1.5 ${
+        className={`relative z-20 mt-6 short:mt-2 mx-auto flex w-fit max-w-full flex-wrap items-center justify-center sm:gap-1 rounded-full backdrop-blur-md border px-1 sm:px-2 py-1 sm:py-1.5 ${
           light ? "bg-white/85 border-black/5 text-navy shadow-[0_8px_30px_rgba(0,0,0,0.12)]" : "bg-black/35 border-white/10 text-white"
         }`}
       >
@@ -302,6 +341,7 @@ export default function FlipBook({
         {/* Contents menu */}
         {showContents && (
           <div
+            data-own-scroll
             className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-72 max-h-80 overflow-y-auto rounded-xl backdrop-blur-md border py-2 shadow-2xl ${
               light ? "bg-white/95 border-black/5" : "bg-ink/95 border-white/10"
             }`}
@@ -402,83 +442,44 @@ function PageEdges({ side, count }: { side: "left" | "right"; count: number }) {
   );
 }
 
-// Natural page turn, made with the Web Audio API (no sound file to download): the crackly rustle
-// of paper as the page lifts, the soft rush of air as it swings over, and a light flap as it lands.
-// Every turn is a little different, like real paper.
+// Page turn sound: real recordings of a book page turning (Kenney "RPG Audio", CC0 public domain),
+// softened (public/sounds). Loaded once when the book opens; each turn picks one, mostly the
+// full turn, at a slightly different pitch so it never sounds mechanical.
+const FLIP_SOUNDS = ["/sounds/page-flip-1.mp3", "/sounds/page-flip-2.mp3"];
+let flipBuffers: Promise<AudioBuffer[]> | null = null;
 let audioContext: AudioContext | null = null;
 
-function playFlipSound() {
+function loadFlipSounds() {
+  flipBuffers ??= (async () => {
+    try {
+      // Decoded off-screen: no audio output is needed (or allowed) before the first tap
+      const decoder = new OfflineAudioContext(1, 1, 44100);
+      return await Promise.all(
+        FLIP_SOUNDS.map(async (src) => decoder.decodeAudioData(await (await fetch(src)).arrayBuffer()))
+      );
+    } catch {
+      return []; // no sound (offline, unsupported): turning the page still works
+    }
+  })();
+  return flipBuffers;
+}
+
+async function playFlipSound() {
   try {
+    const buffers = await loadFlipSounds();
+    if (!buffers.length) return;
     audioContext ??= new AudioContext();
     const ctx = audioContext;
-    if (ctx.state === "suspended") void ctx.resume();
-    const now = ctx.currentTime;
-    const vary = (value: number, amount = 0.15) => value * (1 + (Math.random() * 2 - 1) * amount);
-    const length = vary(0.5, 0.12);
+    if (ctx.state === "suspended") await ctx.resume();
 
-    // Rustle: paper grain with crackles that come and go, its pitch falling as the page moves away
-    const rustle = noise(ctx, length, true);
-    const highpass = filter(ctx, "highpass", vary(1100));
-    const band = filter(ctx, "bandpass", vary(4200), 0.7);
-    band.frequency.exponentialRampToValueAtTime(vary(1600), now + length);
-    rustle.connect(highpass).connect(band).connect(envelope(ctx, now, vary(0.05), length, vary(0.2)));
-
-    // Air: a low, soft whoosh that swells mid-turn
-    const air = noise(ctx, length, false);
-    air.connect(filter(ctx, "bandpass", vary(550), 0.6)).connect(envelope(ctx, now, length * 0.45, length, vary(0.1)));
-
-    // Flap: the page settling on the others
-    const landing = now + length * 0.8;
-    const flap = noise(ctx, 0.12, true);
-    flap.connect(filter(ctx, "lowpass", vary(700))).connect(envelope(ctx, landing, 0.006, 0.11, vary(0.14)));
-
-    rustle.start(now);
-    air.start(now);
-    flap.start(landing);
+    const source = ctx.createBufferSource();
+    source.buffer = buffers.length > 1 && Math.random() > 0.75 ? buffers[1] : buffers[0];
+    source.playbackRate.value = 0.94 + Math.random() * 0.1;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.6;
+    source.connect(gain).connect(ctx.destination);
+    source.start();
   } catch {
     // Audio is optional (blocked or unsupported): turning the page still works
   }
-}
-
-// Noise source: crackly (white noise with short random bursts) or soft (brown noise)
-function noise(ctx: AudioContext, seconds: number, crackle: boolean) {
-  const data = new Float32Array(Math.floor(ctx.sampleRate * seconds));
-  const burstsPerSample = 120 / ctx.sampleRate; // about 120 crackles a second
-  const fade = Math.exp(-1 / (0.004 * ctx.sampleRate)); // each fades in a few milliseconds
-  let burst = 0;
-  let brown = 0;
-  for (let i = 0; i < data.length; i++) {
-    const white = Math.random() * 2 - 1;
-    if (crackle) {
-      if (Math.random() < burstsPerSample) burst = 0.6 + Math.random() * 1.4;
-      burst *= fade;
-      data[i] = white * (0.35 + burst);
-    } else {
-      brown = (brown + 0.02 * white) / 1.02;
-      data[i] = brown * 3.5;
-    }
-  }
-  const buffer = ctx.createBuffer(1, data.length, ctx.sampleRate);
-  buffer.copyToChannel(data, 0);
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  return source;
-}
-
-function filter(ctx: AudioContext, type: BiquadFilterType, frequency: number, q?: number) {
-  const node = ctx.createBiquadFilter();
-  node.type = type;
-  node.frequency.setValueAtTime(frequency, ctx.currentTime);
-  if (q !== undefined) node.Q.value = q;
-  return node;
-}
-
-// Gain that rises to peak over attack, then fades out by the end of length; plays to the speakers
-function envelope(ctx: AudioContext, start: number, attack: number, length: number, peak: number) {
-  const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(peak, start + attack);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + length);
-  gain.connect(ctx.destination);
-  return gain;
 }

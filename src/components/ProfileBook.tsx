@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import FlipBook from "@/components/FlipBook";
@@ -6,21 +6,26 @@ import { BROCHURE_RATIO, BrochureBackdrop } from "@/components/Brochure";
 
 // The printed BOAT PROFILE-26 brochure as a flipbook, page for page, like the Heyzine version.
 // Each page is the PDF page rendered to an image (public/images/profile/pages/pNN.webp), so the
-// design is exactly the brochure's. The page text is kept as hidden HTML for Google and screen
-// readers, and links are laid over the QR codes and contact details.
+// design is exactly the brochure's. Text pages use the page rendered without its text
+// (pNN-bg.webp) with the text set over it in HTML, larger than the print so it reads on screen.
+// Other pages keep their text as hidden HTML for Google and screen readers. Links are laid over
+// the QR codes and contact details.
 
 // Clickable areas, in artwork px (1418 × 840)
 type Hotspot = { href: string; label: string; x: number; y: number; w: number; h: number };
 
 const MENU_QR: Hotspot = { href: "/menu", label: "Open the BOAT menu", x: 96, y: 650, w: 86, h: 86 };
 
-type BookPage = { title: string; alt: string; hard?: boolean; text?: ReactNode; links?: Hotspot[] };
+// Where a text page's text starts (cqw from the top), and whether it opens with the
+// "BOAT SEAFOOD RESTAURANT" line; dense pages use a slightly smaller size to fit
+type TextLayout = { top: number; brand?: boolean; dense?: boolean; centered?: boolean };
+
+type BookPage = { title: string; alt: string; hard?: boolean; text?: ReactNode; layout?: TextLayout; links?: Hotspot[] };
 
 const pages: BookPage[] = [
   {
     title: "Cover",
     alt: "BOAT Seafood Restaurant at night, with guests dining on the terrace",
-    hard: true,
     text: (
       <>
         <h1>BOAT Seafood Restaurant — Profile</h1>
@@ -33,12 +38,13 @@ const pages: BookPage[] = [
   { title: "BOAT Seafood Restaurant", alt: "BOAT Seafood Restaurant logo" },
   {
     title: "01. We Are",
+    layout: { top: 14.4, brand: true },
     alt: "01. We Are",
     text: (
       <>
         <h2>01. We Are</h2>
         <p>
-          BOAT Seafood Restaurant is a destination for authentic seafood dining, where freshness, flavour, hospitality, and memorable experiences
+          <strong>BOAT Seafood Restaurant</strong> is a destination for authentic seafood dining, where freshness, flavour, hospitality, and memorable experiences
           come together.
         </p>
         <p>
@@ -59,11 +65,14 @@ const pages: BookPage[] = [
   },
   {
     title: "02. Our Philosophy",
+    layout: { top: 14.4, brand: true },
     alt: "02. Our Philosophy",
     text: (
       <>
         <h2>02. Our Philosophy</h2>
-        <p>&ldquo;Simply Fresh Seafood, Prepared Your Way.&rdquo;</p>
+        <p>
+          <strong>&ldquo;Simply Fresh Seafood, Prepared Your Way.&rdquo;</strong>
+        </p>
         <p>Our philosophy is built around simplicity, authenticity, and personal choice.</p>
         <p>
           We believe the natural freshness of seafood should always be the hero of every dish. Whether our guests prefer traditional Arabic
@@ -82,6 +91,7 @@ const pages: BookPage[] = [
   },
   {
     title: "03. Our Culinary Specialities",
+    layout: { top: 11, dense: true },
     alt: "03. Our Culinary Specialities",
     text: (
       <>
@@ -104,13 +114,16 @@ const pages: BookPage[] = [
         <h3>03 — Your Fish, Our Preparation</h3>
         <p>One of BOAT&apos;s signature dining concepts gives our guests the freedom to select and bring their own fresh seafood from the market.</p>
         <p>Our culinary team then prepares it according to their preferred recipe, cooking style, and spice level.</p>
-        <p>You bring the catch. We create the flavour.</p>
+        <p>
+          <strong>You bring the catch. We create the flavour.</strong>
+        </p>
       </>
     ),
   },
   { title: "In the kitchen", alt: "BOAT chef grilling a whole fish over open flames" },
   {
     title: "04. Our Kitchen & Culinary Excellence",
+    layout: { top: 14.4, brand: true },
     alt: "04. Our Kitchen & Culinary Excellence",
     text: (
       <>
@@ -135,6 +148,7 @@ const pages: BookPage[] = [
   },
   {
     title: "05. Dining Experience · 06. Digital Convenience",
+    layout: { top: 7.6, brand: true, dense: true },
     alt: "05. The BOAT Dining Experience and 06. Digital Convenience & Accessibility",
     text: (
       <>
@@ -168,6 +182,7 @@ const pages: BookPage[] = [
   { title: "Our team", alt: "The BOAT team at the waterfront at sunset" },
   {
     title: "07. Our People · 08. Food Safety",
+    layout: { top: 10.6, dense: true },
     alt: "07. Our People, Our Strength and 08. Food Safety, Health & Responsibility",
     text: (
       <>
@@ -203,6 +218,7 @@ const pages: BookPage[] = [
   },
   {
     title: "09. Our Vision · 10. Our Mission",
+    layout: { top: 17.4, brand: true },
     alt: "09. Our Vision and 10. Our Mission",
     text: (
       <>
@@ -223,11 +239,13 @@ const pages: BookPage[] = [
   { title: "Inside BOAT", alt: "The BOAT dining room with ocean-blue tables and a 'Catch the wave' wall" },
   {
     title: "A Special Message to Our Team",
+    layout: { top: 14.4, brand: true },
     alt: "A Special Message to Our Team",
     text: <TeamMessage />,
   },
   {
     title: "12. Our Future — Beyond the Waterfront",
+    layout: { top: 14.4, brand: true },
     alt: "12. Our Future — Beyond the Waterfront",
     text: (
       <>
@@ -251,7 +269,12 @@ const pages: BookPage[] = [
     text: <p>Born from the ocean, crafted with passion, served with love.</p>,
     links: [MENU_QR],
   },
-  { title: "A Special Message to Our Team", alt: "A Special Message to Our Team" },
+  {
+    title: "A Special Message to Our Team",
+    layout: { top: 14.4, brand: true },
+    alt: "A Special Message to Our Team",
+    text: <TeamMessage />,
+  },
   {
     title: "Every wave brings a wonder",
     alt: "Whole grilled sea bass with herb butter and lemon",
@@ -260,12 +283,21 @@ const pages: BookPage[] = [
   },
   {
     title: "Our Brand Promise",
+    layout: { top: 13.4, brand: true, centered: true },
     alt: "Our Brand Promise",
     text: (
       <>
         <h2>Our Brand Promise</h2>
-        <p>Freshness in every catch. Authenticity in every flavour. Hospitality in every moment.</p>
-        <p>BOAT Seafood Restaurant, Waterfront Market, Dubai, United Arab Emirates</p>
+        <p className="font-bold uppercase leading-[1.55]">
+          Freshness in every catch.
+          <br />
+          Authenticity in every flavour.
+          <br />
+          Hospitality in every moment.
+          <br />
+          BOAT Seafood Restaurant
+        </p>
+        <p className="text-[0.9em]">Waterfront Market, Dubai, United Arab Emirates</p>
       </>
     ),
   },
@@ -296,10 +328,10 @@ export default function ProfileBook() {
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-white text-navy">
       <BrochureBackdrop />
 
-      <header className="relative z-10 flex h-16 shrink-0 items-center justify-between gap-4 px-4 md:px-8">
+      <header className="relative z-10 flex h-16 short:h-11 shrink-0 items-center justify-between gap-4 px-4 md:px-8">
         <Link href="/" aria-label="Boat Seafood home" className="shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="BOAT Seafood Restaurant" className="h-12 w-auto" />
+          <img src="/logo.png" alt="BOAT Seafood Restaurant" className="h-12 short:h-8 w-auto" />
         </Link>
         <p className="min-w-0 truncate text-center text-[10px] font-bold uppercase tracking-[4px] text-navy/70 md:text-xs">Company Profile</p>
         <Link
@@ -312,7 +344,7 @@ export default function ProfileBook() {
         </Link>
       </header>
 
-      <main className="relative flex flex-1 flex-col justify-center px-4 pb-6 md:px-16">
+      <main className="relative flex flex-1 flex-col justify-center px-4 pb-6 short:px-2 short:pb-2 md:px-16">
         <FlipBook label="BOAT Seafood Restaurant profile" titles={pages.map((p) => p.title)} pageRatio={BROCHURE_RATIO} theme="light">
           {pages.map((p, i) => (
             <section
@@ -323,13 +355,13 @@ export default function ProfileBook() {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={`/images/profile/pages/p${String(i + 1).padStart(2, "0")}.webp`}
-                alt={p.alt}
+                src={`/images/profile/pages/p${String(i + 1).padStart(2, "0")}${p.layout ? "-bg" : ""}.webp`}
+                alt={p.layout ? "" : p.alt}
                 loading={i < 4 ? "eager" : "lazy"}
                 draggable={false}
                 className="absolute inset-0 h-full w-full select-none object-cover"
               />
-              {p.text && <div className="sr-only">{p.text}</div>}
+              {p.layout ? <PageText layout={p.layout}>{p.text}</PageText> : p.text && <div className="sr-only">{p.text}</div>}
               {p.links?.map((l) => (
                 <a
                   key={l.href + l.x}
@@ -351,6 +383,23 @@ export default function ProfileBook() {
         </FlipBook>
       </main>
     </div>
+  );
+}
+
+// A text page's text over its text-free background (artwork positions, larger type)
+function PageText({ layout, children }: { layout: TextLayout; children: ReactNode }) {
+  return (
+    <>
+      {/* "boatseafood.com" beside the round badge, top right */}
+      <span className="pdf-url absolute right-[14.1cqw] top-[8.1cqw] -translate-y-1/2 text-[1.35cqw]">boatseafood.com</span>
+      <div
+        className={`pdf-text absolute ${layout.dense ? "pdf-dense" : ""} ${layout.centered ? "inset-x-0 text-center" : "left-[24.5cqw] right-[9cqw]"}`}
+        style={{ top: `${layout.top}cqw`, "--fs": layout.dense ? "1.45cqw" : "1.62cqw" } as CSSProperties}
+      >
+        {layout.brand && <p className={`pdf-brand ${layout.centered ? "text-[1.4em]" : ""}`}>BOAT SEAFOOD RESTAURANT</p>}
+        {children}
+      </div>
+    </>
   );
 }
 

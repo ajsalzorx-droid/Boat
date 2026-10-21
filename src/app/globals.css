@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Short screens (a phone turned sideways): compact bars so the flip book gets the height */
+@custom-variant short (@media (max-height: 520px));
+
 @theme {
   --color-cream: #fdf0d5;
   --color-navy: #003049;
@@ -136,3 +139,66 @@ html::-webkit-scrollbar-button {
 }
 
 /* We'll use Framer Motion for scroll reveal animations instead of global CSS */
+
+/* Text laid over the brochure pages of the flip book (src/components/ProfileBook.tsx): the
+   brochure's type, larger than the print. Sizes follow --fs (body size, in cqw of the page width). */
+.pdf-text {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: var(--fs);
+  font-weight: 500;
+  line-height: 1.3;
+  color: #231f20;
+}
+.pdf-text .pdf-brand {
+  margin-bottom: calc(var(--fs) * 2);
+  font-size: calc(var(--fs) * 1.2);
+  font-weight: 700;
+  color: #163a50;
+}
+.pdf-text h2 {
+  margin-bottom: calc(var(--fs) * 0.9);
+  font-size: calc(var(--fs) * 1.18);
+  font-weight: 700;
+  color: #163a50;
+}
+.pdf-text * + h2 {
+  margin-top: calc(var(--fs) * 1.3);
+}
+.pdf-text h3 {
+  margin-bottom: calc(var(--fs) * 0.6);
+  font-weight: 700;
+}
+.pdf-text p,
+.pdf-text ul {
+  margin-bottom: calc(var(--fs) * 0.85);
+}
+.pdf-text ul {
+  padding-left: calc(var(--fs) * 1.6);
+  list-style: disc;
+}
+.pdf-text strong {
+  font-weight: 700;
+}
+.pdf-url {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 500;
+  color: #163a50;
+}
+/* Pages with the most text: tighter spacing so it stays on the page */
+.pdf-text.pdf-dense p,
+.pdf-text.pdf-dense ul {
+  margin-bottom: calc(var(--fs) * 0.5);
+}
+.pdf-text.pdf-dense * + h2 {
+  margin-top: calc(var(--fs) * 1);
+}
+
+/* Room kept above and below the flip book (top bar, controls): src/components/FlipBook.tsx */
+.flipbook-region {
+  --book-reserve: 200px;
+}
+@media (max-height: 520px) {
+  .flipbook-region {
+    --book-reserve: 112px;
+  }
+}
