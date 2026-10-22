@@ -20,6 +20,7 @@ import {
   Download,
   Printer,
   SlidersHorizontal,
+  MoreHorizontal,
   X,
 } from "lucide-react";
 
@@ -85,6 +86,7 @@ export default function FlipBook({
   const controls = useSyncExternalStore(subscribeControls, getControls, () => DEFAULT_CONTROLS);
   const controlsRef = useRef(controls);
   const [showControls, setShowControls] = useState(false);
+  const [showMore, setShowMore] = useState(false); // phones: menu with the buttons that do not fit
   const [controlsTab, setControlsTab] = useState<"show" | "style" | "navigation">("show");
 
   const total = titles.length;
@@ -298,6 +300,7 @@ export default function FlipBook({
 
   const openSearch = () => {
     setShowContents(false);
+    setShowMore(false);
     if (!showSearch && sourceRef.current)
       setPageTexts(Array.from(sourceRef.current.children).map((node) => (node.textContent ?? "").replace(/\s+/g, " ").trim()));
     setShowSearch(!showSearch);
@@ -475,7 +478,7 @@ export default function FlipBook({
         } ${light ? "bg-white/85 border-black/5 text-navy shadow-[0_8px_30px_rgba(0,0,0,0.12)]" : "bg-black/35 border-white/10 text-white"}`}
       >
         {controls.first && (
-          <ControlButton light={light} square={square} label="First page" onClick={() => goTo(0)} disabled={!ready || page === 0}>
+          <ControlButton desktopOnly light={light} square={square} label="First page" onClick={() => goTo(0)} disabled={!ready || page === 0}>
             <ChevronsLeft size={20} />
           </ControlButton>
         )}
@@ -515,7 +518,7 @@ export default function FlipBook({
           </ControlButton>
         )}
         {controls.last && (
-          <ControlButton light={light} square={square} label="Last page" onClick={() => goTo(total - 1)} disabled={!ready || page >= total - 1}>
+          <ControlButton desktopOnly light={light} square={square} label="Last page" onClick={() => goTo(total - 1)} disabled={!ready || page >= total - 1}>
             <ChevronsRight size={20} />
           </ControlButton>
         )}
@@ -529,6 +532,7 @@ export default function FlipBook({
             label="Contents"
             onClick={() => {
               setShowSearch(false);
+              setShowMore(false);
               setShowContents((v) => !v);
             }}
             disabled={!ready}
@@ -548,7 +552,7 @@ export default function FlipBook({
           </ControlButton>
         )}
         {controls.sound && (
-          <ControlButton
+          <ControlButton desktopOnly
             light={light}
             square={square}
             label={soundOn ? "Turn page sound off" : "Turn page sound on"}
@@ -558,28 +562,93 @@ export default function FlipBook({
           </ControlButton>
         )}
         {canFullscreen && controls.fullscreen && (
-          <ControlButton light={light} square={square} label={fullscreen ? "Exit full screen" : "Full screen"} onClick={toggleFullscreen}>
+          <ControlButton desktopOnly light={light} square={square} label={fullscreen ? "Exit full screen" : "Full screen"} onClick={toggleFullscreen}>
             {fullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
           </ControlButton>
         )}
         {controls.share && (
-          <ControlButton light={light} square={square} label={copied ? "Link copied" : "Share this page"} onClick={share}>
+          <ControlButton desktopOnly light={light} square={square} label={copied ? "Link copied" : "Share this page"} onClick={share}>
             {copied ? <Check size={18} /> : <Share2 size={18} />}
           </ControlButton>
         )}
         {controls.download && (
-          <ControlButton light={light} square={square} label="Download" onClick={download} disabled={!ready}>
+          <ControlButton desktopOnly light={light} square={square} label="Download" onClick={download} disabled={!ready}>
             <Download size={18} />
           </ControlButton>
         )}
         {controls.print && (
-          <ControlButton light={light} square={square} label="Print" onClick={printBook} disabled={!ready}>
+          <ControlButton desktopOnly light={light} square={square} label="Print" onClick={printBook} disabled={!ready}>
             <Printer size={18} />
           </ControlButton>
         )}
-        <ControlButton light={light} square={square} label="Controls" onClick={() => setShowControls((v) => !v)} active={showControls}>
+        <ControlButton desktopOnly light={light} square={square} label="Controls" onClick={() => setShowControls((v) => !v)} active={showControls}>
           <SlidersHorizontal size={18} />
         </ControlButton>
+
+        {/* Phones: the buttons above that do not fit on one line, in a menu */}
+        <ControlButton
+          mobileOnly
+          light={light}
+          square={square}
+          label="More"
+          onClick={() => {
+            setShowContents(false);
+            setShowSearch(false);
+            setShowMore((v) => !v);
+          }}
+          active={showMore}
+        >
+          <MoreHorizontal size={20} />
+        </ControlButton>
+
+        {showMore && (
+          <div
+            className={`sm:hidden absolute bottom-full right-0 mb-3 w-56 max-w-[calc(100vw-2rem)] rounded-xl backdrop-blur-md border py-2 shadow-2xl ${
+              light ? "bg-white/95 border-black/5 text-navy" : "bg-ink/95 border-white/10 text-white"
+            }`}
+          >
+            <ul>
+              {controls.first && (
+                <MenuItem light={light} onPick={() => setShowMore(false)} label="First page" onClick={() => goTo(0)} disabled={!ready || page === 0}>
+                  <ChevronsLeft size={18} />
+                </MenuItem>
+              )}
+              {controls.last && (
+                <MenuItem light={light} onPick={() => setShowMore(false)} label="Last page" onClick={() => goTo(total - 1)} disabled={!ready || page >= total - 1}>
+                  <ChevronsRight size={18} />
+                </MenuItem>
+              )}
+              {controls.sound && (
+                <MenuItem light={light} onPick={() => setShowMore(false)} label={soundOn ? "Sound off" : "Sound on"} onClick={() => setSoundOn((v) => !v)}>
+                  {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                </MenuItem>
+              )}
+              {canFullscreen && controls.fullscreen && (
+                <MenuItem light={light} onPick={() => setShowMore(false)} label={fullscreen ? "Exit full screen" : "Full screen"} onClick={toggleFullscreen}>
+                  {fullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                </MenuItem>
+              )}
+              {controls.share && (
+                <MenuItem light={light} onPick={() => setShowMore(false)} label={copied ? "Link copied" : "Share"} onClick={share}>
+                  {copied ? <Check size={18} /> : <Share2 size={18} />}
+                </MenuItem>
+              )}
+              {controls.download && (
+                <MenuItem light={light} onPick={() => setShowMore(false)} label="Download" onClick={download} disabled={!ready}>
+                  <Download size={18} />
+                </MenuItem>
+              )}
+              {controls.print && (
+                <MenuItem light={light} onPick={() => setShowMore(false)} label="Print" onClick={printBook} disabled={!ready}>
+                  <Printer size={18} />
+                </MenuItem>
+              )}
+              <MenuItem light={light} onPick={() => setShowMore(false)} label="Controls" onClick={() => setShowControls(true)}>
+                <SlidersHorizontal size={18} />
+              </MenuItem>
+            </ul>
+          </div>
+        )}
 
         {/* Contents menu */}
         {showContents && (
@@ -943,6 +1012,8 @@ function ControlButton({
   active,
   light,
   square,
+  desktopOnly,
+  mobileOnly,
   children,
 }: {
   label: string;
@@ -951,6 +1022,9 @@ function ControlButton({
   active?: boolean;
   light?: boolean;
   square?: boolean;
+  // Shown from the sm breakpoint up (on phones it is in the More menu), or only below it
+  desktopOnly?: boolean;
+  mobileOnly?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -960,12 +1034,46 @@ function ControlButton({
       disabled={disabled}
       aria-label={label}
       title={label}
-      className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center ${square ? "rounded-md" : "rounded-full"} transition-colors disabled:opacity-30 ${
+      className={`w-9 h-9 sm:w-10 sm:h-10 ${desktopOnly ? "hidden sm:flex" : mobileOnly ? "flex sm:hidden" : "flex"} items-center justify-center ${square ? "rounded-md" : "rounded-full"} transition-colors disabled:opacity-30 ${
         active ? (light ? "bg-navy/10" : "bg-white/15 text-ocean") : light ? "hover:bg-navy/5" : "hover:bg-white/10"
       }`}
     >
       {children}
     </button>
+  );
+}
+
+// One line of the More menu (phones): icon and name; picking it closes the menu
+function MenuItem({
+  label,
+  onClick,
+  onPick,
+  disabled,
+  light,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  onPick: () => void;
+  disabled?: boolean;
+  light?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          onPick();
+          onClick();
+        }}
+        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm disabled:opacity-30 ${light ? "hover:bg-navy/5" : "hover:bg-white/10"}`}
+      >
+        <span className="opacity-70">{children}</span>
+        {label}
+      </button>
+    </li>
   );
 }
 
