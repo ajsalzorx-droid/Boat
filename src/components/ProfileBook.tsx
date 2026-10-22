@@ -346,7 +346,7 @@ export default function ProfileBook() {
       </header>
 
       <main className="relative flex flex-1 flex-col justify-center px-4 pb-6 short:px-2 short:pb-2 md:px-16">
-        <FlipBook label="BOAT Seafood Restaurant profile" titles={pages.map((p) => p.title)} pageRatio={BROCHURE_RATIO} theme="light">
+        <FlipBook label="BOAT Seafood Restaurant profile" titles={pages.map((p) => p.title)} pageRatio={BROCHURE_RATIO} theme="light" pdfUrl="/boat-seafood-company-profile.pdf">
           {pages.map((p, i) => (
             <section
               key={i}

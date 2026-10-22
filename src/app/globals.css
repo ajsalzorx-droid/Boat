@@ -120,6 +120,28 @@ html::-webkit-scrollbar-button {
   display: none;
 }
 
+/* Flip book contents list: thin scrollbar, no arrow buttons */
+.contents-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.contents-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.contents-scroll::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.45);
+  border-radius: 9999px;
+}
+
+.contents-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.7);
+}
+
+.contents-scroll::-webkit-scrollbar-button {
+  display: none;
+}
+
 /* Firefox (Chrome ignores ::-webkit-scrollbar when these are set, so keep them Firefox-only) */
 @supports not selector(::-webkit-scrollbar) {
   html {
@@ -135,6 +157,11 @@ html::-webkit-scrollbar-button {
   .studio * {
     scrollbar-width: thin;
     scrollbar-color: #cbd5e1 transparent;
+  }
+
+  .contents-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(128, 128, 128, 0.45) transparent;
   }
 }
 
