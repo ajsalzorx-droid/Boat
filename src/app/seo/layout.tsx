@@ -4,7 +4,7 @@ import { ReactNode, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Gauge, FileText, Image as ImageIcon, Store, LogOut, PanelLeft, X, ExternalLink } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { logout } from "@/app/admin/login/actions";
 import { STUDIO_PAGES } from "@/lib/content";
 import { StudioProvider } from "./studio-context";
 import PublishBar from "./PublishBar";
@@ -26,8 +26,7 @@ function StudioShell({ children }: { children: ReactNode }) {
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    const { error } = await supabase.auth.signOut({ scope: "local" });
-    if (error) console.error("Logout error:", error.message);
+    await logout("seo").catch((e) => console.error("Logout error:", e));
     window.location.replace("/admin/login?next=/seo");
   };
 

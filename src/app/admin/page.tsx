@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
-import { completeOrder as completeOrderAction, clearPendingOrders } from "./actions";
+import { completeOrder as completeOrderAction, clearPendingOrders, listOrders } from "./actions";
 import { actionFailed } from "./client-helpers";
 import { TrendingUp, Utensils, DollarSign, Clock, Check, AlertCircle, RefreshCw, BellOff, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Items shown per order card before "View more"
 const VISIBLE_ITEMS = 3;
+
+// How often the live feed checks for new orders
+const ORDER_POLL_MS = 5000;
 
 interface Order {
   id: string;
@@ -40,34 +42,30 @@ export default function AdminDashboard() {
   };
 
   const loadData = async () => {
-    const { data: allOrders } = await supabase.from("orders").select("*").order('timestamp', { ascending: false });
-    
-    if (allOrders) {
-      const total = allOrders.reduce((acc, order) => acc + Number(order.total || 0), 0);
-      const pendingList = allOrders.filter(o => o.status === 'pending');
-      
-      setStats({
-        totalOrders: allOrders.length,
-        revenue: total,
-        pendingOrdersCount: pendingList.length,
-      });
-
-      setOrders(pendingList);
+    const res = await listOrders();
+    if (!res.ok) {
+      // Logged out: back to login. Other errors (e.g. offline): keep showing the last data
+      if (res.status === 401) actionFailed(res);
+      return;
     }
+    const { pending, totalOrders, revenue } = res.data!;
+    setStats({ totalOrders, revenue, pendingOrdersCount: pending.length });
+    setOrders(pending);
   };
 
+  // Live feed: check for new orders every few seconds (and right away when the tab is shown again)
   useEffect(() => {
     loadData();
-    
-    const subscription = supabase
-      .channel('orders_channel_admin')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        loadData();
-      })
-      .subscribe();
-
+    const timer = setInterval(() => {
+      if (!document.hidden) loadData();
+    }, ORDER_POLL_MS);
+    const onVisible = () => {
+      if (!document.hidden) loadData();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
-      supabase.removeChannel(subscription);
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

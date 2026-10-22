@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/utils/supabase/client";
+import { login } from "./actions";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, ArrowRight } from "lucide-react";
+import { cdn } from "@/lib/cdn";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -11,25 +12,23 @@ export default function AdminLogin() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const res = await login(email, password);
 
-    if (error) {
-      setError(error.message);
+    if (!res.ok) {
+      setError(res.error);
       setLoading(false);
     } else {
       // Only follow same-site paths so ?next= can't redirect off the site
       const next = new URLSearchParams(window.location.search).get("next");
-      const target = next && /^\/(?![/\\])/.test(next) ? next : "/admin";
+      // Follow ?next= only inside this account's own area (admin: /admin, /kitchen; SEO: /seo)
+      const allowed = res.role === "seo" ? /^\/seo(\/|$)/ : /^\/(admin|kitchen)(\/|$)/;
+      const target = next && /^\/(?![/\\])/.test(next) && allowed.test(next) ? next : res.home;
       router.push(target);
       router.refresh();
     }
@@ -39,7 +38,7 @@ export default function AdminLogin() {
     <div className="min-h-screen bg-navy text-white flex flex-col items-center justify-center p-4">
       <div className="absolute inset-0 z-0">
         <img 
-          src="/images/custom/hero_waterfront_dubai_1777327086914.png" 
+          src={cdn("/images/custom/hero_waterfront_dubai_1777327086914.webp")} 
           className="w-full h-full object-cover opacity-20"
           alt="Background"
         />

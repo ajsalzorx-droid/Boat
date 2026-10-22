@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
-import { getBusinessInfo, siteUrl } from '@/lib/seo'
+import { getBusinessInfo } from '@/lib/seo-data'
+import { siteUrl } from '@/lib/seo'
 
 // /admin and /kitchen are kept out of Google by the X-Robots-Tag header in the proxy,
 // not listed here (listing them would advertise the paths).

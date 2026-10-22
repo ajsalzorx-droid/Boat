@@ -8,10 +8,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
 import { useSection } from "@/context/ContentContext";
+import { cdn } from "@/lib/cdn";
 
 const MenuIcon = ({ size = 24, alt }: { size?: number; alt: string }) => (
   <Image
-    src="/MenuIcon-02.png"
+    src={cdn("/MenuIcon-02.webp")}
     alt={alt}
     width={size}
     height={size}
@@ -30,7 +31,7 @@ export default function FloatingActions() {
   const isStaffPage = pathname.startsWith("/admin") || pathname.startsWith("/kitchen");
   // Not on the SEO Studio itself (they would cover the editor); its live preview still shows them.
   // Also not on the standalone flipbook viewer
-  const hidden = pathname.startsWith("/seo") || pathname === "/seafood-menu-book" || pathname === "/profile";
+  const hidden = pathname.startsWith("/seo") || pathname === "/seafood-menu-book";
 
   useEffect(() => {
     const handleScroll = () => {

@@ -12,7 +12,7 @@ const GROUPS: { title: string; fields: [keyof BusinessInfo, string, string?, str
     title: "Basics",
     fields: [
       ["name", "Restaurant name"],
-      ["site_url", "Website address", "https://boatseafood.ae"],
+      ["site_url", "Website address", "https://boatseafood.com"],
       ["phone", "Phone", "+971 4 123 4567"],
       ["email", "Email"],
       ["cuisine", "Cuisine", "Seafood"],

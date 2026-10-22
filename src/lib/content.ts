@@ -1,4 +1,4 @@
-import { cachedPublicClient } from '@/lib/public-db'
+import { cdn } from '@/lib/cdn'
 
 // Editable page text, images, alt text and lists (edited in the SEO Studio at /seo, stored in
 // site_content). The defaults below are the original site text: they are shown until a section
@@ -103,12 +103,12 @@ const listImage: ListFieldDef[] = [
 ]
 
 const pexels = (id: string, w = 800) =>
-  `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=${w}&q=80`
+  `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=${w}&q=80&fm=webp`
 const SOUP_BOWL =
-  'https://images.pexels.com/photos/20814983/pexels-photo-20814983/free-photo-of-steaming-seafood-bowl.jpeg?auto=compress&cs=tinysrgb&w=800&q=80'
-const WHATSAPP = 'https://wa.me/971500000000'
-const WHATSAPP_OWN_FISH = 'https://wa.me/971500000000?text=Hello%2C%20I%20want%20to%20bring%20my%20own%20fish%20for%20preparation'
-const FISH = '/images/your-fish'
+  'https://images.pexels.com/photos/20814983/pexels-photo-20814983/free-photo-of-steaming-seafood-bowl.jpeg?auto=compress&cs=tinysrgb&w=800&q=80&fm=webp'
+const WHATSAPP = 'https://wa.me/971507487220'
+const WHATSAPP_OWN_FISH = 'https://wa.me/971507487220?text=Hello%2C%20I%20want%20to%20bring%20my%20own%20fish%20for%20preparation'
+const FISH = cdn('/images/your-fish')
 
 export const CONTENT_SECTIONS = [
   // ================= Header & Footer (every page) =================
@@ -117,8 +117,8 @@ export const CONTENT_SECTIONS = [
     page: 'site',
     label: 'Header / menu bar',
     fields: [
-      text('phone', 'Top bar – phone', '+971 50 000 0000'),
-      link('phone_link', 'Top bar – phone link', 'tel:+971500000000'),
+      text('phone', 'Top bar – phone', '+971 4 324 7998'),
+      link('phone_link', 'Top bar – phone link', 'tel:+97143247998'),
       text('address', 'Top bar – address', 'Waterfront Market, Deira, Dubai'),
       text('hours', 'Top bar – hours', 'Open Daily: 12:00 PM - 12:00 AM'),
       text('nav_menu', 'Link – Menu', 'Menu'),
@@ -130,8 +130,8 @@ export const CONTENT_SECTIONS = [
       text('nav_fresh', 'Link – Fresh Catch', 'Fresh Catch'),
       text('delivery', 'Delivery button', 'Delivery'),
       text('order', 'Order button', 'Order Online'),
-      fixedAlt('logo_alt', 'Logo – alt text', '/logo.png', 'Boat Seafood Logo'),
-      fixedAlt('delivery_alt', 'Delivery icon – alt text', '/images-removebg-preview.png', 'Delivery'),
+      fixedAlt('logo_alt', 'Logo – alt text', cdn('/logo.webp'), 'Boat Seafood Logo'),
+      fixedAlt('delivery_alt', 'Delivery icon – alt text', cdn('/images-removebg-preview.webp'), 'Delivery'),
     ],
   },
   {
@@ -140,10 +140,10 @@ export const CONTENT_SECTIONS = [
     label: 'Floating buttons (bottom right)',
     fields: [
       text('menu_label', 'Menu button – name', 'View our seafood menu', NAME_HINT),
-      fixedAlt('menu_alt', 'Menu button icon – alt text', '/MenuIcon-02.png', 'Boat Seafood menu'),
+      fixedAlt('menu_alt', 'Menu button icon – alt text', cdn('/MenuIcon-02.webp'), 'Boat Seafood menu'),
       text('home_label', 'Home button – name (shown on the menu page)', 'Back to home', NAME_HINT),
       text('whatsapp_label', 'WhatsApp button – name', 'Chat with Boat Seafood on WhatsApp', NAME_HINT),
-      link('whatsapp_link', 'WhatsApp link', 'https://wa.me/971500000000'),
+      link('whatsapp_link', 'WhatsApp link', 'https://wa.me/971507487220'),
       text('top_label', 'Back-to-top button – name', 'Back to top', NAME_HINT),
     ],
   },
@@ -172,7 +172,7 @@ export const CONTENT_SECTIONS = [
     page: 'site',
     label: 'Footer',
     fields: [
-      fixedAlt('logo_alt', 'Logo – alt text', '/logo.png', 'Boat Seafood'),
+      fixedAlt('logo_alt', 'Logo – alt text', cdn('/logo.webp'), 'Boat Seafood'),
       area('about', 'About text', "Premium seafood dining at the heart of Dubai's Waterfront Market. Where the ocean meets the city. Freshness, quality, and an unforgettable atmosphere."),
       text('col_navigate', 'Column heading 1', 'Navigate'),
       text('link_menu', 'Link – The Menu', 'The Menu'),
@@ -188,9 +188,9 @@ export const CONTENT_SECTIONS = [
       text('col_contact', 'Column heading 3', 'Contact'),
       text('label_phone', 'Phone label', 'Phone'),
       text('phone', 'Phone', '+971 4 324 7998'),
-      link('phone_link', 'Phone link', 'tel:+97140000000'),
+      link('phone_link', 'Phone link', 'tel:+97143247998'),
       text('label_email', 'Email label', 'Email'),
-      text('email', 'Email', 'hello@boatseafood.ae'),
+      text('email', 'Email', 'boatdxb26@gmail.com'),
       text('label_address', 'Address label', 'Address'),
       text('address', 'Address', 'Waterfront Market, Dubai'),
       text('label_hours', 'Hours label', 'Hours'),
@@ -211,7 +211,7 @@ export const CONTENT_SECTIONS = [
       body("Seafood is not just food — it is an experience, a story, and a connection to the sea. Crafted daily at Dubai's finest waterfront.", 'Sub text'),
       text('cta', 'Main button', 'Order Online'),
       text('cta2', 'Second button', 'Find Us'),
-      ...image('/images/custom/hero_waterfront_dubai_1777327086914.png', 'Boat Seafood restaurant at Waterfront Market, Dubai', 'Background image (shown before the video loads)'),
+      ...image(cdn('/images/custom/hero_waterfront_dubai_1777327086914.webp'), 'Boat Seafood restaurant at Waterfront Market, Dubai', 'Background image (shown before the video loads)'),
     ],
   },
   {
@@ -268,7 +268,7 @@ export const CONTENT_SECTIONS = [
       area('title', 'Quote', 'Seafood is not just food — it is an experience, a story, and a'),
       text('highlight', 'Highlighted end of quote', 'connection to the sea.'),
       text('cite', 'Quote by', '— Boat Seafood, Dubai'),
-      ...image('/images/custom/menu_seafood_tower_platter_1777327161161.png', 'Seafood tower platter with lobster, prawns and oysters'),
+      ...image(cdn('/images/custom/menu_seafood_tower_platter_1777327161161.webp'), 'Seafood tower platter with lobster, prawns and oysters'),
     ],
   },
   {
@@ -289,9 +289,9 @@ export const CONTENT_SECTIONS = [
       ...heading('Premium — Not Just\nin What We', 'Serve'),
       body('Every detail is considered long before a dish reaches your table — from the sourcing of the catch to the moment your plate arrives. Calm, unhurried, and deeply satisfying.'),
       text('cta', 'Button', 'Get Directions'),
-      ...image('/images/custom/experience_plating_chef_1777327114148.png', 'Chef plating a seafood dish at Boat Seafood'),
-      ...image('/images/custom/menu_gourmet_spices_saffron_1777327205314.png', 'Saffron and spices used in the Boat Seafood kitchen', 'Small photo 1', 'image2'),
-      ...image('/images/custom/menu_tiger_prawns_grilled_1777327142301.png', 'Grilled tiger prawns', 'Small photo 2', 'image3'),
+      ...image(cdn('/images/custom/experience_plating_chef_1777327114148.webp'), 'Chef plating a seafood dish at Boat Seafood'),
+      ...image(cdn('/images/custom/menu_gourmet_spices_saffron_1777327205314.webp'), 'Saffron and spices used in the Boat Seafood kitchen', 'Small photo 1', 'image2'),
+      ...image(cdn('/images/custom/menu_tiger_prawns_grilled_1777327142301.webp'), 'Grilled tiger prawns', 'Small photo 2', 'image3'),
     ],
     list: {
       label: 'Feature boxes',
@@ -366,7 +366,7 @@ export const CONTENT_SECTIONS = [
       text('seating', 'Seating policy', 'Walk-ins welcome — no reservation needed'),
       text('cta', 'WhatsApp button', 'WhatsApp'),
       text('cta2', 'Directions button', 'Get Directions'),
-      ...image('/images/custom/sensory_table_ambience_1777327223551.png', 'Boat Seafood restaurant dining room'),
+      ...image(cdn('/images/custom/sensory_table_ambience_1777327223551.webp'), 'Boat Seafood restaurant dining room'),
     ],
   },
   {
@@ -398,7 +398,7 @@ export const CONTENT_SECTIONS = [
       text('title', 'Heading', 'Menu'),
       area('body', 'Text (delivery / online visitors)', 'Explore our premium seafood selection for home delivery. Caught daily, delivered with care across Dubai.'),
       area('body_table', 'Text (guests ordering at a table via QR)', 'Enjoy our curated restaurant selection, prepared fresh and served directly to your table at the Waterfront Market.'),
-      ...image('/images/custom/hero_waterfront_dubai_1777327086914.png', 'Boat Seafood restaurant at Waterfront Market, Dubai', 'Background image'),
+      ...image(cdn('/images/custom/hero_waterfront_dubai_1777327086914.webp'), 'Boat Seafood restaurant at Waterfront Market, Dubai', 'Background image'),
     ],
   },
 
@@ -546,7 +546,7 @@ export const CONTENT_SECTIONS = [
       text('pill2', 'Badge 2', 'Prepared to your taste'),
       text('pill3', 'Badge 3', 'Family-friendly dining'),
       text('badge', 'Floating badge text', 'Fresh Catch + Expert Preparation'),
-      ...image(`${FISH}/02-hero-grilled-fish-closeup.png`, 'Perfectly grilled fish — Boat Seafood'),
+      ...image(`${FISH}/02-hero-grilled-fish-closeup.webp`, 'Perfectly grilled fish — Boat Seafood'),
     ],
   },
   {
@@ -564,9 +564,9 @@ export const CONTENT_SECTIONS = [
         ...listImage,
       ],
       default: [
-        { title: 'Choose Fresh From the Market', description: 'Pick your fish straight from the market or bring your own catch.', image: `${FISH}/01-choose-fresh-fish-at-market.png`, alt: '' },
-        { title: 'We Prepare It Your Way', description: 'Our chefs cook it exactly the way you like, using fresh ingredients and bold flavor.', image: `${FISH}/02-hero-grilled-fish-closeup.png`, alt: '' },
-        { title: 'Enjoy the Experience', description: 'Dine with family and friends in a warm coastal setting by the sea.', image: `${FISH}/03-family-seaside-dining-experience.png`, alt: '' },
+        { title: 'Choose Fresh From the Market', description: 'Pick your fish straight from the market or bring your own catch.', image: `${FISH}/01-choose-fresh-fish-at-market.webp`, alt: '' },
+        { title: 'We Prepare It Your Way', description: 'Our chefs cook it exactly the way you like, using fresh ingredients and bold flavor.', image: `${FISH}/02-hero-grilled-fish-closeup.webp`, alt: '' },
+        { title: 'Enjoy the Experience', description: 'Dine with family and friends in a warm coastal setting by the sea.', image: `${FISH}/03-family-seaside-dining-experience.webp`, alt: '' },
       ],
     },
   },
@@ -590,14 +590,14 @@ export const CONTENT_SECTIONS = [
         ...listImage,
       ],
       default: [
-        { title: 'Fried', description: 'Crispy, golden, and full of flavor.', image: `${FISH}/04-style-fried-fish.png`, alt: '' },
-        { title: 'Grilled', description: 'Smoky, tender, and perfectly charred.', image: `${FISH}/05-style-grilled-fish.png`, alt: '' },
-        { title: 'Tawa', description: 'Rich spices seared on a hot flat pan.', image: `${FISH}/06-style-tawa-fish.png`, alt: '' },
-        { title: 'Oven Baked', description: 'Delicate, aromatic, and herb infused.', image: `${FISH}/07-style-oven-baked-fish.png`, alt: '' },
-        { title: 'Curry & Gravy', description: 'Comforting coastal flavors in every bite.', image: `${FISH}/08-style-curry-and-gravy-fish.png`, alt: '' },
-        { title: 'Seafood Soup', description: 'Warm, hearty, and deeply satisfying.', image: `${FISH}/09-style-seafood-soup.png`, alt: '' },
-        { title: 'Tagine', description: 'Slow-cooked with rich spices and tradition.', image: `${FISH}/10-style-seafood-tagine.png`, alt: '' },
-        { title: 'Fresh Salads', description: 'Light, crisp, and refreshing on the side.', image: `${FISH}/11-style-fresh-salad.png`, alt: '' },
+        { title: 'Fried', description: 'Crispy, golden, and full of flavor.', image: `${FISH}/04-style-fried-fish.webp`, alt: '' },
+        { title: 'Grilled', description: 'Smoky, tender, and perfectly charred.', image: `${FISH}/05-style-grilled-fish.webp`, alt: '' },
+        { title: 'Tawa', description: 'Rich spices seared on a hot flat pan.', image: `${FISH}/06-style-tawa-fish.webp`, alt: '' },
+        { title: 'Oven Baked', description: 'Delicate, aromatic, and herb infused.', image: `${FISH}/07-style-oven-baked-fish.webp`, alt: '' },
+        { title: 'Curry & Gravy', description: 'Comforting coastal flavors in every bite.', image: `${FISH}/08-style-curry-and-gravy-fish.webp`, alt: '' },
+        { title: 'Seafood Soup', description: 'Warm, hearty, and deeply satisfying.', image: `${FISH}/09-style-seafood-soup.webp`, alt: '' },
+        { title: 'Tagine', description: 'Slow-cooked with rich spices and tradition.', image: `${FISH}/10-style-seafood-tagine.webp`, alt: '' },
+        { title: 'Fresh Salads', description: 'Light, crisp, and refreshing on the side.', image: `${FISH}/11-style-fresh-salad.webp`, alt: '' },
       ],
     },
   },
@@ -616,7 +616,7 @@ export const CONTENT_SECTIONS = [
       text('closing_highlight', 'Closing line – highlighted', 'Expertly Prepared.'),
       text('badge_label', 'Photo badge – label', 'Boat Seafood · Dubai'),
       text('badge_quote', 'Photo badge – quote', 'Your Fish. Your Taste. Expertly Prepared.'),
-      ...image(`${FISH}/03-family-seaside-dining-experience.png`, 'Family dining experience at Boat Seafood Restaurant'),
+      ...image(`${FISH}/03-family-seaside-dining-experience.webp`, 'Family dining experience at Boat Seafood Restaurant'),
     ],
   },
   {
@@ -656,8 +656,8 @@ export const CONTENT_SECTIONS = [
       text('title', 'Cover title', 'Boat Seafood'),
       text('subtitle', 'Cover subtitle', 'The Menu'),
       text('tagline', 'Cover tagline', 'Waterfront Market · Dubai'),
-      fixedAlt('logo_alt', 'Logo – alt text', '/logo.png', 'Boat Seafood Restaurant logo'),
-      ...image('/images/custom/hero_waterfront_dubai_1777327086914.png', 'Boat Seafood restaurant at Waterfront Market, Dubai', 'Cover photo'),
+      fixedAlt('logo_alt', 'Logo – alt text', cdn('/logo.webp'), 'Boat Seafood Restaurant logo'),
+      ...image(cdn('/images/custom/hero_waterfront_dubai_1777327086914.webp'), 'Boat Seafood restaurant at Waterfront Market, Dubai', 'Cover photo'),
     ],
   },
   {
@@ -668,7 +668,7 @@ export const CONTENT_SECTIONS = [
       eyebrow('Our Story'),
       text('title', 'Story heading', 'Fresh from the market, cooked with care'),
       body('Born at the heart of Waterfront Market, Boat Seafood serves only the freshest catch — chosen at dawn, prepared by our chefs and honestly presented. Pick from our menu, or bring your own fish from the market and we will cook it your way.'),
-      ...image('/images/custom/experience_plating_chef_1777327114148.png', 'Chef plating a seafood dish at Boat Seafood'),
+      ...image(cdn('/images/custom/experience_plating_chef_1777327114148.webp'), 'Chef plating a seafood dish at Boat Seafood'),
       text('contents_title', 'Contents page heading', 'Contents'),
     ],
   },
@@ -694,7 +694,7 @@ export const CONTENT_SECTIONS = [
     label: 'Links page',
     fields: [
       text('title', 'Page heading (hidden – read by Google and screen readers)', 'Boat Seafood Restaurant Dubai – Menu, Reviews & Links'),
-      fixedAlt('logo_alt', 'Logo – alt text', '/logo.png', 'Boat Seafood Restaurant'),
+      fixedAlt('logo_alt', 'Logo – alt text', cdn('/logo.webp'), 'Boat Seafood Restaurant'),
       text('tagline', 'Tagline', 'Seafood Restaurant'),
       text('location', 'Location', 'Dubai · Waterfront Market'),
       text('btn_menu', 'Button – View Menu', 'View Menu'),
@@ -750,8 +750,3 @@ export function mergeAll(rows: { section: string; data: SectionData }[] | null |
   return Object.fromEntries(ALL_SECTIONS.map((def) => [def.id, mergeSection(def, saved.get(def.id))])) as SiteContent
 }
 
-export async function getSiteContent(): Promise<SiteContent> {
-  const db = cachedPublicClient(CONTENT_TAG)
-  const { data } = db ? await db.from('site_content').select('section, data') : { data: null }
-  return mergeAll(data)
-}

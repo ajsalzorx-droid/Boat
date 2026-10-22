@@ -1,8 +1,7 @@
-import type { Metadata, MetadataRoute } from 'next'
-import { cachedPublicClient } from '@/lib/public-db'
+import { cdn } from '@/lib/cdn'
 
-// SEO values come from the seo_pages / business_info tables (edited in the SEO Studio, /seo).
-// Reads are cached under the "seo" tag; the admin save action calls updateTag('seo').
+// SEO settings shared by the site and the SEO Studio (/seo): page list, types, defaults and
+// schema.org helpers. Safe in client components; the database reads are in src/lib/seo-data.ts.
 export const SEO_TAG = 'seo'
 
 // Public pages the SEO dashboard manages. The defaults are used until the tables exist
@@ -44,17 +43,10 @@ export const SEO_PAGES = [
   },
   {
     path: '/seafood-menu-book',
-    label: 'Menu Book',
-    title: 'Seafood Menu Book | Boat Seafood Dubai',
+    label: 'Flipbook',
+    title: 'Company Profile Flipbook | Boat Seafood Dubai',
     description:
       'Flip through the BOAT Seafood Restaurant book: authentic Arabic and Indian seafood, your fish our preparation, and waterfront hospitality at Waterfront Market, Dubai.',
-  },
-  {
-    path: '/profile',
-    label: 'Profile',
-    title: 'Company Profile | Boat Seafood Restaurant Dubai',
-    description:
-      'Flip through the BOAT Seafood Restaurant profile: authentic Arabic and Indian seafood, your fish our preparation, and waterfront hospitality at Waterfront Market, Dubai.',
   },
   {
     path: '/links',
@@ -99,9 +91,9 @@ export type BusinessInfo = {
 
 export const DEFAULT_BUSINESS: BusinessInfo = {
   name: 'Boat Seafood Restaurant',
-  site_url: process.env.NEXT_PUBLIC_SITE_URL || 'https://boatseafood.ae',
-  phone: '',
-  email: 'hello@boatseafood.ae',
+  site_url: process.env.NEXT_PUBLIC_SITE_URL || 'https://boatseafood.com',
+  phone: '+971 4 324 7998',
+  email: 'boatdxb26@gmail.com',
   street: 'Waterfront Market, Al Khaleej Rd',
   locality: 'Deira',
   region: 'Dubai',
@@ -119,43 +111,6 @@ export const DEFAULT_BUSINESS: BusinessInfo = {
   default_og_image: '',
 }
 
-const seoClient = () => cachedPublicClient(SEO_TAG)
-
-export async function getSeoPages(): Promise<Record<string, SeoPage>> {
-  const defaults = Object.fromEntries(
-    SEO_PAGES.map((p) => [p.path, { path: p.path, title: p.title, description: p.description, og_image: '', noindex: false }])
-  ) as Record<string, SeoPage>
-
-  const db = seoClient()
-  if (!db) return defaults
-  const { data, error } = await db.from('seo_pages').select('*')
-  if (error || !data) return defaults // table not created yet -> code defaults
-
-  for (const row of data as SeoPage[]) {
-    const d = defaults[row.path]
-    defaults[row.path] = {
-      ...row,
-      // Empty fields fall back to the code defaults so a page never loses its title
-      title: row.title || d?.title || '',
-      description: row.description || d?.description || '',
-    }
-  }
-  return defaults
-}
-
-export async function getBusinessInfo(): Promise<BusinessInfo> {
-  const db = seoClient()
-  if (!db) return DEFAULT_BUSINESS
-  const { data, error } = await db.from('business_info').select('*').eq('id', 1).maybeSingle()
-  if (error || !data) return DEFAULT_BUSINESS
-
-  const merged = { ...DEFAULT_BUSINESS }
-  for (const key of Object.keys(DEFAULT_BUSINESS) as (keyof BusinessInfo)[]) {
-    if (typeof data[key] === 'string' && data[key]) merged[key] = data[key]
-  }
-  return merged
-}
-
 export function siteUrl(business: BusinessInfo) {
   try {
     return new URL(business.site_url)
@@ -164,53 +119,11 @@ export function siteUrl(business: BusinessInfo) {
   }
 }
 
-// Share image when neither the page nor Business Info has one (the hero photo, a 1024×1024 JPEG)
-const FALLBACK_SHARE_IMAGE = { url: '/images/custom/hero_waterfront_dubai_1777327086914.png', width: 1024, height: 1024, type: 'image/jpeg' }
+// Share image when neither the page nor Business Info has one: the hero photo as a 1200×630 JPEG
+// (the size WhatsApp, Facebook and X show best; JPEG works in every app)
+export const FALLBACK_SHARE_IMAGE = { url: cdn('/images/share-image.jpg'), width: 1200, height: 630, type: 'image/jpeg' }
 
 const absolute = (business: BusinessInfo, src: string) => new URL(src, siteUrl(business)).href
-
-// Used by each route's layout: export const generateMetadata = () => pageMetadata('/menu')
-export async function pageMetadata(path: SeoPath): Promise<Metadata> {
-  const [pages, business] = await Promise.all([getSeoPages(), getBusinessInfo()])
-  const page = pages[path]
-  const custom = page.og_image || business.default_og_image
-  const image = custom ? { url: custom } : FALLBACK_SHARE_IMAGE
-
-  return {
-    metadataBase: siteUrl(business),
-    title: page.title,
-    description: page.description,
-    alternates: { canonical: path },
-    robots: page.noindex ? { index: false, follow: true } : undefined,
-    openGraph: {
-      type: 'website',
-      url: path,
-      siteName: business.name,
-      title: page.title,
-      description: page.description,
-      locale: 'en_AE',
-      images: [image],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: page.title,
-      description: page.description,
-      images: [image.url],
-    },
-  }
-}
-
-export async function sitemapEntries(): Promise<MetadataRoute.Sitemap> {
-  const [pages, business] = await Promise.all([getSeoPages(), getBusinessInfo()])
-  const base = siteUrl(business).origin
-
-  return SEO_PAGES.filter((p) => !pages[p.path]?.noindex).map((p) => ({
-    url: `${base}${p.path === '/' ? '' : p.path}`,
-    lastModified: pages[p.path]?.updated_at ? new Date(pages[p.path].updated_at!) : undefined,
-    changeFrequency: p.path === '/' || p.path === '/menu' ? 'weekly' : 'monthly',
-    priority: p.path === '/' ? 1 : p.path === '/menu' ? 0.9 : 0.7,
-  }))
-}
 
 // schema.org Restaurant data for Google (address, hours, phone, socials)
 export function restaurantJsonLd(business: BusinessInfo) {

@@ -6,7 +6,7 @@ import { useCart } from "@/context/CartContext";
 import { Menu as MenuIcon, X, ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useSection } from "@/context/ContentContext";
-import CatboFishing from "./CatboFishing";
+import { cdn } from "@/lib/cdn";
 
 const smoothEase = [0.16, 1, 0.3, 1] as const;
 
@@ -37,8 +37,6 @@ export default function Navbar() {
   const nav = useSection("navbar").fields;
   const mobileLinks = [
     { href: "/menu", label: nav.nav_menu },
-    // The flipbook opens on its own, in a new tab (like a Heyzine flipbook)
-    { href: "/seafood-menu-book", label: nav.nav_book, newTab: true },
     { href: "/#exp", label: nav.nav_experience },
     { href: "/#loc", label: nav.nav_location },
     { href: "/events", label: nav.nav_events },
@@ -89,20 +87,19 @@ export default function Navbar() {
             : "px-8 md:px-16 lg:px-8 xl:px-16 pt-4 pb-3 md:py-3 bg-ink/80 backdrop-blur-sm"
         }`}
       >
-        {/* Logo, with Catbo fishing on it (coming-soon teaser) */}
+        {/* Logo */}
         <div className="relative shrink-0">
         <Link
           href="/"
           className="relative h-16 md:h-20 w-52 md:w-auto shrink-0 no-underline flex items-center"
         >
-          <img 
-            src="/logo.png" 
+          <img
+            src={cdn("/logo.webp")}
             alt={nav.logo_alt}
             fetchPriority="high"
             className={`max-h-full w-auto object-contain transition-all duration-500 ${isScrolled ? "brightness-0 invert opacity-90" : "brightness-0 invert"}`}
           />
         </Link>
-          <CatboFishing compact={isScrolled} />
         </div>
 
         {/* Desktop Menu */}
@@ -114,17 +111,6 @@ export default function Navbar() {
                 className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
               >
                 {nav.nav_menu}
-                <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/seafood-menu-book"
-                target="_blank"
-                rel="noopener"
-                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group whitespace-nowrap"
-              >
-                {nav.nav_book}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
               </Link>
             </li>
@@ -182,7 +168,7 @@ export default function Navbar() {
             <button 
               className="flex flex-col items-center justify-center text-white/80 hover:text-white transition-colors"
             >
-              <img src="/images-removebg-preview.png" alt={nav.delivery_alt} loading="lazy" decoding="async" style={{ height: "36px", width: "auto" }} className="brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity" />
+              <img src={cdn("/images-removebg-preview.webp")} alt={nav.delivery_alt} loading="lazy" decoding="async" style={{ height: "36px", width: "auto" }} className="brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity" />
               <span className="text-[10px] tracking-[1px] uppercase mt-1 text-white">{nav.delivery}</span>
             </button>
             
@@ -274,7 +260,6 @@ export default function Navbar() {
             <motion.div key={link.href} variants={mobileItemVariants}>
               <Link
                 href={link.href}
-                {...(link.newTab && { target: "_blank", rel: "noopener" })}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={`${link.accent ? "text-[#C49A3C]" : "text-white"} text-[15px] font-light tracking-[3px] uppercase`}
               >
@@ -288,7 +273,7 @@ export default function Navbar() {
               onClick={() => setIsMobileDeliveryOpen(!isMobileDeliveryOpen)}
               className="flex items-center gap-3 text-white text-[15px] font-light tracking-[3px] uppercase"
             >
-              <img src="/images-removebg-preview.png" alt={nav.delivery_alt} decoding="async" style={{ height: "24px", width: "auto" }} className="brightness-0 invert" />
+              <img src={cdn("/images-removebg-preview.webp")} alt={nav.delivery_alt} decoding="async" style={{ height: "24px", width: "auto" }} className="brightness-0 invert" />
               {nav.delivery}
             </button>
 

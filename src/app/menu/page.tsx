@@ -1,5 +1,6 @@
 import { getActiveMenuItems } from "@/lib/menu-data";
-import { getBusinessInfo, menuJsonLd } from "@/lib/seo";
+import { getBusinessInfo } from "@/lib/seo-data";
+import { menuJsonLd } from "@/lib/seo";
 import MenuClient from "./MenuClient";
 
 // Server page: the dishes are in the HTML (and in the Menu schema below) for Google.

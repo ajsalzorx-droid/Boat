@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useSection } from "@/context/ContentContext";
+import { cdnVideo } from "@/lib/cdn";
 import { Heading } from "./ContentText";
 
 export default function Hero() {
@@ -21,7 +22,7 @@ export default function Hero() {
         poster={c.fields.image}
         className="absolute inset-0 w-full h-full object-cover"
       >
-        <source src="/hero.mp4" type="video/mp4" />
+        <source src={cdnVideo("/hero.mp4")} type="video/mp4" />
         {/* Fallback image if video fails */}
         <img
           src={c.fields.image}
@@ -48,9 +49,11 @@ export default function Hero() {
           </span>
         </motion.div>
 
+        {/* Heading and intro stay visible from the first paint (only slide up): they are the page's
+            main content for Google and its largest text, so they must not wait for JavaScript */}
         <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 30 }}
+          animate={{ y: 0 }}
           transition={{ duration: 1.1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="font-playfair text-[clamp(30px,4vw,56px)] font-bold leading-[0.98] text-white mb-6 drop-shadow-xl"
         >
@@ -58,8 +61,8 @@ export default function Hero() {
         </motion.h1>
 
         <motion.p
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 30 }}
+          animate={{ y: 0 }}
           transition={{ duration: 1.1, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
           className="text-[13px] font-medium leading-[2.0] text-white/80 max-w-[400px] mb-10 tracking-[0.2px]"
         >

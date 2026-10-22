@@ -30,7 +30,6 @@ const outfit = Outfit({
 
 import SmoothScroll from "@/components/SmoothScroll";
 import FloatingActions from "@/components/FloatingActions";
-import CatboComingSoon from "@/components/CatboComingSoon";
 
 // Fallback for pages without their own SEO entry (admin, kitchen). Public pages set their
 // title/description from the SEO dashboard via pageMetadata() in their page or layout.
@@ -43,7 +42,7 @@ export const metadata: Metadata = {
 
 import { CartProvider } from "@/context/CartContext";
 import { ContentProvider } from "@/context/ContentContext";
-import { getSiteContent } from "@/lib/content";
+import { getSiteContent } from "@/lib/content-data";
 
 export default async function RootLayout({
   children,
@@ -65,8 +64,6 @@ export default async function RootLayout({
             <SmoothScroll>
               {children}
               <FloatingActions />
-              {/* Catbo coming-soon card, opened from the fishing sign in the header */}
-              <CatboComingSoon />
             </SmoothScroll>
           </CartProvider>
         </ContentProvider>

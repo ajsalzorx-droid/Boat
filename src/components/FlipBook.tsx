@@ -442,10 +442,11 @@ function PageEdges({ side, count }: { side: "left" | "right"; count: number }) {
   );
 }
 
-// Page turn sound: real recordings of a book page turning (Kenney "RPG Audio", CC0 public domain),
-// softened (public/sounds). Loaded once when the book opens; each turn picks one, mostly the
-// full turn, at a slightly different pitch so it never sounds mechanical.
-const FLIP_SOUNDS = ["/sounds/page-flip-1.mp3", "/sounds/page-flip-2.mp3"];
+// Page turn sound: a real recording of a book page turning (Kenney "RPG Audio", CC0 public domain),
+// made smooth: crisp highs filtered out, a slow fade in and out (public/sounds/page-flip-soft.mp3).
+// Loaded once when the book opens; played quietly, at a slightly different pitch each turn so it
+// never sounds mechanical.
+const FLIP_SOUNDS = [`https://res.cloudinary.com/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'xmjctuc9'}/video/upload/sounds/page-flip-soft.mp3`];
 let flipBuffers: Promise<AudioBuffer[]> | null = null;
 let audioContext: AudioContext | null = null;
 
@@ -473,10 +474,10 @@ async function playFlipSound() {
     if (ctx.state === "suspended") await ctx.resume();
 
     const source = ctx.createBufferSource();
-    source.buffer = buffers.length > 1 && Math.random() > 0.75 ? buffers[1] : buffers[0];
-    source.playbackRate.value = 0.94 + Math.random() * 0.1;
+    source.buffer = buffers[0];
+    source.playbackRate.value = 0.95 + Math.random() * 0.06;
     const gain = ctx.createGain();
-    gain.gain.value = 0.6;
+    gain.gain.value = 0.45;
     source.connect(gain).connect(ctx.destination);
     source.start();
   } catch {

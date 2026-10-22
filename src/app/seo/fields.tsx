@@ -384,8 +384,8 @@ export function siteOrigin(siteUrl: string, fallback: string) {
 export function MissingTablesNotice() {
   return (
     <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-sm">
-      The SEO tables don&apos;t exist yet. Run <code className="font-mono font-bold">supabase/seo.sql</code> in the Supabase SQL
-      Editor, then reload. Until then the site shows its original text and nothing can be saved.
+      The database could not be read. Check your connection (and <code className="font-mono font-bold">MONGODB_URI</code> in
+      .env.local), then reload. Until then the studio shows the original text and nothing can be saved.
     </div>
   );
 }

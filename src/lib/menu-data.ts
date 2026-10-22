@@ -1,4 +1,6 @@
-import { cachedPublicClient } from '@/lib/public-db'
+import 'server-only'
+import { unstable_cache } from 'next/cache'
+import { getDb, toPlain } from '@/lib/mongodb'
 import type { MenuItem } from '@/data/menu'
 
 // Dishes and the daily catch, loaded on the server so Google gets them in the page HTML.
@@ -15,27 +17,39 @@ export type DailyCatchItem = {
   image_url: string
 }
 
-export async function getActiveMenuItems(): Promise<MenuItem[]> {
-  const db = cachedPublicClient(MENU_TAG)
-  if (!db) return []
-  const { data, error } = await db
-    .from('menu_items')
-    .select('*')
-    .eq('is_active', true)
-    .order('created_at', { ascending: true })
-    .order('id', { ascending: true }) // stable order when created_at ties
-  if (error) console.error('Error fetching menu:', error.message)
-  return (data ?? []).map((d) => ({ ...d, image: d.image_url }))
-}
+export const getActiveMenuItems = unstable_cache(
+  async (): Promise<MenuItem[]> => {
+    try {
+      const db = await getDb()
+      const docs = await db
+        .collection('menu_items')
+        .find({ is_active: true })
+        .sort({ created_at: 1, _id: 1 }) // stable order when created_at ties
+        .toArray()
+      return docs.map((d) => {
+        const item = toPlain(d)
+        return { ...item, image: d.image_url ?? '' } as unknown as MenuItem
+      })
+    } catch (e) {
+      console.error('Error fetching menu:', e)
+      return []
+    }
+  },
+  ['menu-items'],
+  { tags: [MENU_TAG] }
+)
 
-export async function getAvailableCatch(): Promise<DailyCatchItem[]> {
-  const db = cachedPublicClient(MENU_TAG)
-  if (!db) return []
-  const { data, error } = await db
-    .from('daily_catch')
-    .select('*')
-    .eq('is_available', true)
-    .order('updated_at', { ascending: false })
-  if (error) console.error('Error fetching daily catch:', error.message)
-  return data ?? []
-}
+export const getAvailableCatch = unstable_cache(
+  async (): Promise<DailyCatchItem[]> => {
+    try {
+      const db = await getDb()
+      const docs = await db.collection('daily_catch').find({ is_available: true }).sort({ updated_at: -1 }).toArray()
+      return docs.map((d) => toPlain(d) as unknown as DailyCatchItem)
+    } catch (e) {
+      console.error('Error fetching daily catch:', e)
+      return []
+    }
+  },
+  ['daily-catch'],
+  { tags: [MENU_TAG] }
+)

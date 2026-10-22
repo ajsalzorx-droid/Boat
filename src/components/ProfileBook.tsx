@@ -3,9 +3,10 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import FlipBook from "@/components/FlipBook";
 import { BROCHURE_RATIO, BrochureBackdrop } from "@/components/Brochure";
+import { cdn } from "@/lib/cdn";
 
 // The printed BOAT PROFILE-26 brochure as a flipbook, page for page, like the Heyzine version.
-// Each page is the PDF page rendered to an image (public/images/profile/pages/pNN.webp), so the
+// Each page is the PDF page rendered to an image (images/profile/pages/pNN.webp on Cloudinary), so the
 // design is exactly the brochure's. Text pages use the page rendered without its text
 // (pNN-bg.webp) with the text set over it in HTML, larger than the print so it reads on screen.
 // Other pages keep their text as hidden HTML for Google and screen readers. Links are laid over
@@ -331,7 +332,7 @@ export default function ProfileBook() {
       <header className="relative z-10 flex h-16 short:h-11 shrink-0 items-center justify-between gap-4 px-4 md:px-8">
         <Link href="/" aria-label="Boat Seafood home" className="shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="BOAT Seafood Restaurant" className="h-12 short:h-8 w-auto" />
+          <img src={cdn("/logo.webp")} alt="BOAT Seafood Restaurant" className="h-12 short:h-8 w-auto" />
         </Link>
         <p className="min-w-0 truncate text-center text-[10px] font-bold uppercase tracking-[4px] text-navy/70 md:text-xs">Company Profile</p>
         <Link
@@ -355,7 +356,7 @@ export default function ProfileBook() {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={`/images/profile/pages/p${String(i + 1).padStart(2, "0")}${p.layout ? "-bg" : ""}.webp`}
+                src={cdn(`/images/profile/pages/p${String(i + 1).padStart(2, "0")}${p.layout ? "-bg" : ""}.webp`)}
                 alt={p.layout ? "" : p.alt}
                 loading={i < 4 ? "eager" : "lazy"}
                 draggable={false}

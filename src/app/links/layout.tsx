@@ -1,4 +1,4 @@
-import { pageMetadata } from "@/lib/seo";
+import { pageMetadata } from "@/lib/seo-data";
 
 export const generateMetadata = () => pageMetadata("/links");
 

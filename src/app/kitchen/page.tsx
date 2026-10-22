@@ -4,9 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Clock, Utensils, AlertCircle, RefreshCw, LogOut, BellOff } from "lucide-react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
-import { completeOrder as completeOrderAction, clearPendingOrders } from "@/app/admin/actions";
+import { completeOrder as completeOrderAction, clearPendingOrders, listOrders } from "@/app/admin/actions";
 import { actionFailed } from "@/app/admin/client-helpers";
+
+// How often the kitchen screen checks for new orders
+const ORDER_POLL_MS = 5000;
 
 interface Order {
   id: string;
@@ -19,7 +21,8 @@ interface Order {
 
 export default function KitchenPage() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [lastOrderCount, setLastOrderCount] = useState(0);
+  // Pending orders seen at the last check
+  const lastOrderCount = useRef(0);
   const [isRinging, setIsRinging] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -37,39 +40,38 @@ export default function KitchenPage() {
   };
 
   const loadOrders = async () => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('status', 'pending')
-      .order('timestamp', { ascending: false });
-
-    if (data) {
-      setOrders(data);
-      if (data.length > lastOrderCount) {
-        setIsRinging(true);
-        audioRef.current?.play().catch(e => console.log("Audio play blocked"));
-      }
-      setLastOrderCount(data.length);
-    } else if (error) {
-      console.error("Error loading orders:", error);
+    const res = await listOrders();
+    if (!res.ok) {
+      // Logged out: back to login. Other errors (e.g. offline): keep showing the last orders
+      if (res.status === 401) actionFailed(res);
+      else console.error("Error loading orders:", res.error);
+      return;
     }
+    const data = res.data!.pending;
+    setOrders(data);
+    // Ring when there are more pending orders than at the last check
+    if (data.length > lastOrderCount.current) {
+      setIsRinging(true);
+      audioRef.current?.play().catch(() => console.log("Audio play blocked"));
+    }
+    lastOrderCount.current = data.length;
   };
 
+  // Live feed: check for new orders every few seconds (and right away when the screen wakes up)
   useEffect(() => {
     loadOrders();
-    
-    // Subscribe to real-time changes
-    const subscription = supabase
-      .channel('orders_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        loadOrders();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
+    const timer = setInterval(() => {
+      if (!document.hidden) loadOrders();
+    }, ORDER_POLL_MS);
+    const onVisible = () => {
+      if (!document.hidden) loadOrders();
     };
-  }, [lastOrderCount]);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
 
   const completeOrder = async (id: string) => {
     stopRinging();

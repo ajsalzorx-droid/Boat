@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { getStudioRows } from "@/app/admin/actions";
+import { actionFailed } from "@/app/admin/client-helpers";
 import { ALL_SECTIONS, mergeAll, type SectionData, type SiteContent } from "@/lib/content";
 import { DEFAULT_BUSINESS, SEO_PAGES, type BusinessInfo, type SeoPage } from "@/lib/seo";
 
@@ -25,20 +26,17 @@ export type StudioData = {
   missingTables: boolean;
 };
 
-// Everything the studio edits, read straight from the database with the signed-in session
-// (never from the site cache), so it always shows the latest saved values
+// Everything the studio edits, read straight from the database by a server action (never from
+// the site cache), so it always shows the latest saved values
 export async function fetchStudioData(): Promise<StudioData> {
-  const [seoRes, businessRes, contentRes, publishRes] = await Promise.all([
-    supabase.from("seo_pages").select("*"),
-    supabase.from("business_info").select("*").eq("id", 1).maybeSingle(),
-    supabase.from("site_content").select("section, data"),
-    supabase.from("site_publish").select("changed_at, published_at").eq("id", 1).maybeSingle(),
-  ]);
-  const changedAt: string | null = publishRes.data?.changed_at ?? null;
-  const publishedAt: string | null = publishRes.data?.published_at ?? null;
+  const res = await getStudioRows();
+  if (!res.ok && res.status === 401) actionFailed(res); // logged out -> back to login
+  const rows = res.ok ? res.data! : null;
+  const changedAt = rows?.changedAt ?? null;
+  const publishedAt = rows?.publishedAt ?? null;
 
   const seoPages = defaultSeoPages();
-  for (const row of (seoRes.data ?? []) as SeoPage[]) {
+  for (const row of rows?.seoPages ?? []) {
     if (!seoPages[row.path]) continue;
     seoPages[row.path] = {
       title: row.title || seoPages[row.path].title,
@@ -50,18 +48,20 @@ export async function fetchStudioData(): Promise<StudioData> {
 
   const business = { ...DEFAULT_BUSINESS };
   for (const key of Object.keys(DEFAULT_BUSINESS) as (keyof BusinessInfo)[]) {
-    if (typeof businessRes.data?.[key] === "string") business[key] = businessRes.data[key];
+    const value = rows?.business?.[key];
+    if (typeof value === "string") business[key] = value;
   }
 
-  const rows = (contentRes.data ?? []) as { section: string; data: SectionData }[];
+  const content = rows?.content ?? [];
   return {
     seoPages,
     business,
-    content: mergeAll(rows),
-    customised: new Set(rows.map((r) => r.section)),
+    content: mergeAll(content),
+    customised: new Set(content.map((r) => r.section)),
     pendingPublish: !!changedAt && (!publishedAt || new Date(changedAt) > new Date(publishedAt)),
     publishedAt,
-    missingTables: !!(seoRes.error || businessRes.error || contentRes.error || publishRes.error),
+    // The database could not be read: show the built-in values and block saving
+    missingTables: !res.ok,
   };
 }
 

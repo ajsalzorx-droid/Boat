@@ -10,8 +10,9 @@ import Testimonials from "@/components/Testimonials";
 import Gallery from "@/components/Gallery";
 import Location from "@/components/Location";
 import Footer from "@/components/Footer";
-import { getBusinessInfo, pageMetadata, restaurantJsonLd } from "@/lib/seo";
-import { getSiteContent } from "@/lib/content";
+import { getBusinessInfo, pageMetadata } from "@/lib/seo-data";
+import { restaurantJsonLd } from "@/lib/seo";
+import { getSiteContent } from "@/lib/content-data";
 import { getActiveMenuItems, getAvailableCatch } from "@/lib/menu-data";
 import { Heading } from "@/components/ContentText";
 
@@ -146,7 +147,7 @@ export default async function Home() {
               {/* Dual CTA */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <a
-                  href="https://wa.me/971500000000?text=Hello%2C%20I%20have%20a%20question%20about%20Boat%20Seafood"
+                  href="https://wa.me/971507487220?text=Hello%2C%20I%20have%20a%20question%20about%20Boat%20Seafood"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-2.5 bg-[#25D366] text-white py-4 rounded-lg font-jost text-[11px] font-bold tracking-[2px] uppercase no-underline transition-all duration-300 hover:bg-white hover:text-[#25D366]"

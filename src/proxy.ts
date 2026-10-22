@@ -1,70 +1,43 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { isAdminEmail, isSeoEditorEmail } from '@/lib/admin-emails'
+import { readSession, SESSION_COOKIES, type Role } from '@/lib/session'
+
+// Which role may open a staff page: admin = products and orders, seo = the SEO Studio only
+function requiredRole(pathname: string): Role | null {
+  if (pathname === '/seo' || pathname.startsWith('/seo/')) return 'seo'
+  if (pathname.startsWith('/admin/login')) return null
+  if (pathname === '/admin' || pathname.startsWith('/admin/') || pathname === '/kitchen' || pathname.startsWith('/kitchen/'))
+    return 'admin'
+  return null
+}
+
+const noindex = (res: NextResponse) => {
+  // Staff pages are never linked from the site; keep search engines and caches away from them
+  res.headers.set('X-Robots-Tag', 'noindex, nofollow')
+  res.headers.set('Cache-Control', 'no-store')
+  return res
+}
 
 export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder',
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
   const { pathname } = request.nextUrl
-  // Staff pages are never linked from the site; this header keeps search engines from indexing
-  // them if someone finds the URL. (Not listed in robots.txt, which would advertise the path.)
-  const isSeoStudio = pathname === '/seo' || pathname.startsWith('/seo/')
-  const isStaffPage = pathname.startsWith('/admin') || pathname.startsWith('/kitchen') || isSeoStudio
-  const isProtected =
-    (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) ||
-    pathname.startsWith('/kitchen') ||
-    isSeoStudio
+  const role = requiredRole(pathname)
+  const isStaffPage = role !== null || pathname.startsWith('/admin')
+  if (!isStaffPage) return NextResponse.next()
 
-  if (isProtected) {
-    // Verified token (getUser above) + email in ADMIN_EMAILS (server env, no DB function needed).
-    // The SEO Studio also lets in SEO_EMAILS accounts.
-    const allowed = isSeoStudio ? isSeoEditorEmail(user?.email) : isAdminEmail(user?.email)
-    if (!user || !allowed) {
+  if (role) {
+    // Server-side session lookup with this area's own cookie (src/lib/session.ts); actions check
+    // it again in the database. An admin session never opens the SEO Studio, and the other way
+    // round: without a session for this area, log in here (the other area stays logged in).
+    const session = await readSession(request.cookies.get(SESSION_COOKIES[role])?.value, role).catch(() => null)
+    if (!session) {
       const url = request.nextUrl.clone()
       url.search = ''
-      if (user && isSeoEditorEmail(user.email)) {
-        // Signed-in SEO account on an admin page: send it to its own dashboard, not back to login
-        url.pathname = '/seo'
-      } else {
-        url.pathname = '/admin/login'
-        url.searchParams.set('next', pathname)
-      }
-      const redirect = NextResponse.redirect(url)
-      redirect.headers.set('X-Robots-Tag', 'noindex, nofollow')
-      return redirect
+      url.pathname = '/admin/login'
+      url.searchParams.set('next', pathname)
+      return noindex(NextResponse.redirect(url))
     }
   }
 
-  if (isStaffPage) supabaseResponse.headers.set('X-Robots-Tag', 'noindex, nofollow')
-
-  return supabaseResponse
+  return noindex(NextResponse.next())
 }
 
 export const config = {
@@ -74,7 +47,6 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSection } from "@/context/ContentContext";
+import { cdn } from "@/lib/cdn";
 
 export default function Footer() {
   const f = useSection("footer").fields;
@@ -13,7 +14,7 @@ export default function Footer() {
         <div className="flex flex-col gap-8">
           {/* Logo */}
           <Link href="/" className="block h-16 w-48">
-            <img src="/logo.png" alt={f.logo_alt} className="h-full w-auto object-contain brightness-0 invert" />
+            <img src={cdn("/logo.webp")} alt={f.logo_alt} className="h-full w-auto object-contain brightness-0 invert" />
           </Link>
           <p className="text-[15px] font-light text-white/50 leading-relaxed max-w-[300px]">
             {f.about}

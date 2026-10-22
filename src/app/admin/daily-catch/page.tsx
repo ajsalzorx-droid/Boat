@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
-import { saveDailyCatch, deleteDailyCatch, setDailyCatchAvailability } from "../actions";
+import { saveDailyCatch, deleteDailyCatch, setDailyCatchAvailability, listDailyCatch } from "../actions";
 import { actionFailed, uploadAdminImage } from "../client-helpers";
 import { Plus, Edit, Trash2, X, AlertCircle, Upload } from "lucide-react";
 
@@ -28,8 +27,8 @@ export default function AdminDailyCatchPage() {
 
   const fetchItems = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("daily_catch").select("*").order("updated_at", { ascending: false });
-    if (data) setItems(data);
+    const res = await listDailyCatch();
+    if (!actionFailed(res) && res.ok) setItems(res.data!);
     setLoading(false);
   };
 
