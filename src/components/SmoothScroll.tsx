@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Lenis from "lenis";
 
@@ -12,6 +12,7 @@ export default function SmoothScroll({ children }: SmoothScrollProps) {
   const pathname = usePathname();
   // Admin and kitchen scroll inside their own panels; Lenis hijacks the wheel and blocks that.
   const disabled = pathname.startsWith("/admin") || pathname.startsWith("/kitchen");
+  const lenisRef = useRef<Lenis | null>(null);
 
   useEffect(() => {
     if (disabled) return;
@@ -34,12 +35,21 @@ export default function SmoothScroll({ children }: SmoothScrollProps) {
     }
 
     frame = requestAnimationFrame(raf);
+    lenisRef.current = lenis;
 
     return () => {
       cancelAnimationFrame(frame);
       lenis.destroy();
+      lenisRef.current = null;
     };
   }, [disabled]);
+
+  // New page: start at the top. Lenis keeps its own scroll position, so without this a link
+  // opened the next page at the old page's scroll offset. (Links to #sections keep theirs.)
+  // (Layout effect: runs before the new page is painted, so the old offset never shows.)
+  useLayoutEffect(() => {
+    if (!window.location.hash) lenisRef.current?.scrollTo(0, { immediate: true, force: true });
+  }, [pathname]);
 
   return <>{children}</>;
 }

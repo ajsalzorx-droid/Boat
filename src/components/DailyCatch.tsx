@@ -3,20 +3,13 @@
 import { motion } from "framer-motion";
 import { ArrowRight, Waves } from "lucide-react";
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { createClient } from "@/utils/supabase/client";
+import { useSection } from "@/context/ContentContext";
+import type { DailyCatchItem } from "@/lib/menu-data";
+import { Heading } from "./ContentText";
 
-export default function DailyCatch() {
-  const [dailyCatch, setDailyCatch] = useState<any[]>([]);
-  const supabase = createClient();
-
-  useEffect(() => {
-    async function fetchCatch() {
-      const { data } = await supabase.from('daily_catch').select('*').eq('is_available', true).order('updated_at', { ascending: false });
-      if (data) setDailyCatch(data);
-    }
-    fetchCatch();
-  }, []);
+// `items` = available catch, loaded on the server (src/lib/menu-data.ts) so it is in the HTML
+export default function DailyCatch({ items: dailyCatch }: { items: DailyCatchItem[] }) {
+  const c = useSection("daily_catch");
 
   return (
     <section className="bg-cream py-32 px-8 md:px-20 overflow-hidden">
@@ -28,10 +21,10 @@ export default function DailyCatch() {
           transition={{ duration: 0.8 }}
         >
           <span className="inline-flex items-center gap-3 text-[10px] tracking-[5px] uppercase text-ocean font-bold mb-6">
-            <Waves size={16} /> Fresh From the Market
+            <Waves size={16} /> {c.fields.eyebrow}
           </span>
           <h2 className="font-playfair text-[clamp(40px,5vw,72px)] font-bold text-navy leading-none">
-            Today's <em className="italic text-ocean">Catch</em>
+            <Heading c={c} emClassName="italic text-ocean" />
           </h2>
         </motion.div>
         
@@ -43,18 +36,17 @@ export default function DailyCatch() {
           className="max-w-md text-left md:text-right"
         >
           <p className="text-[16px] leading-relaxed text-navy/85 font-light mb-8">
-            Our selection changes every morning based on what the ocean provides. 
-            Hand-picked at the Waterfront Market at dawn.
+            {c.fields.body}
           </p>
           <Link href="/menu" className="group hidden md:inline-flex items-center gap-3 text-[10px] tracking-[3px] uppercase text-navy font-bold transition-colors hover:text-ocean">
-            View Market Menu <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+            {c.fields.cta} <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
           </Link>
         </motion.div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8 md:gap-12">
         {dailyCatch.map((item, i) => (
-          <motion.div
+          <motion.article
             key={i}
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -72,16 +64,16 @@ export default function DailyCatch() {
             <div className="flex flex-col items-center text-center px-1 md:px-4">
               <span className="text-[8px] md:text-[9px] tracking-[2px] md:tracking-[4px] uppercase text-ocean font-bold mb-2 md:mb-3">{item.origin}</span>
               <h3 className="font-playfair text-base md:text-2xl font-bold text-navy mb-2 md:mb-4 leading-tight md:leading-normal">{item.name}</h3>
-              <p className="text-[12px] md:text-[14px] leading-relaxed text-navy/80 font-light italic line-clamp-2 md:line-clamp-none">"{item.description}"</p>
+              <p className="text-[12px] md:text-[14px] leading-relaxed text-navy/80 font-light italic line-clamp-2 md:line-clamp-none">&ldquo;{item.description}&rdquo;</p>
             </div>
-          </motion.div>
+          </motion.article>
         ))}
       </div>
 
       {/* Mobile only: button after the images (desktop keeps the link in the header) */}
       <div className="mt-12 flex justify-center md:hidden">
         <Link href="/menu" className="group inline-flex items-center gap-3 bg-navy text-cream rounded-lg px-8 py-4 text-[10px] whitespace-nowrap tracking-[3px] uppercase font-bold transition-colors hover:bg-ocean hover:text-navy">
-          View Market Menu <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+          {c.fields.cta} <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
         </Link>
       </div>
     </section>

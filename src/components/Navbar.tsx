@@ -5,17 +5,11 @@ import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { Menu as MenuIcon, X, ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
+import { useSection } from "@/context/ContentContext";
+import { cdn } from "@/lib/cdn";
 
 const smoothEase = [0.16, 1, 0.3, 1] as const;
 
-const mobileLinks = [
-  { href: "/menu", label: "Menu" },
-  { href: "/#exp", label: "Experience" },
-  { href: "/#loc", label: "Location" },
-  { href: "/events", label: "Events" },
-  { href: "/offer", label: "Offer" },
-  { href: "/your-fish", label: "Fresh Catch", accent: true },
-];
 
 // Panel unfolds downward, then links fade/slide in one after another
 const mobileMenuVariants: Variants = {
@@ -40,6 +34,15 @@ const mobileItemVariants: Variants = {
 
 export default function Navbar() {
   const { cartCount, setIsCartOpen } = useCart();
+  const nav = useSection("navbar").fields;
+  const mobileLinks = [
+    { href: "/menu", label: nav.nav_menu },
+    { href: "/#exp", label: nav.nav_experience },
+    { href: "/#loc", label: nav.nav_location },
+    { href: "/events", label: nav.nav_events },
+    { href: "/offer", label: nav.nav_offer },
+    { href: "/your-fish", label: nav.nav_fresh, accent: true },
+  ];
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileDeliveryOpen, setIsMobileDeliveryOpen] = useState(false);
@@ -54,7 +57,7 @@ export default function Navbar() {
   }, []);
 
   return (
-    <nav 
+    <header 
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
         // Only shift on desktop, where the 38px top contact bar exists
         isScrolled ? "md:-translate-y-[38px]" : "translate-y-0"
@@ -63,105 +66,110 @@ export default function Navbar() {
       {/* Top Contact Bar */}
       <div className="hidden md:flex items-center justify-between px-16 py-1 border-b border-white/5 bg-ink/40 backdrop-blur-sm">
         <div className="flex items-center gap-8">
-          <a href="tel:+971500000000" className="text-[9px] tracking-[2px] uppercase text-white/50 hover:text-ocean transition-colors flex items-center gap-2">
+          <a href={nav.phone_link} className="text-[9px] tracking-[2px] uppercase text-white/50 hover:text-ocean transition-colors flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-ocean animate-pulse"></span>
-            +971 50 000 0000
+            {nav.phone}
           </a>
           <span className="text-white/10">|</span>
           <span className="text-[9px] tracking-[2px] uppercase text-white/50 flex items-center gap-2">
-            Waterfront Market, Deira, Dubai
+            {nav.address}
           </span>
         </div>
         <div className="text-[9px] tracking-[2px] uppercase text-white/50">
-          Open Daily: 12:00 PM - 12:00 AM
+          {nav.hours}
         </div>
       </div>
 
       <div
         className={`flex items-center justify-between transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isScrolled
-            ? "px-8 md:px-16 pt-3 pb-1.5 md:py-1.5 bg-ink/95 backdrop-blur-md shadow-2xl"
-            : "px-8 md:px-16 pt-4 pb-3 md:py-3 bg-ink/80 backdrop-blur-sm"
+            ? "px-8 md:px-16 lg:px-8 xl:px-16 pt-3 pb-1.5 md:py-1.5 bg-ink/95 backdrop-blur-md shadow-2xl"
+            : "px-8 md:px-16 lg:px-8 xl:px-16 pt-4 pb-3 md:py-3 bg-ink/80 backdrop-blur-sm"
         }`}
       >
+        {/* Logo */}
+        <div className="relative shrink-0">
         <Link
           href="/"
-          className="relative h-16 md:h-20 w-52 md:w-80 no-underline flex items-center"
+          className="relative h-16 md:h-20 w-52 md:w-auto shrink-0 no-underline flex items-center"
         >
-          <img 
-            src="/logo.png" 
-            alt="Boat Seafood Logo"
+          <img
+            src={cdn("/logo.webp")}
+            alt={nav.logo_alt}
             fetchPriority="high"
-            className={`max-h-full w-auto object-contain transition-all duration-500 ${isScrolled ? "brightness-0 invert opacity-90" : "brightness-0 invert"}`} 
+            className={`max-h-full w-auto object-contain transition-all duration-500 ${isScrolled ? "brightness-0 invert opacity-90" : "brightness-0 invert"}`}
           />
         </Link>
+        </div>
 
         {/* Desktop Menu */}
-        <ul className="hidden md:flex items-center gap-11 list-none m-0 p-0">
-          <li>
-            <Link
-              href="/menu"
-              className="text-white/65 hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group"
-            >
-              Menu
-              <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/#exp"
-              className="text-white/65 hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group"
-            >
-              Experience
-              <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/#loc"
-              className="text-white/65 hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group"
-            >
-              Location
-              <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/events"
-              className="text-white/65 hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group"
-            >
-              Events
-              <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/offer"
-              className="text-white/65 hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group"
-            >
-              Offer
-              <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/your-fish"
-              className="text-[#C49A3C] hover:text-white text-[15px] font-medium tracking-[2px] uppercase transition-colors relative group whitespace-nowrap"
-            >
-              Fresh Catch
-              <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-[#C49A3C] scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
-            </Link>
-          </li>
-        </ul>
+        <nav aria-label="Main" className="hidden lg:block">
+          <ul className="flex items-center gap-5 min-[1440px]:gap-11 list-none m-0 p-0">
+            <li>
+              <Link
+                href="/menu"
+                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
+              >
+                {nav.nav_menu}
+                <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/#exp"
+                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
+              >
+                {nav.nav_experience}
+                <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/#loc"
+                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
+              >
+                {nav.nav_location}
+                <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/events"
+                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
+              >
+                {nav.nav_events}
+                <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/offer"
+                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
+              >
+                {nav.nav_offer}
+                <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/your-fish"
+                className="text-[#C49A3C] hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group whitespace-nowrap"
+              >
+                {nav.nav_fresh}
+                <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-[#C49A3C] scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
+              </Link>
+            </li>
+          </ul>
+        </nav>
         
-        <div className="hidden md:flex items-center gap-6">
+        <div className="hidden lg:flex items-center gap-4 min-[1440px]:gap-6">
           {/* Delivery Button with Dropdown */}
-          <div className="relative ml-11 group pb-2 -mb-2">
+          <div className="relative ml-4 min-[1440px]:ml-11 group pb-2 -mb-2">
             <button 
               className="flex flex-col items-center justify-center text-white/80 hover:text-white transition-colors"
             >
-              <img src="/images-removebg-preview.png" alt="Delivery" loading="lazy" decoding="async" style={{ height: "36px", width: "auto" }} className="brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity" />
-              <span className="text-[10px] tracking-[1px] uppercase mt-1 text-white">Delivery</span>
+              <img src={cdn("/images-removebg-preview.webp")} alt={nav.delivery_alt} loading="lazy" decoding="async" style={{ height: "36px", width: "auto" }} className="brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity" />
+              <span className="text-[10px] tracking-[1px] uppercase mt-1 text-white">{nav.delivery}</span>
             </button>
             
             <div className="absolute top-[calc(100%-4px)] left-1/2 -translate-x-1/2 bg-ink/95 backdrop-blur-md border border-white/10 py-1.5 min-w-[140px] z-50 rounded shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-150 transform group-hover:-translate-y-0 translate-y-1">
@@ -193,8 +201,8 @@ export default function Navbar() {
             onClick={() => setIsCartOpen(true)}
             className="relative group"
           >
-            <div className="bg-ocean text-navy rounded-lg py-3 px-8 text-[14px] font-bold tracking-[2px] uppercase transition-all hover:bg-white flex items-center gap-3 whitespace-nowrap">
-              Order Online
+            <div className="bg-ocean text-navy rounded-lg py-3 px-5 min-[1440px]:px-8 text-[12px] min-[1440px]:text-[14px] font-bold tracking-[2px] uppercase transition-all hover:bg-white flex items-center gap-3 whitespace-nowrap">
+              {nav.order}
               {cartCount > 0 && (
                 <span className="flex items-center justify-center w-5 h-5 bg-navy text-white text-[10px] rounded-full">
                   {cartCount}
@@ -205,7 +213,7 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Cart & Menu Button */}
-        <div className="flex items-center gap-5 md:hidden">
+        <div className="flex items-center gap-5 lg:hidden">
           {cartCount > 0 && (
             <Link href="/menu" className="relative text-white">
               <ShoppingBag size={22} />
@@ -239,13 +247,14 @@ export default function Navbar() {
       {/* Mobile Menu */}
       <AnimatePresence>
       {isMobileMenuOpen && (
-        <motion.div
+        <motion.nav
+          aria-label="Mobile"
           key="mobile-menu"
           variants={mobileMenuVariants}
           initial="closed"
           animate="open"
           exit="closed"
-          className="absolute top-full left-0 right-0 bg-ink/95 backdrop-blur-md flex flex-col items-center py-8 gap-6 md:hidden border-t border-white/5"
+          className="absolute top-full left-0 right-0 bg-ink/95 backdrop-blur-md flex flex-col items-center py-8 gap-6 lg:hidden border-t border-white/5"
         >
           {mobileLinks.map((link) => (
             <motion.div key={link.href} variants={mobileItemVariants}>
@@ -264,8 +273,8 @@ export default function Navbar() {
               onClick={() => setIsMobileDeliveryOpen(!isMobileDeliveryOpen)}
               className="flex items-center gap-3 text-white text-[15px] font-light tracking-[3px] uppercase"
             >
-              <img src="/images-removebg-preview.png" alt="Delivery" decoding="async" style={{ height: "24px", width: "auto" }} className="brightness-0 invert" />
-              Delivery
+              <img src={cdn("/images-removebg-preview.webp")} alt={nav.delivery_alt} decoding="async" style={{ height: "24px", width: "auto" }} className="brightness-0 invert" />
+              {nav.delivery}
             </button>
 
             <AnimatePresence initial={false}>
@@ -296,10 +305,10 @@ export default function Navbar() {
             )}
             </AnimatePresence>
           </motion.div>
-        </motion.div>
+        </motion.nav>
       )}
       </AnimatePresence>
-    </nav>
+    </header>
   );
 }
 

@@ -1,8 +1,7 @@
 'use server'
 
 import { headers } from 'next/headers'
-import { createClient } from '@/utils/supabase/server'
-import { createServiceClient } from '@/utils/supabase/service'
+import { getDb, newId, type IdDoc } from '@/lib/mongodb'
 
 export type OrderLine = { id: string; quantity: number }
 export type PlaceOrderResult = { ok: true } | { ok: false; error: string }
@@ -57,36 +56,31 @@ export async function placeOrder(table: string | null, lines: OrderLine[]): Prom
     quantities.set(id, (quantities.get(id) ?? 0) + qty)
   }
 
-  // Names and prices come from the database, never from the browser
-  const supabase = await createClient()
-  const { data: menu, error: menuError } = await supabase
-    .from('menu_items')
-    .select('id, name, price')
-    .eq('is_active', true)
-    .in('id', [...quantities.keys()])
+  try {
+    // Names and prices come from the database, never from the browser
+    const db = await getDb()
+    const menu = await db
+      .collection<{ _id: string; name: string; price: number }>('menu_items')
+      .find({ is_active: true, _id: { $in: [...quantities.keys()] } }, { projection: { name: 1, price: 1 } })
+      .toArray()
 
-  if (menuError) {
-    console.error('placeOrder: menu lookup failed:', menuError)
-    return { ok: false, error: GENERIC_ERROR }
-  }
-  if (!menu || menu.length !== quantities.size) {
-    return { ok: false, error: 'Some items in your cart are no longer available. Please refresh the menu.' }
-  }
+    if (menu.length !== quantities.size) {
+      return { ok: false, error: 'Some items in your cart are no longer available. Please refresh the menu.' }
+    }
 
-  const items = menu.map((m) => ({ name: m.name, quantity: quantities.get(String(m.id))! }))
-  const total = menu.reduce((sum, m) => sum + Number(m.price) * quantities.get(String(m.id))!, 0)
+    const items = menu.map((m) => ({ name: m.name, quantity: quantities.get(m._id)! }))
+    const total = menu.reduce((sum, m) => sum + Number(m.price) * quantities.get(m._id)!, 0)
 
-  // service_role when configured (so RLS can block direct inserts); anon session otherwise
-  const db = createServiceClient() ?? supabase
-  const { error } = await db.from('orders').insert({
-    table: tableName,
-    items,
-    total: Math.round(total * 100) / 100,
-    status: 'pending',
-  })
-
-  if (error) {
-    console.error('placeOrder: insert failed:', error)
+    await db.collection<IdDoc>('orders').insertOne({
+      _id: newId(),
+      table: tableName,
+      items,
+      total: Math.round(total * 100) / 100,
+      status: 'pending',
+      timestamp: new Date(),
+    })
+  } catch (e) {
+    console.error('placeOrder failed:', e)
     return { ok: false, error: GENERIC_ERROR }
   }
 

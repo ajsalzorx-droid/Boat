@@ -2,29 +2,15 @@
 
 import { motion } from "framer-motion";
 import { Star, Quote } from "lucide-react";
+import { useSection } from "@/context/ContentContext";
+import { Heading } from "./ContentText";
 
-const testimonials = [
-  {
-    name: "James Harrington",
-    role: "Food Critic",
-    content: "The freshest seafood in Dubai, period. The Mediterranean Sea Bass was perfectly roasted, preserving the delicate flavors of the ocean.",
-    rating: 5,
-  },
-  {
-    name: "Sarah Al-Maktoum",
-    role: "Regular Guest",
-    content: "Boat Seafood has become our weekly tradition. The atmosphere at the Waterfront Market combined with five-star service is unmatched.",
-    rating: 5,
-  },
-  {
-    name: "Marcus Vane",
-    role: "International Traveler",
-    content: "An authentic culinary journey. You can taste the freshness in every bite. The signature platter is a masterpiece of textures and tastes.",
-    rating: 5,
-  },
-];
+const RATING = 5;
 
 export default function Testimonials() {
+  const c = useSection("testimonials");
+  const testimonials = c.items;
+
   return (
     <section className="bg-navy py-32 px-8 md:px-20 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-full opacity-[0.03] pointer-events-none">
@@ -43,18 +29,17 @@ export default function Testimonials() {
           transition={{ duration: 0.8 }}
         >
           <span className="inline-flex items-center gap-3 text-[10px] tracking-[5px] uppercase text-ocean font-bold mb-6">
-            Guest Experiences
+            {c.fields.eyebrow}
           </span>
           <h2 className="font-playfair text-[clamp(36px,4.5vw,64px)] font-bold text-white leading-tight">
-            Loved by Connoisseurs,<br />
-            <em className="italic text-ocean">Cherished by Locals.</em>
+            <Heading c={c} emClassName="italic text-ocean" />
           </h2>
         </motion.div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
         {testimonials.map((t, i) => (
-          <motion.div
+          <motion.figure
             key={i}
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -62,20 +47,20 @@ export default function Testimonials() {
             transition={{ duration: 0.8, delay: i * 0.1 }}
             className="bg-white/[0.03] border border-white/5 p-12 flex flex-col items-center text-center group transition-all duration-500 hover:bg-white/[0.06] hover:border-ocean/20"
           >
-            <Quote className="text-ocean mb-8 opacity-40 group-hover:opacity-100 transition-opacity" size={32} />
-            <div className="flex gap-1 mb-8">
-              {[...Array(t.rating)].map((_, i) => (
+            <Quote aria-hidden="true" className="text-ocean mb-8 opacity-40 group-hover:opacity-100 transition-opacity" size={32} />
+            <div className="flex gap-1 mb-8" role="img" aria-label={`Rated ${RATING} out of 5`}>
+              {[...Array(RATING)].map((_, i) => (
                 <Star key={i} size={12} className="fill-ocean text-ocean" />
               ))}
             </div>
-            <p className="text-[16px] leading-[1.8] text-white/70 font-light italic mb-10 flex-grow">
-              "{t.content}"
-            </p>
-            <div>
-              <h4 className="font-playfair text-xl font-bold text-white mb-1">{t.name}</h4>
+            <blockquote className="text-[16px] leading-[1.8] text-white/70 font-light italic mb-10 flex-grow">
+              &ldquo;{t.content}&rdquo;
+            </blockquote>
+            <figcaption>
+              <p className="font-playfair text-xl font-bold text-white mb-1">{t.name}</p>
               <span className="text-[10px] tracking-[3px] uppercase text-white/30 font-bold">{t.role}</span>
-            </div>
-          </motion.div>
+            </figcaption>
+          </motion.figure>
         ))}
       </div>
     </section>

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
-import { saveMenuItem, deleteMenuItem } from "../actions";
+import { saveMenuItem, deleteMenuItem, listMenuItems } from "../actions";
 import { actionFailed, uploadAdminImage } from "../client-helpers";
 import { Plus, Edit, Trash2, X, Upload, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -51,31 +50,27 @@ export default function AdminMenuPage() {
   // Bumped to refetch the current page after add/edit/delete
   const [reloadKey, setReloadKey] = useState(0);
 
-  // Server-side pagination: skip = page * PAGE_SIZE, fetch only PAGE_SIZE rows (OFFSET/LIMIT)
+  // Server-side pagination: the server skips page * PAGE_SIZE rows and returns PAGE_SIZE
   useEffect(() => {
     let cancelled = false;
-    const skip = page * PAGE_SIZE;
 
-    supabase
-      .from("menu_items")
-      .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: true }) // tie-breaker so rows don't shift between pages
-      .range(skip, skip + PAGE_SIZE - 1)
-      .then(({ data, count, error }) => {
-        if (cancelled) return; // a newer page was requested meanwhile
-        if (error) {
-          // PGRST103: the page no longer exists (e.g. items were deleted) - go back to the first page
-          if (error.code === "PGRST103" && page > 0) {
-            setPage(0);
-            return;
-          }
-          console.error("Error fetching menu items:", error.message);
-        }
-        if (data) setItems(data);
-        setTotalCount(count ?? 0);
+    listMenuItems(page, PAGE_SIZE).then((res) => {
+      if (cancelled) return; // a newer page was requested meanwhile
+      if (!res.ok) {
+        actionFailed(res);
         setLoading(false);
-      });
+        return;
+      }
+      const { items: rows, total } = res.data!;
+      // The page no longer exists (e.g. items were deleted) - go back to the first page
+      if (rows.length === 0 && total > 0 && page > 0) {
+        setPage(0);
+        return;
+      }
+      setItems(rows);
+      setTotalCount(total);
+      setLoading(false);
+    });
 
     return () => {
       cancelled = true;

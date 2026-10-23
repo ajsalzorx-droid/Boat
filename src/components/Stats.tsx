@@ -1,18 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-
-const stats = [
-  { value: "4", symbol: "+", label: "Years of Excellence" },
-  { value: "50", symbol: "+", label: "Signature Dishes" },
-  { value: "100", symbol: "%", label: "Daily Fresh Sourcing" },
-  { value: "1", symbol: "st", label: "Premium Seafood at Waterfront" },
-];
+import { useSection } from "@/context/ContentContext";
 
 export default function Stats() {
+  const c = useSection("stats");
   return (
-    <div className="bg-navy grid grid-cols-2 md:grid-cols-4">
-      {stats.map((stat, i) => (
+    <section aria-label="Boat Seafood in numbers" className="bg-navy grid grid-cols-2 md:grid-cols-4">
+      {c.items.map((stat, i) => (
         <motion.div
           key={i}
           initial={{ opacity: 0, y: 38 }}
@@ -34,6 +29,6 @@ export default function Stats() {
           </div>
         </motion.div>
       ))}
-    </div>
+    </section>
   );
 }

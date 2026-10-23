@@ -3,8 +3,8 @@
 import { ReactNode, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Menu as MenuIcon, Fish, Settings, FileText, LogOut, PanelLeft, X, ArrowLeft } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { LayoutDashboard, Menu as MenuIcon, Fish, Settings, LogOut, PanelLeft, X, ArrowLeft } from "lucide-react";
+import { logout } from "./login/actions";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -12,12 +12,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Signs out of Supabase: revokes this session's refresh token and deletes the auth cookies
-  // (scope "local" = only this browser, so e.g. the kitchen tablet stays logged in)
+  // Deletes this browser's session cookie (other devices, e.g. the kitchen tablet, stay logged in)
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    const { error } = await supabase.auth.signOut({ scope: "local" });
-    if (error) console.error("Logout error:", error.message);
+    await logout("admin").catch((e) => console.error("Logout error:", e));
     // Full page load so no admin data stays in memory; the proxy now sees no token
     window.location.replace("/admin/login");
   };
@@ -31,7 +29,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
     { name: "Menu", href: "/admin/menu", icon: MenuIcon },
     { name: "Daily Catch", href: "/admin/daily-catch", icon: Fish },
-    { name: "Content", href: "/admin/content", icon: FileText },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];
 

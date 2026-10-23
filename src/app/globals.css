@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Short screens (a phone turned sideways): compact bars so the flip book gets the height */
+@custom-variant short (@media (max-height: 520px));
+
 @theme {
   --color-cream: #fdf0d5;
   --color-navy: #003049;
@@ -67,6 +70,78 @@ html::-webkit-scrollbar-button {
   display: none;
 }
 
+/* Menu book pages (src/components/FlipBook.tsx): sizes inside a page use cqw/cqh units,
+   so a page scales as a whole, like a printed page, at any book size */
+.flip-page {
+  container-type: size;
+  overflow: hidden;
+}
+
+/* Shadow along the spine of an open spread (page-flip marks pages --left / --right) */
+.flipbook-mount .stf__item.--soft::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 10%;
+  pointer-events: none;
+}
+
+.flipbook-mount .stf__item.--soft.--left::after {
+  right: 0;
+  background: linear-gradient(to left, rgba(0, 20, 30, 0.22), transparent);
+}
+
+.flipbook-mount .stf__item.--soft.--right::after {
+  left: 0;
+  background: linear-gradient(to right, rgba(0, 20, 30, 0.22), transparent);
+}
+
+/* SEO Studio: extra-thin scrollbars on every scroll area (page, sidebar, section chips) */
+.studio ::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.studio ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.studio ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.studio ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.studio ::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Flip book contents list: thin scrollbar, no arrow buttons */
+.contents-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.contents-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.contents-scroll::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.45);
+  border-radius: 9999px;
+}
+
+.contents-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.7);
+}
+
+.contents-scroll::-webkit-scrollbar-button {
+  display: none;
+}
+
 /* Firefox (Chrome ignores ::-webkit-scrollbar when these are set, so keep them Firefox-only) */
 @supports not selector(::-webkit-scrollbar) {
   html {
@@ -78,6 +153,79 @@ html::-webkit-scrollbar-button {
     scrollbar-width: thin;
     scrollbar-color: #9ca3af transparent;
   }
+
+  .studio * {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  .contents-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(128, 128, 128, 0.45) transparent;
+  }
 }
 
 /* We'll use Framer Motion for scroll reveal animations instead of global CSS */
+
+/* Text laid over the brochure pages of the flip book (src/components/ProfileBook.tsx): the
+   brochure's type, larger than the print. Sizes follow --fs (body size, in cqw of the page width). */
+.pdf-text {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: var(--fs);
+  font-weight: 500;
+  line-height: 1.3;
+  color: #231f20;
+}
+.pdf-text .pdf-brand {
+  margin-bottom: calc(var(--fs) * 2);
+  font-size: calc(var(--fs) * 1.2);
+  font-weight: 700;
+  color: #163a50;
+}
+.pdf-text h2 {
+  margin-bottom: calc(var(--fs) * 0.9);
+  font-size: calc(var(--fs) * 1.18);
+  font-weight: 700;
+  color: #163a50;
+}
+.pdf-text * + h2 {
+  margin-top: calc(var(--fs) * 1.3);
+}
+.pdf-text h3 {
+  margin-bottom: calc(var(--fs) * 0.6);
+  font-weight: 700;
+}
+.pdf-text p,
+.pdf-text ul {
+  margin-bottom: calc(var(--fs) * 0.85);
+}
+.pdf-text ul {
+  padding-left: calc(var(--fs) * 1.6);
+  list-style: disc;
+}
+.pdf-text strong {
+  font-weight: 700;
+}
+.pdf-url {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 500;
+  color: #163a50;
+}
+/* Pages with the most text: tighter spacing so it stays on the page */
+.pdf-text.pdf-dense p,
+.pdf-text.pdf-dense ul {
+  margin-bottom: calc(var(--fs) * 0.5);
+}
+.pdf-text.pdf-dense * + h2 {
+  margin-top: calc(var(--fs) * 1);
+}
+
+/* Room kept above and below the flip book (top bar, controls): src/components/FlipBook.tsx */
+.flipbook-region {
+  --book-reserve: 200px;
+}
+@media (max-height: 520px) {
+  .flipbook-region {
+    --book-reserve: 112px;
+  }
+}
