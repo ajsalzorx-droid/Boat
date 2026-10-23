@@ -39,7 +39,7 @@ export const STUDIO_PAGES = [
   { slug: 'offers', name: 'Offers', href: '/offer', seoPath: '/offer' },
   { slug: 'your-fish', name: 'Your Fish', href: '/your-fish', seoPath: '/your-fish' },
   { slug: 'links', name: 'Links (QR page)', href: '/links', seoPath: '/links' },
-  { slug: 'menu-book', name: 'Menu Book', href: '/seafood-menu-book', seoPath: '/seafood-menu-book' },
+  { slug: 'menu-book', name: 'Menu Book', href: '/profile', seoPath: '/profile' },
   { slug: 'site', name: 'Header & Footer', href: '/', seoPath: null },
 ] as const
 
@@ -635,7 +635,7 @@ export const CONTENT_SECTIONS = [
     ],
   },
 
-  // ================= Menu Book (/seafood-menu-book) =================
+  // ================= Menu Book (/profile) =================
   // Dish pages are built from the menu in Admin → Menu; these are the fixed pages around them.
   {
     id: 'book_intro',

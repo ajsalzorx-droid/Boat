@@ -19,9 +19,9 @@ const nextConfig = {
       },
     ],
   },
-  // The flip book has one address; old /profile links (and Google) move to it permanently
+  // The flip book has one address; old /seafood-menu-book links (and Google) move to it permanently
   async redirects() {
-    return [{ source: "/profile", destination: "/seafood-menu-book", permanent: true }];
+    return [{ source: "/seafood-menu-book", destination: "/profile", permanent: true }];
   },
   // Don't advertise the framework (an "X-Powered-By: Next.js" header helps attackers pick exploits)
   poweredByHeader: false,

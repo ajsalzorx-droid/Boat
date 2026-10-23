@@ -42,7 +42,7 @@ export const SEO_PAGES = [
       'Buy fresh fish at Waterfront Market and our chefs will clean, cook and serve it your way. Grilled, fried or curry.',
   },
   {
-    path: '/seafood-menu-book',
+    path: '/profile',
     label: 'Flipbook',
     title: 'Company Profile Flipbook | Boat Seafood Dubai',
     description:

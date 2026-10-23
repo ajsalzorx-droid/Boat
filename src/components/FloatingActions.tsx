@@ -31,7 +31,7 @@ export default function FloatingActions() {
   const isStaffPage = pathname.startsWith("/admin") || pathname.startsWith("/kitchen");
   // Not on the SEO Studio itself (they would cover the editor); its live preview still shows them.
   // Also not on the standalone flipbook viewer
-  const hidden = pathname.startsWith("/seo") || pathname === "/seafood-menu-book";
+  const hidden = pathname.startsWith("/seo") || pathname === "/profile";
 
   useEffect(() => {
     const handleScroll = () => {

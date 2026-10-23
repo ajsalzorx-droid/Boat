@@ -73,7 +73,15 @@ export const getBusinessInfo = unstable_cache(
 // Used by each route's layout: export const generateMetadata = () => pageMetadata('/menu')
 export async function pageMetadata(path: SeoPath): Promise<Metadata> {
   const [pages, business] = await Promise.all([getSeoPages(), getBusinessInfo()])
-  const page = pages[path]
+  // A cached copy made before a page was added (or renamed) has no row for it -> code defaults
+  const fallback = SEO_PAGES.find((p) => p.path === path)
+  const page: SeoPage = pages[path] ?? {
+    path,
+    title: fallback?.title ?? '',
+    description: fallback?.description ?? '',
+    og_image: '',
+    noindex: false,
+  }
   const custom = page.og_image || business.default_og_image
   const image = custom ? { url: custom } : FALLBACK_SHARE_IMAGE
 
