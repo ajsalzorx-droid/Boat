@@ -1,10 +1,9 @@
 "use client";
 
-import { MessageCircle, Utensils, ChevronUp, Home } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { MessageCircle, Home } from "lucide-react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
 import { useSection } from "@/context/ContentContext";
@@ -37,7 +36,6 @@ const MenuIcon = ({ size = 24, alt, fishGone }: { size?: number; alt: string; fi
 );
 
 export default function FloatingActions() {
-  const [showScrollTop, setShowScrollTop] = useState(false);
   const [fishGone, setFishGone] = useState(false);
   const menuRef = useRef<HTMLAnchorElement>(null);
   const pathname = usePathname();
@@ -51,18 +49,6 @@ export default function FloatingActions() {
   // Also not on the standalone flipbook viewer
   const hidden = pathname.startsWith("/seo") || pathname === "/profile";
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 400);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
   if (hidden) return null;
 
   return (
@@ -70,23 +56,6 @@ export default function FloatingActions() {
     <div className={`fixed right-4 md:right-8 z-40 flex flex-col items-end gap-2.5 md:gap-3 transition-all duration-500 ${
       cartCount > 0 ? "bottom-32 md:bottom-8" : "bottom-5 md:bottom-8"
     } ${isStaffPage ? "max-md:hidden" : ""}`}>
-
-      {/* Scroll to Top */}
-      <AnimatePresence>
-        {showScrollTop && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0 }}
-            onClick={scrollToTop}
-            aria-label={f.top_label}
-            title={f.top_label}
-            className="w-11 h-11 md:w-14 md:h-14 flex items-center justify-center bg-navy/80 backdrop-blur-md text-white rounded-full shadow-lg border border-white/10 hover:bg-ocean hover:text-navy transition-all duration-300"
-          >
-            <ChevronUp size={24} className="w-5 h-5 md:w-6 md:h-6" />
-          </motion.button>
-        )}
-      </AnimatePresence>
 
       {/* Always visible: View Menu or Back Home */}
       <Link
