@@ -156,7 +156,7 @@ export default async function Home() {
                   {visit.fields.cta}
                 </a>
                 <a
-                  href="https://www.google.com/maps?vet=10CAAQoqAOahcKEwjYxrvuv5iUAxUAAAAAHQAAAAAQBQ..i&pvq=Cg0vZy8xMXcyZmRna2QyIlYKUEJPQVQgU0VBRk9PRCBSRVNUQVVSQU5UIC_Zhdi32LnZhSDYp9mE2YXYsdmD2Kgg2YTZhNmF2KLZg9mI2YTYp9iqINin2YTYqNit2LHZitipEAIYAw&lqi=ClBCT0FUIFNFQUZPT0QgUkVTVEFVUkFOVCAv2YXYt9i52YUg2KfZhNmF2LHZg9ioINmE2YTZhdii2YPZiNmE2KfYqiDYp9mE2KjYrdix2YrYqUiCi53WibuAgAhafRAAEAEQAhADEAQQBRAGGAAYARgCGAMYBBgFGAYiT2JvYXQgc2VhZm9vZCByZXN0YXVyYW50INmF2LfYudmFINin2YTZhdix2YPYqCDZhNmE2YXYotmD2YjZhNin2Kog2KfZhNio2K3YsdmK2KkqDggCEAAQARACEAQQBRAGkgESc2VhZm9vZF9yZXN0YXVyYW50mgFEQ2k5RFFVbFJRVU52WkVOb2RIbGpSamx2VDI1YWQxVkZiRXhqZW1oSFpETnNTV05XWkZaYVZGcHVZVEZzVDJSWVl4QUL6AQQIABBK&fvr=1&cs=0&um=1&ie=UTF-8&fb=1&gl=ae&sa=X&geocode=KQ2ydF9RW18-MWmWtPuHlIzY&daddr=Waterfront+-+Daira+-+Corniche+Deira+-+Deira+-+Dubai"
+                  href="https://maps.app.goo.gl/95euDUMdJAWbSvK46"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-2.5 bg-ocean text-navy py-4 rounded-lg font-jost text-[11px] font-bold tracking-[2px] uppercase no-underline transition-all duration-300 hover:bg-white"

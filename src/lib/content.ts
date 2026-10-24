@@ -702,7 +702,7 @@ export const CONTENT_SECTIONS = [
       text('btn_review', 'Button – Review Us', 'Review Us'),
       link('review_url', 'Review Us link', 'https://share.google/6sDV8BO7ZwyKB4VK0'),
       text('btn_visit', 'Button – Visit Us', 'Visit Us'),
-      link('visit_url', 'Visit Us link (Google Maps)', 'https://share.google/m3vxo1gRP57YEAX5S'),
+      link('visit_url', 'Visit Us link (Google Maps)', 'https://maps.app.goo.gl/95euDUMdJAWbSvK46'),
       text('btn_events', 'Button – Events', 'Events'),
       text('btn_contact', 'Button – Save Contact', 'Save Contact'),
       text('btn_fresh', 'Button – Fresh Catch', 'Fresh Catch'),
