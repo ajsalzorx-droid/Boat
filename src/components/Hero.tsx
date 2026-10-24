@@ -90,25 +90,6 @@ export default function Hero() {
           </a>
         </motion.div>
       </div>
-
-      {/* Scroll indicator */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1, delay: 1.9 }}
-        className="absolute right-12 bottom-18 flex-col items-center gap-3 hidden md:flex"
-      >
-        <div className="w-[1px] h-[64px] bg-white/20 relative overflow-hidden">
-          <motion.div
-            animate={{ top: ["-30px", "110%"] }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute left-0 right-0 h-[32px] bg-white/60"
-          ></motion.div>
-        </div>
-        <span className="[writing-mode:vertical-rl] text-[8.5px] tracking-[5px] uppercase text-white/50 font-bold">
-          Scroll
-        </span>
-      </motion.div>
     </section>
   );
 }

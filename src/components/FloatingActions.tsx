@@ -1,27 +1,45 @@
 "use client";
 
 import { MessageCircle, Utensils, ChevronUp, Home } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
 import { useSection } from "@/context/ContentContext";
-import { cdn } from "@/lib/cdn";
+import CatFishGrab from "@/components/CatFishGrab";
 
-const MenuIcon = ({ size = 24, alt }: { size?: number; alt: string }) => (
-  <Image
-    src={cdn("/MenuIcon-02.webp")}
-    alt={alt}
-    width={size}
-    height={size}
-    className="w-full h-full object-cover"
-  />
+// MenuIcon-02 split in two layers: the plate (circle, fork, knife) and the fish Catbo steals
+const FISH_SRC = "/MenuIcon-fish.webp";
+
+const MenuIcon = ({ size = 24, alt, fishGone }: { size?: number; alt: string; fishGone: boolean }) => (
+  <span className="relative block w-full h-full">
+    <Image
+      src="/MenuIcon-plate.webp"
+      alt={alt}
+      width={size}
+      height={size}
+      className="w-full h-full object-cover"
+    />
+    {/* Gone at once when taken, then slowly back */}
+    <Image
+      src={FISH_SRC}
+      alt=""
+      aria-hidden
+      width={size}
+      height={size}
+      className={`absolute inset-0 w-full h-full object-cover transition-[opacity,transform] ${
+        fishGone ? "opacity-0 scale-50 duration-0" : "opacity-100 scale-100 duration-[1500ms] ease-out"
+      }`}
+    />
+  </span>
 );
 
 export default function FloatingActions() {
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [fishGone, setFishGone] = useState(false);
+  const menuRef = useRef<HTMLAnchorElement>(null);
   const pathname = usePathname();
   const { cartCount } = useCart();
   // Button names, alt text and WhatsApp link are edited in the SEO Studio (Header & Footer)
@@ -48,6 +66,7 @@ export default function FloatingActions() {
   if (hidden) return null;
 
   return (
+    <>
     <div className={`fixed right-4 md:right-8 z-40 flex flex-col items-end gap-2.5 md:gap-3 transition-all duration-500 ${
       cartCount > 0 ? "bottom-32 md:bottom-8" : "bottom-5 md:bottom-8"
     } ${isStaffPage ? "max-md:hidden" : ""}`}>
@@ -71,6 +90,7 @@ export default function FloatingActions() {
 
       {/* Always visible: View Menu or Back Home */}
       <Link
+        ref={menuRef}
         href={isMenuPage ? "/" : "/menu"}
         aria-label={isMenuPage ? f.home_label : f.menu_label}
         title={isMenuPage ? f.home_label : f.menu_label}
@@ -83,7 +103,7 @@ export default function FloatingActions() {
         {isMenuPage ? (
           <Home size={24} className="shrink-0 w-5 h-5 md:w-6 md:h-6" />
         ) : (
-          <MenuIcon size={56} alt={f.menu_alt} />
+          <MenuIcon size={56} alt={f.menu_alt} fishGone={fishGone} />
         )}
       </Link>
 
@@ -100,5 +120,8 @@ export default function FloatingActions() {
       </a>
 
     </div>
+    {/* Not on /menu: the button shows Home there, there is no fish */}
+    {!isMenuPage && <CatFishGrab target={menuRef} fishSrc={FISH_SRC} onFishGone={setFishGone} />}
+    </>
   );
 }
