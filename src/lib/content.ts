@@ -1,4 +1,5 @@
 import { cdn } from '@/lib/cdn'
+import { whatsapp } from '@/lib/whatsapp'
 
 // Editable page text, images, alt text and lists (edited in the SEO Studio at /seo, stored in
 // site_content). The defaults below are the original site text: they are shown until a section
@@ -106,8 +107,8 @@ const pexels = (id: string, w = 800) =>
   `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=${w}&q=80&fm=webp`
 const SOUP_BOWL =
   'https://images.pexels.com/photos/20814983/pexels-photo-20814983/free-photo-of-steaming-seafood-bowl.jpeg?auto=compress&cs=tinysrgb&w=800&q=80&fm=webp'
-const WHATSAPP = 'https://wa.me/971507487220'
-const WHATSAPP_OWN_FISH = 'https://wa.me/971507487220?text=Hello%2C%20I%20want%20to%20bring%20my%20own%20fish%20for%20preparation'
+const WHATSAPP = whatsapp()
+const WHATSAPP_OWN_FISH = whatsapp('Hello, I want to bring my own fish for preparation')
 const FISH = cdn('/images/your-fish')
 
 export const CONTENT_SECTIONS = [
@@ -143,7 +144,7 @@ export const CONTENT_SECTIONS = [
       fixedAlt('menu_alt', 'Menu button icon – alt text', cdn('/MenuIcon-02.webp'), 'Boat Seafood menu'),
       text('home_label', 'Home button – name (shown on the menu page)', 'Back to home', NAME_HINT),
       text('whatsapp_label', 'WhatsApp button – name', 'Chat with Boat Seafood on WhatsApp', NAME_HINT),
-      link('whatsapp_link', 'WhatsApp link', 'https://wa.me/971507487220'),
+      link('whatsapp_link', 'WhatsApp link', whatsapp('Hello Boat Seafood, I would like to know more')),
       text('top_label', 'Back-to-top button – name', 'Back to top', NAME_HINT),
     ],
   },

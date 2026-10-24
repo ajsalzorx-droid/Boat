@@ -4,6 +4,7 @@ import { ArrowUpRight } from "lucide-react";
 import FlipBook from "@/components/FlipBook";
 import { BROCHURE_RATIO, BrochureBackdrop } from "@/components/Brochure";
 import { cdn } from "@/lib/cdn";
+import { whatsapp } from "@/lib/whatsapp";
 
 // The printed BOAT PROFILE-26 brochure as a flipbook, page for page, like the Heyzine version.
 // Each page is the PDF page rendered to an image (images/profile/pages/pNN.webp on Cloudinary), so the
@@ -313,7 +314,7 @@ const pages: BookPage[] = [
     links: [
       { href: "https://boatseafood.com", label: "boatseafood.com", x: 220, y: 628, w: 150, h: 20 },
       { href: "tel:+97143247998", label: "Call 971 4 324 7998", x: 220, y: 652, w: 140, h: 18 },
-      { href: "https://wa.me/971507487220", label: "WhatsApp 971 50 7487220", x: 220, y: 672, w: 156, h: 18 },
+      { href: whatsapp(), label: "WhatsApp 971 50 7487220", x: 220, y: 672, w: 156, h: 18 },
       { href: "tel:+971502981902", label: "Call 971 50 298 1902", x: 220, y: 692, w: 118, h: 18 },
       { href: "tel:+971502989345", label: "Call 971 502 989 345", x: 342, y: 692, w: 124, h: 18 },
       { href: "mailto:boatdxb26@gmail.com", label: "Email boatdxb26@gmail.com", x: 220, y: 711, w: 164, h: 18 },
