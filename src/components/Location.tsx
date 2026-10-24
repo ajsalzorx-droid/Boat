@@ -72,7 +72,7 @@ export default function Location() {
         className="relative h-[440px] overflow-hidden"
       >
         <iframe
-          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3608.5271864746657!2d55.32018097601042!3d25.275953977662556!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3e5f5ceff4f4b00f%3A0x4de3c1d3d3b8e3d3!2sWaterfront%20Market%2C%20Deira%2C%20Dubai!5e0!3m2!1sen!2sae!4v1714560000000!5m2!1sen!2sae"
+          src="https://www.google.com/maps?q=BOAT+Seafood+Restaurant,+Waterfront+Market,+Deira,+Dubai&output=embed"
           title="Map: Boat Seafood at Waterfront Market, Deira, Dubai"
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
