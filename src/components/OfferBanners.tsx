@@ -67,9 +67,11 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
       // Only a real mouse pauses it (a tap on a phone would otherwise pause it for good)
       onPointerEnter={(e) => e.pointerType === "mouse" && setPaused(true)}
       onPointerLeave={(e) => e.pointerType === "mouse" && setPaused(false)}
-      // Portrait: as tall as the banner (set by the invisible copy below); landscape: 16:9 like the
-      // wide banners. Either way the whole artwork shows
-      className="relative w-full overflow-hidden bg-navy portrait:min-h-[60svh] landscape:aspect-video"
+      // Portrait: as tall as the banner (set by the invisible copy below), whole artwork shown.
+      // Landscape: full width, 16:9 tall but never taller than one screen under the navbar. The wide
+      // image is padded to 7:2 in the banner's border colour (fitWide in menu-data.ts), so filling the
+      // width only trims that padding: the whole banner stays visible
+      className="relative w-full overflow-hidden bg-navy portrait:min-h-[60svh] landscape:h-[min(56.25vw,calc(100svh-92px))] md:landscape:h-[min(56.25vw,calc(100svh-137px))]"
     >
       {/* Portrait: an invisible copy of the tall banner sets the height, so a banner taller than
           9:16 grows the section and shows whole (nothing cut at the top or bottom) */}

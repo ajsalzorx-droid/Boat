@@ -396,8 +396,8 @@ export default function AdminOffersPage() {
                 </p>
                 <div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
                   {([
-                    ["banner_url", "Desktop & tablet", "Wide, 1920 × 1080. Shown on desktops and sideways tablets", Monitor, "w-24 aspect-video"],
-                    ["banner_mobile_url", "Phone", "Tall, 1080 × 1920. Shown on phones and upright tablets", Smartphone, "w-10 aspect-[9/16]"],
+                    ["banner_url", "Desktop & tablet", "Wide, 1920 × 1080, up to 10 MB. Shown on desktops and sideways tablets", Monitor, "w-24 aspect-video"],
+                    ["banner_mobile_url", "Phone", "Tall, 1080 × 1920, up to 10 MB. Shown on phones and upright tablets", Smartphone, "w-10 aspect-[9/16]"],
                   ] as const).map(([field, label, hint, Icon, previewClass]) => (
                     <div key={field} className="flex items-center gap-3">
                       {formData[field] ? (

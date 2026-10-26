@@ -70,13 +70,14 @@ export function withOffers(items: MenuItem[], offers: Offer[]): MenuItem[] {
   })
 }
 
-// Cloudinary pads an image out to 16:9 with its own edge colours (a soft gradient), so a tall
-// banner on a wide screen shows whole, with sides that blend into it. A real 16:9 banner stays
-// as it is. Other addresses are used unchanged.
+// For wide screens Cloudinary pads the banner out to a very wide 7:2 strip, filled with the
+// banner's own border colour so the sides blend into it. The homepage section (full width,
+// 16:9 or wider) shows it with object-cover: only that padding is trimmed to fit the screen,
+// never the artwork, so the whole banner is always visible. Other addresses are used unchanged.
 function fitWide(url: string) {
   return url.replace(
     /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)/,
-    '$1c_pad,ar_16:9,w_1920,b_auto:border_gradient:2:vertical/'
+    '$1c_pad,ar_7:2,h_1080,b_auto:border/'
   )
 }
 

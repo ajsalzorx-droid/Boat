@@ -1,6 +1,9 @@
 import { createImageUpload, type ActionResult, type UploadFolder } from "./actions";
 
+// Upload size limits per folder: offer banners are full-screen artwork from the designers, so they
+// get more room (Cloudinary's free plan accepts images up to 10 MB). Stored as WebP either way.
 const MAX_IMAGE_MB = 5;
+const MAX_IMAGE_MB_BY_FOLDER: Partial<Record<UploadFolder, number>> = { offers: 10 };
 
 // Shows the error from an admin action. Returns true if the action failed.
 // 401 = token missing/expired -> back to login.
@@ -16,8 +19,9 @@ export function actionFailed(res: ActionResult<unknown>): boolean {
 // Server verifies the login and signs a one-time upload; the file goes straight to Cloudinary.
 // Returns the Cloudinary URL, which is what gets saved in the database.
 export async function uploadAdminImage(folder: UploadFolder, file: File): Promise<string | null> {
-  if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
-    alert(`Image is too large (max ${MAX_IMAGE_MB} MB).`);
+  const maxMb = MAX_IMAGE_MB_BY_FOLDER[folder] ?? MAX_IMAGE_MB;
+  if (file.size > maxMb * 1024 * 1024) {
+    alert(`Image is too large (max ${maxMb} MB).`);
     return null;
   }
 
