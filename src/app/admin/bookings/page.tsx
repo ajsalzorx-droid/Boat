@@ -6,7 +6,7 @@ import { actionFailed } from "../client-helpers";
 import Pagination from "../Pagination";
 import { CalendarDays, Fish, Users, Phone, Mail, MessageCircle, Check, X, Trash2, RefreshCw, Clock, StickyNote, UtensilsCrossed } from "lucide-react";
 import { formatPrice } from "@/lib/offers";
-import { formatDate, formatTime, whatsappDigits, type BookingStatus } from "@/lib/bookings";
+import { confirmationMessage, formatDate, formatTime, whatsappDigits, type BookingStatus } from "@/lib/bookings";
 
 // Bookings per page (2 rows of 3 on wide screens)
 const PAGE_SIZE = 9;
@@ -41,6 +41,10 @@ export default function AdminBookingsPage() {
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState({ all: 0, new: 0, confirmed: 0, cancelled: 0 });
   const [loaded, setLoaded] = useState(false);
+  // true = the WhatsApp API is set up: Confirm sends the message from the restaurant's number.
+  // false = Confirm opens WhatsApp with the message ready, and staff tap Send.
+  const [whatsappApi, setWhatsappApi] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = async () => {
     const requested = viewRef.current;
@@ -50,7 +54,8 @@ export default function AdminBookingsPage() {
       if (res.status === 401 || !loaded) actionFailed(res);
       return;
     }
-    const { bookings: rows, total, counts } = res.data!;
+    const { bookings: rows, total, counts, whatsappApi } = res.data!;
+    setWhatsappApi(whatsappApi);
     // This page has emptied (e.g. bookings confirmed): go to the last page that still has some
     if (rows.length === 0 && total > 0 && requested.page > 0) {
       show({ ...requested, page: Math.ceil(total / PAGE_SIZE) - 1 });
@@ -80,15 +85,20 @@ export default function AdminBookingsPage() {
 
   const changeStatus = async (b: BookingRow, status: BookingStatus) => {
     if (status === "cancelled" && !confirm(`Cancel the booking for ${b.name}?`)) return;
-    // Confirm also opens WhatsApp with the confirmation message to the customer (staff tap Send).
+    // Without the WhatsApp API, Confirm opens WhatsApp with the message ready (staff tap Send).
     // The tab is opened right away, during the click, so the browser doesn't block it as a popup;
     // it gets the WhatsApp address once the booking is saved as confirmed.
-    const tab = status === "confirmed" ? window.open("", "_blank") : null;
-    if (actionFailed(await setBookingStatus(b.id, status))) {
+    const tab = status === "confirmed" && !whatsappApi ? window.open("", "_blank") : null;
+    const res = await setBookingStatus(b.id, status);
+    if (actionFailed(res)) {
       tab?.close();
       return;
     }
     if (tab) tab.location.href = whatsappLink(b);
+    const wa = res.ok ? res.data : undefined;
+    if (wa?.whatsapp === "sent") setNotice(`Confirmed. WhatsApp message sent to ${b.name} (${b.phone}).`);
+    if (wa?.whatsapp === "failed" && confirm(`Confirmed, but the WhatsApp message could not be sent:\n${wa.error}\n\nOpen WhatsApp to send it yourself?`))
+      window.open(whatsappLink(b), "_blank");
     load();
   };
 
@@ -98,14 +108,9 @@ export default function AdminBookingsPage() {
     load();
   };
 
-  // Prefilled WhatsApp message to confirm with the customer
-  const whatsappLink = (b: BookingRow) => {
-    const what =
-      (b.type === "fish" ? `your fish preparation (${b.fish_type})` : `your table for ${b.guests}`) +
-      (b.items?.length ? ` with ${b.items.length} pre-ordered ${b.items.length === 1 ? "dish" : "dishes"}` : "");
-    const text = `Hello ${b.name}, this is Boat Seafood Restaurant. We confirm ${what} on ${formatDate(b.date)} at ${formatTime(b.time)}. See you soon!`;
-    return `https://wa.me/${whatsappDigits(b.phone)}?text=${encodeURIComponent(text)}`;
-  };
+  // WhatsApp chat with the customer, confirmation message ready to send
+  const whatsappLink = (b: BookingRow) =>
+    `https://wa.me/${whatsappDigits(b.phone)}?text=${encodeURIComponent(confirmationMessage(b).text)}`;
 
   const statusLabel = STATUSES.find((s) => s.value === view.status)!.label.toLowerCase();
 
@@ -157,6 +162,16 @@ export default function AdminBookingsPage() {
           ))}
         </div>
       </div>
+
+      {notice && (
+        <div role="status" className="flex items-center gap-3 bg-green-50 border border-green-100 text-green-800 p-3.5 rounded-xl text-sm">
+          <MessageCircle size={18} className="shrink-0" />
+          <span className="flex-1">{notice}</span>
+          <button onClick={() => setNotice(null)} aria-label="Close" className="p-1 hover:bg-green-100 rounded">
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {!loaded ? (
         <p className="p-10 text-center text-gray-400 bg-white rounded-xl border border-gray-100">Loading bookings...</p>
@@ -224,6 +239,15 @@ export default function AdminBookingsPage() {
                     <StickyNote size={14} className="text-gray-400 shrink-0 mt-0.5" /> {b.notes}
                   </p>
                 )}
+                {b.whatsapp_sent_at ? (
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold text-[#128C7E] mt-1">
+                    <MessageCircle size={12} /> Confirmation sent on WhatsApp
+                  </p>
+                ) : b.whatsapp_error ? (
+                  <p className="flex items-start gap-1.5 text-[11px] text-red-500 mt-1">
+                    <MessageCircle size={12} className="shrink-0 mt-0.5" /> WhatsApp not sent: {b.whatsapp_error}
+                  </p>
+                ) : null}
                 <p className="flex items-center gap-1.5 text-[11px] text-gray-400 mt-auto pt-2">
                   <Clock size={11} /> Received {new Date(b.created_at).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                 </p>

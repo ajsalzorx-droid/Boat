@@ -148,3 +148,14 @@ export function checkBooking(b: BookingInput, hours: { opens: string; closes: st
   if (s(b.notes).length > 500) return 'Notes are too long (max 500 characters).'
   return null
 }
+
+// The confirmation sent to the customer on WhatsApp. parts = the 4 values of the approved
+// template (src/lib/whatsapp-api.ts); text = the same message written out (tap-to-send fallback).
+export function confirmationMessage(b: { type: BookingType; name: string; guests: number; fish_type: string | null; date: string; time: string; items?: unknown[] | null }) {
+  const count = b.items?.length ?? 0
+  const what =
+    (b.type === 'fish' ? `your fish preparation (${b.fish_type})` : `your table for ${b.guests}`) +
+    (count ? ` with ${count} pre-ordered ${count === 1 ? 'dish' : 'dishes'}` : '')
+  const parts = [b.name, what, formatDate(b.date), formatTime(b.time)]
+  return { parts, text: `Hello ${parts[0]}, this is Boat Seafood Restaurant. We confirm ${parts[1]} on ${parts[2]} at ${parts[3]}. See you soon!` }
+}

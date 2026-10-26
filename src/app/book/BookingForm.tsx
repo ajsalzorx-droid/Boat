@@ -175,11 +175,11 @@ export default function BookingForm({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="b-name" className={labelClass}>Your Name *</label>
-                        <input id="b-name" type="text" autoComplete="name" maxLength={60} value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. Ahmed Ali" className={inputClass} />
+                        <input id="b-name" type="text" autoComplete="name" maxLength={60} value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="Enter your name" className={inputClass} />
                       </div>
                       <div>
                         <label htmlFor="b-phone" className={labelClass}>Phone Number *</label>
-                        <input id="b-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={20} value={form.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="e.g. 050 123 4567" className={inputClass} />
+                        <input id="b-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={20} value={form.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="Enter your phone number" className={inputClass} />
                       </div>
                     </div>
 
@@ -187,7 +187,7 @@ export default function BookingForm({
                       <label htmlFor="b-email" className={labelClass}>
                         Email <span className="normal-case tracking-normal font-normal">(optional)</span>
                       </label>
-                      <input id="b-email" type="email" autoComplete="email" maxLength={100} value={form.email} onChange={(e) => set({ email: e.target.value })} placeholder="you@example.com" className={inputClass} />
+                      <input id="b-email" type="email" autoComplete="email" maxLength={100} value={form.email} onChange={(e) => set({ email: e.target.value })} placeholder="Enter your email" className={inputClass} />
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -226,13 +226,13 @@ export default function BookingForm({
                       <div className="grid grid-cols-[1fr_96px] sm:grid-cols-[1fr_120px] gap-3 sm:gap-4 p-4 bg-cream/50 rounded-xl border border-navy/10">
                         <div>
                           <label htmlFor="b-fish" className={labelClass}>Which Fish? *</label>
-                          <input id="b-fish" type="text" maxLength={60} value={form.fish_type} onChange={(e) => set({ fish_type: e.target.value })} placeholder="e.g. Hamour, Kingfish, Prawns" className={inputClass} />
+                          <input id="b-fish" type="text" maxLength={60} value={form.fish_type} onChange={(e) => set({ fish_type: e.target.value })} placeholder="Enter the fish name" className={inputClass} />
                         </div>
                         <div>
                           <label htmlFor="b-weight" className={labelClass}>
                             Weight <span className="normal-case tracking-normal font-normal">(kg)</span>
                           </label>
-                          <input id="b-weight" type="number" inputMode="decimal" min={0.1} max={50} step={0.1} value={form.fish_weight} onChange={(e) => set({ fish_weight: e.target.value })} placeholder="Not sure" className={inputClass} />
+                          <input id="b-weight" type="number" inputMode="decimal" min={0.1} max={50} step={0.1} value={form.fish_weight} onChange={(e) => set({ fish_weight: e.target.value })} placeholder="Enter kg" className={inputClass} />
                         </div>
                         <div className="col-span-2">
                           <span className={labelClass}>How Should We Cook It? *</span>
@@ -267,7 +267,7 @@ export default function BookingForm({
                         maxLength={500}
                         value={form.notes}
                         onChange={(e) => set({ notes: e.target.value })}
-                        placeholder={type === "fish" ? "Spice level, cleaning, allergies..." : "Occasion, seating preference, allergies..."}
+                        placeholder="Enter any special requests"
                         className={inputClass}
                       />
                     </div>

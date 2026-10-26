@@ -70,7 +70,7 @@ export default function PreorderPicker({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search dishes"
+              placeholder="Search for a dish"
               aria-label="Search dishes"
               className="w-full bg-transparent text-[14px] text-navy placeholder:text-navy/30 outline-none"
             />

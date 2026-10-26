@@ -10,7 +10,8 @@ import { CONTENT_TAG, getSectionDef, type FieldType, type SectionData } from '@/
 import { MENU_TAG } from '@/lib/menu-data'
 import { MENU_CATEGORIES } from '@/data/menu'
 import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/offers'
-import type { BookingStatus, BookingType, PreorderItem } from '@/lib/bookings'
+import { confirmationMessage, whatsappDigits, type BookingStatus, type BookingType, type PreorderItem } from '@/lib/bookings'
+import { sendTemplate, whatsappApiReady } from '@/lib/whatsapp-api'
 
 // Every admin write goes through here: verify the token first, then touch the database.
 // Server Actions are reachable by direct POST, so the check must live inside each action.
@@ -507,6 +508,8 @@ export type BookingRow = Plain<{
   notes: string | null
   items?: PreorderItem[] | null // dishes pre-ordered from the menu
   items_total?: number | null
+  whatsapp_sent_at?: string | null // confirmation sent through the WhatsApp API
+  whatsapp_error?: string | null
   status: BookingStatus
   created_at: string
 }>
@@ -538,14 +541,31 @@ export async function listBookings(page: number, pageSize: number, type: Booking
       if (s._id in counts) counts[s._id] = s.count
       counts.all += s.count
     }
-    return { bookings: docs.map((d) => toPlain(d) as unknown as BookingRow), total, counts }
+    // whatsappApi: Confirm sends the message itself (else the admin page opens WhatsApp to tap Send)
+    return { bookings: docs.map((d) => toPlain(d) as unknown as BookingRow), total, counts, whatsappApi: whatsappApiReady() }
   })
 }
 
+// whatsapp: 'sent' = the confirmation went out from the restaurant's number (WhatsApp API),
+// 'failed' = the API refused it (error says why), 'off' = API not set up or not a confirmation
+export type BookingStatusResult = { whatsapp: 'sent' | 'failed' | 'off'; error?: string }
+
 export async function setBookingStatus(id: string, status: BookingStatus) {
-  return withAdmin(async (db) => {
+  return withAdmin<BookingStatusResult>(async (db) => {
     if (!['new', 'confirmed', 'cancelled'].includes(status)) fail('Invalid booking status.')
-    found(await db.collection<IdDoc>('bookings').updateOne({ _id: String(id) }, { $set: { status, updated_at: new Date() } }))
+    const bookings = db.collection<IdDoc>('bookings')
+    const before = await bookings.findOneAndUpdate({ _id: String(id) }, { $set: { status, updated_at: new Date() } })
+    if (!before) fail('This item no longer exists. Please refresh.')
+
+    // Confirming sends the customer a WhatsApp message from the restaurant's number (once)
+    if (status !== 'confirmed' || before.status === 'confirmed' || !whatsappApiReady()) return { whatsapp: 'off' }
+    const b = toPlain(before) as unknown as BookingRow
+    const sent = await sendTemplate(whatsappDigits(b.phone), confirmationMessage(b).parts)
+    await bookings.updateOne(
+      { _id: String(id) },
+      { $set: sent.ok ? { whatsapp_sent_at: new Date(), whatsapp_error: null } : { whatsapp_error: sent.error } }
+    )
+    return sent.ok ? { whatsapp: 'sent' } : { whatsapp: 'failed', error: sent.error }
   })
 }
 

@@ -109,6 +109,8 @@ const SCHEMAS = {
         },
       },
       items_total: { bsonType: ["double", "int", "long", "decimal", "null"], minimum: 0 },
+      whatsapp_sent_at: optDate, // confirmation sent through the WhatsApp API
+      whatsapp_error: optStr, // why it could not be sent
       status: { enum: ["new", "confirmed", "cancelled"] },
       created_at: date,
       updated_at: optDate,
