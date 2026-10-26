@@ -47,7 +47,7 @@ export default function KitchenPage() {
       else console.error("Error loading orders:", res.error);
       return;
     }
-    const data = res.data!.pending;
+    const data = res.data!.orders;
     setOrders(data);
     // Ring when there are more pending orders than at the last check
     if (data.length > lastOrderCount.current) {

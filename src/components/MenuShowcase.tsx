@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import type { MenuItem } from "@/data/menu";
 import { useSection } from "@/context/ContentContext";
+import { formatPrice, unitPrice } from "@/lib/offers";
 
 // Desktop grid is 4 columns x 2 rows = 8 cells: 2 tall cards (2 cells each) + 4 normal = 8
 const SHOWCASE_SIZE = 6;
@@ -48,6 +49,11 @@ export default function MenuShowcase({ items }: { items: MenuItem[] }) {
               loading="lazy"
               className="w-full h-full object-cover transition-all duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.09]"
             />
+            {item.discount ? (
+              <span className="absolute top-5 right-5 z-10 bg-offer text-white text-[11px] font-bold tracking-[1.5px] uppercase py-1.5 px-3 rounded-full shadow-lg">
+                {item.discount}% Off
+              </span>
+            ) : null}
             <div className="absolute inset-0 bg-gradient-to-t from-cream/90 via-cream/30 to-transparent opacity-95 transition-opacity duration-400 group-hover:opacity-100"></div>
             
             <div className="absolute bottom-0 left-0 right-0 p-[34px_30px] translate-y-1.5 transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-y-0">
@@ -57,6 +63,13 @@ export default function MenuShowcase({ items }: { items: MenuItem[] }) {
               <h3 className="font-playfair text-[22px] font-semibold text-navy leading-[1.22] mb-2.5 whitespace-pre-line drop-shadow-sm">
                 {item.name}
               </h3>
+              {/* Prices only for dishes on offer: the old one crossed out, then the offer price */}
+              {item.discount ? (
+                <p className="flex items-baseline gap-2.5 mb-2.5 font-jost">
+                  <span className="text-[14px] font-medium text-navy/75 line-through decoration-2">AED {item.price}</span>
+                  <span className="text-[18px] font-semibold text-offer">AED {formatPrice(unitPrice(item))}</span>
+                </p>
+              ) : null}
               <div className="text-[11.5px] font-medium text-navy/70 leading-[1.85] max-h-0 overflow-hidden opacity-0 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:max-h-[70px] group-hover:opacity-100">
                 {item.description}
               </div>

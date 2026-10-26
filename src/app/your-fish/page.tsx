@@ -140,8 +140,8 @@ export default function YourFishPage() {
               >
                 <a
                   href={hero.cta_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  // Outside links (WhatsApp) open in a new tab; the booking page opens here
+                  {...(/^https?:/.test(hero.cta_link) && { target: "_blank", rel: "noopener noreferrer" })}
                   className="group inline-flex items-center gap-2.5 bg-[#0E2A47] text-white font-jost text-[11px] font-semibold tracking-[3px] uppercase px-9 py-4 max-md:whitespace-nowrap max-md:px-6 rounded-lg transition-all duration-300 hover:bg-[#C89B4B] hover:shadow-lg hover:shadow-[#C89B4B]/25 hover:-translate-y-0.5"
                 >
                   {hero.cta}
@@ -421,8 +421,8 @@ export default function YourFishPage() {
               <div className="flex flex-wrap justify-center gap-4 mb-8">
                 <a
                   href={cta.cta_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  // Outside links (WhatsApp) open in a new tab; the booking page opens here
+                  {...(/^https?:/.test(cta.cta_link) && { target: "_blank", rel: "noopener noreferrer" })}
                   className="group inline-flex items-center gap-2.5 bg-[#C89B4B] text-[#0E2A47] font-jost text-[11px] font-bold tracking-[3px] uppercase px-10 py-4 max-md:whitespace-nowrap max-md:px-7 rounded-lg transition-all duration-300 hover:bg-white hover:shadow-xl hover:shadow-[#C89B4B]/30 hover:-translate-y-0.5"
                 >
                   {cta.cta}

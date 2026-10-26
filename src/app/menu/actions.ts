@@ -1,7 +1,8 @@
 'use server'
 
 import { headers } from 'next/headers'
-import { getDb, newId, type IdDoc } from '@/lib/mongodb'
+import { getDb, newId, toPlain, type IdDoc } from '@/lib/mongodb'
+import { bestOffer, offerStatus, unitPrice, type Offer } from '@/lib/offers'
 
 export type OrderLine = { id: string; quantity: number }
 export type PlaceOrderResult = { ok: true } | { ok: false; error: string }
@@ -59,17 +60,27 @@ export async function placeOrder(table: string | null, lines: OrderLine[]): Prom
   try {
     // Names and prices come from the database, never from the browser
     const db = await getDb()
-    const menu = await db
-      .collection<{ _id: string; name: string; price: number }>('menu_items')
-      .find({ is_active: true, _id: { $in: [...quantities.keys()] } }, { projection: { name: 1, price: 1 } })
-      .toArray()
+    const [menu, offerDocs] = await Promise.all([
+      db
+        .collection<{ _id: string; name: string; price: number; category: string }>('menu_items')
+        .find({ is_active: true, _id: { $in: [...quantities.keys()] } }, { projection: { name: 1, price: 1, category: 1 } })
+        .toArray(),
+      db.collection('offers').find({ is_active: true }).toArray(),
+    ])
 
     if (menu.length !== quantities.size) {
       return { ok: false, error: 'Some items in your cart are no longer available. Please refresh the menu.' }
     }
 
+    // Offers running right now (read fresh, not from the page cache)
+    const now = Date.now()
+    const offers = offerDocs.map((d) => toPlain(d) as unknown as Offer).filter((o) => offerStatus(o, now) === 'live')
+
     const items = menu.map((m) => ({ name: m.name, quantity: quantities.get(m._id)! }))
-    const total = menu.reduce((sum, m) => sum + Number(m.price) * quantities.get(m._id)!, 0)
+    const total = menu.reduce((sum, m) => {
+      const discount = bestOffer(offers, { id: m._id, category: m.category })?.percent
+      return sum + unitPrice({ price: m.price, discount }) * quantities.get(m._id)!
+    }, 0)
 
     await db.collection<IdDoc>('orders').insertOne({
       _id: newId(),

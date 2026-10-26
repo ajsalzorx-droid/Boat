@@ -8,6 +8,9 @@ import { newId, toPlain, type IdDoc, type Plain } from '@/lib/mongodb'
 import { DEFAULT_BUSINESS, SEO_PAGES, SEO_TAG, type BusinessInfo } from '@/lib/seo'
 import { CONTENT_TAG, getSectionDef, type FieldType, type SectionData } from '@/lib/content'
 import { MENU_TAG } from '@/lib/menu-data'
+import { MENU_CATEGORIES } from '@/data/menu'
+import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/offers'
+import type { BookingStatus, BookingType, PreorderItem } from '@/lib/bookings'
 
 // Every admin write goes through here: verify the token first, then touch the database.
 // Server Actions are reachable by direct POST, so the check must live inside each action.
@@ -152,6 +155,86 @@ export async function setDailyCatchAvailability(id: string, isAvailable: boolean
   })
 }
 
+// ---------- Offers ----------
+
+export type OfferInput = {
+  title: string
+  description: string
+  percent: number
+  banner_url: string // homepage banner, wide ("" = none)
+  banner_mobile_url: string // homepage banner for phones ("" = the wide one)
+  scope: OfferScope
+  categories: string[]
+  item_ids: string[]
+  start_day: string // "2026-11-01" in Dubai time, or "" = from now
+  end_day: string // or "" = until switched off
+  is_active: boolean
+}
+
+function day(value: unknown, field: string, edge: 'start' | 'end') {
+  const s = text(value, field, 10)
+  if (!s) return null
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(Date.parse(s))) fail(`${field} must be a date.`)
+  return dubaiDay(s, edge)
+}
+
+export async function saveOffer(id: string | null, input: OfferInput) {
+  return withAdmin(async (db) => {
+    const percent = Number(input?.percent)
+    if (!Number.isInteger(percent) || percent < 1 || percent > MAX_OFFER_PERCENT)
+      fail(`Discount must be a whole number from 1 to ${MAX_OFFER_PERCENT} %.`)
+    const scope = input?.scope
+    if (!['all', 'categories', 'items'].includes(scope)) fail('Choose what the offer applies to.')
+    const categories = scope === 'categories' ? (Array.isArray(input.categories) ? input.categories : []).filter((c) => MENU_CATEGORIES.includes(c)) : []
+    const itemIds = scope === 'items' ? (Array.isArray(input.item_ids) ? input.item_ids : []).map(String).slice(0, 200) : []
+    if (scope === 'categories' && !categories.length) fail('Choose at least one category.')
+    if (scope === 'items' && !itemIds.length) fail('Choose at least one dish.')
+    const startsAt = day(input?.start_day, 'Start date', 'start')
+    const endsAt = day(input?.end_day, 'End date', 'end')
+    if (startsAt && endsAt && endsAt < startsAt) fail('End date must be on or after the start date.')
+    const bannerUrl = imageUrl(input?.banner_url)
+    const bannerMobileUrl = imageUrl(input?.banner_mobile_url)
+
+    const row = {
+      title: text(input?.title, 'Title', 80, true),
+      description: text(input?.description, 'Description', 300),
+      percent,
+      banner_url: bannerUrl,
+      banner_mobile_url: bannerMobileUrl,
+      scope,
+      categories,
+      item_ids: itemIds,
+      starts_at: startsAt,
+      ends_at: endsAt,
+      is_active: !!input?.is_active,
+      updated_at: new Date(),
+    }
+
+    const offers = db.collection<IdDoc>('offers')
+    if (id) found(await offers.updateOne({ _id: String(id) }, { $set: row }))
+    else await offers.insertOne({ _id: newId(), ...row, created_at: new Date() })
+    updateTag(MENU_TAG) // menu prices and the homepage banner read offers from cache
+  })
+}
+
+export async function deleteOffer(id: string) {
+  return withAdmin(async (db) => {
+    found(await db.collection<IdDoc>('offers').deleteOne({ _id: String(id) }))
+    updateTag(MENU_TAG)
+  })
+}
+
+export async function setOfferActive(id: string, isActive: boolean) {
+  return withAdmin(async (db) => {
+    found(
+      await db
+        .collection<IdDoc>('offers')
+        .updateOne({ _id: String(id) }, { $set: { is_active: !!isActive, updated_at: new Date() } })
+    )
+    updateTag(MENU_TAG)
+  })
+}
+
 // ---------- Orders ----------
 
 export async function completeOrder(id: string) {
@@ -281,7 +364,7 @@ export async function resetContentSection(sectionId: string) {
 
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif']
 
-export type UploadFolder = 'menu' | 'daily-catch' | 'seo' | 'content'
+export type UploadFolder = 'menu' | 'daily-catch' | 'offers' | 'seo' | 'content'
 
 export type ImageUploadAuth = {
   uploadUrl: string
@@ -303,7 +386,7 @@ const UPLOAD_TRANSFORMATION = 'c_limit,w_1600'
 // leaves the server. The uploaded file's Cloudinary URL is what gets saved in the database.
 export async function createImageUpload(folder: UploadFolder, fileName: string) {
   return withAdmin<ImageUploadAuth>(async () => {
-    if (!['menu', 'daily-catch', 'seo', 'content'].includes(folder)) fail('Invalid upload folder.')
+    if (!['menu', 'daily-catch', 'offers', 'seo', 'content'].includes(folder)) fail('Invalid upload folder.')
     const ext = String(fileName).split('.').pop()?.toLowerCase() ?? ''
     if (!IMAGE_EXTENSIONS.includes(ext)) fail(`Only ${IMAGE_EXTENSIONS.join(', ')} images are allowed.`)
 
@@ -382,6 +465,24 @@ export async function listDailyCatch() {
   })
 }
 
+// All offers, newest first, plus every dish (name and category) for the "applies to" picker
+export async function listOffers() {
+  return withAdmin(async (db) => {
+    const [offers, dishes] = await Promise.all([
+      db.collection('offers').find().sort({ created_at: -1, _id: 1 }).toArray(),
+      db
+        .collection('menu_items')
+        .find({}, { projection: { name: 1, category: 1, price: 1 } })
+        .sort({ category: 1, name: 1 })
+        .toArray(),
+    ])
+    return {
+      offers: offers.map((d) => toPlain(d) as unknown as Offer),
+      dishes: dishes.map((d) => ({ id: String(d._id), name: String(d.name), category: String(d.category), price: Number(d.price) })),
+    }
+  })
+}
+
 export type OrderRow = Plain<{
   table: string
   items: { name: string; quantity: number }[]
@@ -390,20 +491,105 @@ export type OrderRow = Plain<{
   timestamp: string
 }>
 
-// Pending orders (newest first) plus totals for the dashboard
-export async function listOrders() {
+// ---------- Bookings (table reservations + fish preparation, from /book) ----------
+
+export type BookingRow = Plain<{
+  type: BookingType
+  name: string
+  phone: string
+  email: string | null
+  date: string
+  time: string
+  guests: number
+  fish_type: string | null
+  fish_weight: number | null
+  style: string | null
+  notes: string | null
+  items?: PreorderItem[] | null // dishes pre-ordered from the menu
+  items_total?: number | null
+  status: BookingStatus
+  created_at: string
+}>
+
+export type BookingTypeFilter = 'all' | BookingType
+export type BookingStatusFilter = 'all' | BookingStatus
+
+// One page of bookings, soonest visit first (by date and time), plus counts for the filters
+export async function listBookings(page: number, pageSize: number, type: BookingTypeFilter, status: BookingStatusFilter) {
   return withAdmin(async (db) => {
-    const orders = db.collection('orders')
-    const [pending, totals] = await Promise.all([
-      orders.find({ status: 'pending' }).sort({ timestamp: -1 }).toArray(),
-      orders
-        .aggregate<{ count: number; revenue: number }>([{ $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: '$total' } } }])
+    if (!['all', 'table', 'fish'].includes(type)) fail('Invalid booking type.')
+    if (!['all', 'new', 'confirmed', 'cancelled'].includes(status)) fail('Invalid booking status.')
+    const size = Math.min(Math.max(Math.floor(pageSize) || 8, 1), 100)
+    const skip = Math.max(Math.floor(page) || 0, 0) * size
+    const query = { ...(type !== 'all' && { type }), ...(status !== 'all' && { status }) }
+    const bookings = db.collection('bookings')
+    const [docs, total, byStatus] = await Promise.all([
+      bookings.find(query).sort({ date: 1, time: 1, _id: 1 }).skip(skip).limit(size).toArray(),
+      bookings.countDocuments(query),
+      bookings
+        .aggregate<{ _id: BookingStatus; count: number }>([
+          { $match: type !== 'all' ? { type } : {} },
+          { $group: { _id: '$status', count: { $sum: 1 } } },
+        ])
         .toArray(),
     ])
+    const counts = { all: 0, new: 0, confirmed: 0, cancelled: 0 }
+    for (const s of byStatus) {
+      if (s._id in counts) counts[s._id] = s.count
+      counts.all += s.count
+    }
+    return { bookings: docs.map((d) => toPlain(d) as unknown as BookingRow), total, counts }
+  })
+}
+
+export async function setBookingStatus(id: string, status: BookingStatus) {
+  return withAdmin(async (db) => {
+    if (!['new', 'confirmed', 'cancelled'].includes(status)) fail('Invalid booking status.')
+    found(await db.collection<IdDoc>('bookings').updateOne({ _id: String(id) }, { $set: { status, updated_at: new Date() } }))
+  })
+}
+
+export async function deleteBooking(id: string) {
+  return withAdmin(async (db) => {
+    found(await db.collection<IdDoc>('bookings').deleteOne({ _id: String(id) }))
+  })
+}
+
+export type OrderFilter = 'all' | 'pending' | 'completed'
+
+// Orders (newest first) from the orders collection, plus totals for the dashboard.
+// filter = which orders; with a page size only that page is returned (dashboard), without it
+// every matching order (kitchen screen: all pending orders).
+export async function listOrders(page?: number, pageSize?: number, filter: OrderFilter = 'pending') {
+  return withAdmin(async (db) => {
+    if (!['all', 'pending', 'completed'].includes(filter)) fail('Invalid order filter.')
+    const orders = db.collection('orders')
+    const query = filter === 'all' ? {} : { status: filter }
+    let cursor = orders.find(query).sort({ timestamp: -1, _id: 1 })
+    if (pageSize !== undefined) {
+      const size = Math.min(Math.max(Math.floor(pageSize) || 8, 1), 100)
+      cursor = cursor.skip(Math.max(Math.floor(page ?? 0) || 0, 0) * size).limit(size)
+    }
+    const [rows, byStatus] = await Promise.all([
+      cursor.toArray(),
+      orders
+        .aggregate<{ _id: string; count: number; revenue: number }>([
+          { $group: { _id: '$status', count: { $sum: 1 }, revenue: { $sum: '$total' } } },
+        ])
+        .toArray(),
+    ])
+    const counts = { all: 0, pending: 0, completed: 0 }
+    let revenue = 0
+    for (const s of byStatus) {
+      if (s._id === 'pending' || s._id === 'completed') counts[s._id] = s.count
+      counts.all += s.count
+      revenue += s.revenue
+    }
     return {
-      pending: pending.map((d) => toPlain(d) as unknown as OrderRow),
-      totalOrders: totals[0]?.count ?? 0,
-      revenue: totals[0]?.revenue ?? 0,
+      orders: rows.map((d) => toPlain(d) as unknown as OrderRow),
+      total: counts[filter], // orders matching the filter (for the pagination)
+      counts,
+      revenue: Math.round(revenue * 100) / 100,
     }
   })
 }

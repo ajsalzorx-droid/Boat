@@ -14,18 +14,25 @@ import { whatsapp } from "@/lib/whatsapp";
 import { getBusinessInfo, pageMetadata } from "@/lib/seo-data";
 import { restaurantJsonLd } from "@/lib/seo";
 import { getSiteContent } from "@/lib/content-data";
-import { getActiveMenuItems, getAvailableCatch } from "@/lib/menu-data";
+import { getActiveMenuItems, getAvailableCatch, getLiveOffers, offerBanners, withOffers } from "@/lib/menu-data";
+import OfferBanners from "@/components/OfferBanners";
 import { Heading } from "@/components/ContentText";
 
 export const generateMetadata = () => pageMetadata("/");
 
+// Offers start and end by date: rebuild the page at least every 5 minutes so the offers section follows them
+export const revalidate = 300;
+
 export default async function Home() {
-  const [business, content, menuItems, dailyCatch] = await Promise.all([
+  const [business, content, dishes, dailyCatch, offers] = await Promise.all([
     getBusinessInfo(),
     getSiteContent(),
     getActiveMenuItems(),
     getAvailableCatch(),
+    getLiveOffers(),
   ]);
+  const menuItems = withOffers(dishes, offers);
+  const banners = offerBanners(offers);
   const { manifesto, visit } = content;
 
   return (
@@ -39,6 +46,7 @@ export default async function Home() {
             __html: JSON.stringify(restaurantJsonLd(business)).replace(/</g, "\\u003c"),
           }}
         />
+        <OfferBanners banners={banners} />
         <Hero />
         <Ticker />
         <Origin />

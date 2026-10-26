@@ -62,6 +62,58 @@ const SCHEMAS = {
       updated_at: date,
     },
   },
+  // % off the whole menu, some categories or chosen dishes (Admin -> Offers)
+  offers: {
+    required: ["_id", "title", "percent", "scope", "is_active"],
+    properties: {
+      _id: str,
+      title: str,
+      description: optStr,
+      percent: { bsonType: ["int", "long", "double"], minimum: 1, maximum: 90 },
+      image_url: optStr,
+      scope: { enum: ["all", "categories", "items"] },
+      categories: { bsonType: "array", items: str },
+      item_ids: { bsonType: "array", items: str },
+      starts_at: optDate, // null = from now
+      ends_at: optDate, // null = until switched off
+      is_active: bool,
+      banner_url: optStr, // homepage banner, wide ("" = none)
+      banner_mobile_url: optStr, // homepage banner for phones ("" = the wide one)
+      created_at: date,
+      updated_at: date,
+    },
+  },
+  // Online bookings from /book: table reservations and fish-preparation requests (Admin -> Bookings)
+  bookings: {
+    required: ["_id", "type", "name", "phone", "date", "time", "guests", "status", "created_at"],
+    properties: {
+      _id: str,
+      type: { enum: ["table", "fish"] },
+      name: str,
+      phone: str,
+      email: optStr,
+      date: { bsonType: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, // Dubai date
+      time: { bsonType: "string", pattern: "^\\d{2}:\\d{2}$" }, // Dubai time
+      guests: { bsonType: ["int", "long", "double"], minimum: 1, maximum: 30 },
+      fish_type: optStr, // fish preparation only
+      fish_weight: { bsonType: ["double", "int", "long", "null"] }, // kg
+      style: optStr, // how to cook it
+      notes: optStr,
+      // Dishes pre-ordered from the menu (price = one portion with any offer), null = none
+      items: {
+        bsonType: ["array", "null"],
+        items: {
+          bsonType: "object",
+          required: ["name", "quantity", "price"],
+          properties: { name: str, quantity: { bsonType: ["int", "long", "double"], minimum: 1 }, price: money },
+        },
+      },
+      items_total: { bsonType: ["double", "int", "long", "decimal", "null"], minimum: 0 },
+      status: { enum: ["new", "confirmed", "cancelled"] },
+      created_at: date,
+      updated_at: optDate,
+    },
+  },
   // Orders from the website, shown on the Admin and Kitchen screens
   orders: {
     required: ["_id", "table", "items", "total", "status", "timestamp"],
@@ -157,6 +209,8 @@ const SCHEMAS = {
 const INDEXES = {
   menu_items: [{ key: { category: 1, is_active: 1 } }, { key: { name: 1 } }],
   daily_catch: [{ key: { is_available: 1 } }],
+  offers: [{ key: { is_active: 1 } }],
+  bookings: [{ key: { date: 1, time: 1 } }, { key: { type: 1, status: 1 } }],
   orders: [{ key: { status: 1, timestamp: -1 } }, { key: { timestamp: -1 } }],
   admin_users: [{ key: { email: 1 }, unique: true }],
   sessions: [{ key: { expires_at: 1 }, expireAfterSeconds: 0 }, { key: { email: 1 } }],

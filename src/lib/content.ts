@@ -108,7 +108,8 @@ const pexels = (id: string, w = 800) =>
 const SOUP_BOWL =
   'https://images.pexels.com/photos/20814983/pexels-photo-20814983/free-photo-of-steaming-seafood-bowl.jpeg?auto=compress&cs=tinysrgb&w=800&q=80&fm=webp'
 const WHATSAPP = whatsapp()
-const WHATSAPP_OWN_FISH = whatsapp('Hello, I want to bring my own fish for preparation')
+// Online booking form (/book); ?type=fish opens the fish-preparation tab
+const BOOK_FISH = '/book?type=fish'
 const FISH = cdn('/images/your-fish')
 
 export const CONTENT_SECTIONS = [
@@ -128,6 +129,7 @@ export const CONTENT_SECTIONS = [
       text('nav_location', 'Link – Location', 'Location'),
       text('nav_events', 'Link – Events', 'Events'),
       text('nav_offer', 'Link – Offer', 'Offer'),
+      text('nav_prebook', 'Link – Pre-Book (booking form)', 'Pre-Book'),
       text('nav_fresh', 'Link – Fresh Catch', 'Fresh Catch'),
       text('delivery', 'Delivery button', 'Delivery'),
       text('order', 'Order button', 'Order Online'),
@@ -499,7 +501,7 @@ export const CONTENT_SECTIONS = [
       ],
       default: [
         { title: 'Lunch Delight Menu', subtitle: 'Weekdays Special', tag: '12 PM - 4 PM', description: 'Enjoy a curated 3-course seafood lunch featuring our daily catch, starting from AED 89. Perfect for business meetings or casual breaks.', image: pexels('2098085'), alt: '', cta: 'View Lunch Menu', link: '/menu' },
-        { title: 'Family Seafood Feast', subtitle: 'Weekend Tradition', tag: 'Weekend Only', description: 'Our signature jumbo platter featuring grilled prawns, calamari, mussels, and our catch of the day. Serves 4-6 people with side dishes.', image: pexels('331107'), alt: '', cta: 'Book a Table', link: WHATSAPP },
+        { title: 'Family Seafood Feast', subtitle: 'Weekend Tradition', tag: 'Weekend Only', description: 'Our signature jumbo platter featuring grilled prawns, calamari, mussels, and our catch of the day. Serves 4-6 people with side dishes.', image: pexels('331107'), alt: '', cta: 'Book a Table', link: '/book' },
         { title: 'Sunset Happy Hour', subtitle: 'Daily Refreshment', tag: '5 PM - 8 PM', description: 'Buy one get one free on all signature mocktails and 20% off on appetizers while you watch the sunset over the waterfront.', image: pexels('11054363'), alt: '', cta: 'Learn More', link: WHATSAPP },
       ],
     },
@@ -541,7 +543,7 @@ export const CONTENT_SECTIONS = [
       ...heading('At Boat Seafood, your catch becomes your', 'perfect meal.'),
       body('Bring your fresh fish directly from the market or the sea, and our chefs will prepare it exactly the way you love it — full of authentic flavor, fresh ingredients, and coastal tradition.'),
       text('cta', 'Main button', 'Book a Table'),
-      link('cta_link', 'Main button link', WHATSAPP_OWN_FISH),
+      link('cta_link', 'Main button link', BOOK_FISH),
       text('cta2', 'Second button', 'View Styles'),
       text('pill1', 'Badge 1', 'Fresh from the market'),
       text('pill2', 'Badge 2', 'Prepared to your taste'),
@@ -629,7 +631,7 @@ export const CONTENT_SECTIONS = [
       text('title', 'Heading', 'Ready to turn your fresh catch into the perfect meal?'),
       body('Bring your fish, choose your style, and let our chefs do the rest.'),
       text('cta', 'Main button', 'Book a Table'),
-      link('cta_link', 'Main button link', WHATSAPP_OWN_FISH),
+      link('cta_link', 'Main button link', BOOK_FISH),
       text('cta2', 'Second button', 'Contact Us'),
       link('cta2_link', 'Second button link', WHATSAPP),
       text('note', 'Small note', 'Perfect for family meals, special catches, and seafood lovers.'),

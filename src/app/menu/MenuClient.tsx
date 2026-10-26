@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Utensils, Truck } from "lucide-react";
+import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Utensils, Truck, Tag } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { MENU_CATEGORIES, type MenuItem } from "@/data/menu";
@@ -10,24 +10,31 @@ import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { useSection } from "@/context/ContentContext";
 import { placeOrder, type PlaceOrderResult } from "./actions";
+import { formatPrice, unitPrice } from "@/lib/offers";
 
-const categories = ["All", ...MENU_CATEGORIES];
+// Shown as a tab only while some dish has a live offer
+const OFFERS_TAB = "Offers";
 
 // Dishes come from the server (page.tsx), so they are in the HTML Google reads.
-// tableNumber = ?table= from the QR code on the restaurant table.
-export default function MenuClient({ initialItems, tableNumber }: { initialItems: MenuItem[]; tableNumber: string | null }) {
+// tableNumber = ?table= from the QR code on the restaurant table. openOffers = ?offers (from the
+// homepage offers popup): start on the Offers tab.
+export default function MenuClient({ initialItems, tableNumber, openOffers = false }: { initialItems: MenuItem[]; tableNumber: string | null; openOffers?: boolean }) {
   const { cart, addToCart, updateQuantity, cartTotal, cartCount, isCartOpen, setIsCartOpen } = useCart();
   const hero = useSection("menu_hero").fields;
-  const [activeCategory, setActiveCategory] = useState("All");
+  const hasOffers = initialItems.some((item) => item.discount);
+  const categories = hasOffers ? ["All", OFFERS_TAB, ...MENU_CATEGORIES] : ["All", ...MENU_CATEGORIES];
+  const [activeCategory, setActiveCategory] = useState(openOffers && hasOffers ? OFFERS_TAB : "All");
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [orderStatus, setOrderStatus] = useState<'idle' | 'submitting' | 'complete'>('idle');
-  
+
   const dbMenuItems = initialItems;
 
-  const filteredItems = activeCategory === "All" 
-    ? dbMenuItems 
-    : dbMenuItems.filter(item => item.category === activeCategory);
+  const filteredItems = activeCategory === "All"
+    ? dbMenuItems
+    : activeCategory === OFFERS_TAB
+      ? dbMenuItems.filter(item => item.discount)
+      : dbMenuItems.filter(item => item.category === activeCategory);
 
   const handleAddToCart = (item: MenuItem) => {
     addToCart(item);
@@ -41,7 +48,7 @@ export default function MenuClient({ initialItems, tableNumber }: { initialItems
 
   const submitOrder = async () => {
     setOrderStatus('submitting');
-    
+
     // Sent through a server action: the database prices the items, so the
     // browser can't choose the total or insert into orders directly.
     let result: PlaceOrderResult;
@@ -79,7 +86,7 @@ export default function MenuClient({ initialItems, tableNumber }: { initialItems
           </div>
           <div className="absolute inset-0 bg-gradient-to-t from-navy/80 via-navy/20 to-transparent"></div>
           <div className="absolute inset-0 bg-navy/20"></div>
-        
+
           <div className="relative z-10 max-w-4xl">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -100,7 +107,7 @@ export default function MenuClient({ initialItems, tableNumber }: { initialItems
                 {hero.title}
               </h1>
               <p className="text-[15px] text-white/60 max-w-xl leading-relaxed font-light">
-                {tableNumber 
+                {tableNumber
                   ? hero.body_table
                   : hero.body}
               </p>
@@ -116,12 +123,15 @@ export default function MenuClient({ initialItems, tableNumber }: { initialItems
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 className={`whitespace-nowrap text-[10px] tracking-[3px] uppercase transition-all relative ${
-                  activeCategory === cat ? "text-navy font-bold" : "text-navy/60 hover:text-navy"
+                  cat === OFFERS_TAB
+                    ? `inline-flex items-center gap-1.5 text-offer ${activeCategory === cat ? "font-bold" : "hover:font-bold"}`
+                    : activeCategory === cat ? "text-navy font-bold" : "text-navy/60 hover:text-navy"
                 }`}
               >
+                {cat === OFFERS_TAB && <Tag size={11} />}
                 {cat}
                 {activeCategory === cat && (
-                  <motion.div layoutId="activeCat" className="absolute -bottom-1 left-0 right-0 h-[2px] bg-ocean" />
+                  <motion.div layoutId="activeCat" className={`absolute -bottom-1 left-0 right-0 h-[2px] ${cat === OFFERS_TAB ? "bg-offer" : "bg-ocean"}`} />
                 )}
               </button>
             ))}
@@ -143,7 +153,7 @@ export default function MenuClient({ initialItems, tableNumber }: { initialItems
                 transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                 className="group flex flex-col"
               >
-                <div className="relative aspect-[4/3] overflow-hidden mb-6 rounded-sm shadow-sm">
+                <div className={`relative aspect-[4/3] overflow-hidden mb-6 rounded-sm shadow-sm ${item.discount ? "ring-2 ring-offer ring-offset-4 ring-offset-white" : ""}`}>
                   <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                   <div className="absolute top-4 left-4 flex flex-col gap-2">
                     {item.tag && (
@@ -157,7 +167,12 @@ export default function MenuClient({ initialItems, tableNumber }: { initialItems
                       </span>
                     ))}
                   </div>
-                  <button 
+                  {item.discount ? (
+                    <span className="absolute top-4 right-4 bg-offer text-white text-[11px] font-bold tracking-[1.5px] uppercase py-1.5 px-3 rounded-full shadow-lg">
+                      {item.discount}% Off
+                    </span>
+                  ) : null}
+                  <button
                     onClick={() => handleAddToCart(item)}
                     aria-label={`Add ${item.name} to order`}
                     className="absolute bottom-3 right-3 md:bottom-4 md:right-4 bg-navy text-cream p-2.5 md:p-4 rounded-full shadow-2xl md:translate-y-4 md:opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 hover:bg-ocean hover:text-navy opacity-100 translate-y-0"
@@ -165,15 +180,27 @@ export default function MenuClient({ initialItems, tableNumber }: { initialItems
                     {showSuccess === item.id ? <Check size={20} className="w-4 h-4 md:w-5 md:h-5" /> : <Plus size={20} className="w-4 h-4 md:w-5 md:h-5" />}
                   </button>
                 </div>
-              
+
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="font-playfair text-2xl font-bold text-navy leading-tight">
                     {item.name}
                   </h3>
-                  <span className="font-jost text-lg font-medium text-ocean">
-                    AED {item.price}
-                  </span>
+                  {item.discount ? (
+                    <span className="flex flex-col items-end shrink-0 pl-3">
+                      <span className="font-jost text-[13px] text-navy/45 line-through">AED {item.price}</span>
+                      <span className="font-jost text-lg font-semibold text-offer">AED {formatPrice(unitPrice(item))}</span>
+                    </span>
+                  ) : (
+                    <span className="font-jost text-lg font-medium text-ocean">
+                      AED {item.price}
+                    </span>
+                  )}
                 </div>
+                {item.offer_title && (
+                  <p className="text-[9px] tracking-[2.5px] uppercase font-bold mb-3 flex items-center gap-1.5 text-offer">
+                    <Tag size={11} /> {item.offer_title}
+                  </p>
+                )}
                 <p className="text-[13px] text-navy/70 leading-relaxed font-light mb-6 flex-grow">
                   {item.description}
                 </p>
@@ -201,7 +228,7 @@ export default function MenuClient({ initialItems, tableNumber }: { initialItems
               </div>
               <span className="text-[11px] tracking-[2px] uppercase font-bold">View Order</span>
             </div>
-            <span className="text-xl font-bold">AED {cartTotal}</span>
+            <span className="text-xl font-bold">AED {formatPrice(cartTotal)}</span>
           </motion.button>
         )}
 
@@ -249,7 +276,7 @@ export default function MenuClient({ initialItems, tableNumber }: { initialItems
                         <div className="flex-grow">
                           <div className="flex justify-between items-start mb-1">
                             <h4 className="font-playfair font-bold text-lg leading-tight">{item.name}</h4>
-                            <span className="text-ocean font-medium">AED {parseInt(item.price) * quantity}</span>
+                            <span className={`font-medium ${item.discount ? "text-offer" : "text-ocean"}`}>AED {formatPrice(unitPrice(item) * quantity)}</span>
                           </div>
                           <div className="flex items-center gap-4 mt-4">
                             <div className="flex items-center border border-navy/20 rounded-full px-2 py-1">
@@ -268,9 +295,9 @@ export default function MenuClient({ initialItems, tableNumber }: { initialItems
                   <div className="p-8 bg-navy text-cream">
                     <div className="flex justify-between items-center mb-6">
                       <span className="text-[10px] tracking-[3px] uppercase text-white/40">Total Amount</span>
-                      <span className="font-playfair text-3xl font-bold">AED {cartTotal}</span>
+                      <span className="font-playfair text-3xl font-bold">AED {formatPrice(cartTotal)}</span>
                     </div>
-                    <button 
+                    <button
                       onClick={handlePlaceOrder}
                       className="w-full bg-ocean text-navy rounded-lg py-5 font-jost text-[10px] font-bold tracking-[3px] uppercase transition-all hover:bg-white"
                     >
@@ -307,19 +334,19 @@ export default function MenuClient({ initialItems, tableNumber }: { initialItems
                     </div>
                     <h2 className="font-playfair text-3xl font-bold mb-4">Confirm Your Order</h2>
                     <p className="text-navy/70 font-light mb-8 leading-relaxed">
-                      {tableNumber 
+                      {tableNumber
                         ? `Your order will be sent directly to the kitchen for Table ${tableNumber}. Please confirm to proceed.`
                         : "Are you sure you want to place this order? This action cannot be undone."}
                     </p>
-                  
+
                     <div className="flex flex-col gap-4">
-                      <button 
+                      <button
                         onClick={submitOrder}
                         className="w-full bg-navy text-white rounded-lg py-5 font-jost text-[10px] font-bold tracking-[3px] uppercase hover:bg-ocean hover:text-navy transition-all"
                       >
                         Yes, Confirm Order
                       </button>
-                      <button 
+                      <button
                         onClick={() => setIsConfirming(false)}
                         className="w-full border border-navy/20 rounded-lg py-5 font-jost text-[10px] font-bold tracking-[3px] uppercase text-navy/70 hover:text-navy hover:border-navy transition-all"
                       >
@@ -334,7 +361,7 @@ export default function MenuClient({ initialItems, tableNumber }: { initialItems
                   </div>
                 ) : (
                   <div className="py-12">
-                    <motion.div 
+                    <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       className="w-20 h-20 bg-green-500/20 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8"

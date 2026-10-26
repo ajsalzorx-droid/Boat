@@ -41,6 +41,8 @@ export default function Navbar() {
     { href: "/#loc", label: nav.nav_location },
     { href: "/events", label: nav.nav_events },
     { href: "/offer", label: nav.nav_offer },
+    // Falls back while the site text cache is older than this label
+    { href: "/book", label: nav.nav_prebook || "Pre-Book" },
     { href: "/your-fish", label: nav.nav_fresh, accent: true },
   ];
   const [isScrolled, setIsScrolled] = useState(false);
@@ -147,6 +149,15 @@ export default function Navbar() {
                 className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
               >
                 {nav.nav_offer}
+                <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/book"
+                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group whitespace-nowrap"
+              >
+                {nav.nav_prebook || "Pre-Book"}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
               </Link>
             </li>
