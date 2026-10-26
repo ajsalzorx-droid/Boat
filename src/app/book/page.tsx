@@ -1,12 +1,14 @@
 import { getBusinessInfo, pageMetadata } from "@/lib/seo-data";
 import { getActiveMenuItems, getLiveOffers, withOffers } from "@/lib/menu-data";
 import { unitPrice } from "@/lib/offers";
+import { WHATSAPP_DISPLAY } from "@/lib/whatsapp";
 import BookingForm from "./BookingForm";
 
 export const generateMetadata = () => pageMetadata("/book");
 
 // Online booking: table reservations and fish-preparation requests (?type=fish opens that tab).
-// Opening hours (for the time slots) and the phone number come from the SEO Studio business info.
+// Opening hours (for the time slots) come from the SEO Studio business info; the phone shown is
+// the WhatsApp number (NEXT_PUBLIC_WHATSAPP_NUMBER).
 export default async function BookPage({ searchParams }: { searchParams: Promise<{ type?: string | string[] }> }) {
   const [{ type }, business, menuItems, offers] = await Promise.all([searchParams, getBusinessInfo(), getActiveMenuItems(), getLiveOffers()]);
   // Dishes to pre-order (same name listed twice in the menu shows once), with offer prices
@@ -23,7 +25,8 @@ export default async function BookPage({ searchParams }: { searchParams: Promise
     <BookingForm
       initialType={type === "fish" ? "fish" : "table"}
       hours={{ opens: business.opens, closes: business.closes }}
-      phone={business.phone}
+      // Bookings use the restaurant mobile (calls and WhatsApp), not the landline
+      phone={WHATSAPP_DISPLAY}
       dishes={dishes}
     />
   );
