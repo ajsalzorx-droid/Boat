@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { OfferBanner } from "@/lib/offers";
 
 // Homepage offers section (the first thing on the page, above the hero): the banners added in
@@ -21,7 +21,6 @@ const MAX_WAIT_MS = 24 * 60 * 60 * 1000;
 export default function OfferBanners({ banners: all }: { banners: OfferBanner[] }) {
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState(1);
-  const [paused, setPaused] = useState(false);
   // The page HTML can be a few minutes old (and a tab can stay open for hours): the browser
   // checks the end dates too, so an offer disappears the moment it ends. null = not checked yet
   // (first render matches the server HTML).
@@ -45,13 +44,13 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
     setIndex((next + banners.length) % banners.length);
   };
 
-  // Auto-advance; waits while a mouse is over it, and restarts its time after every change
+  // Always moves on by itself (also under the mouse); restarts its time after every change
   useEffect(() => {
-    if (!many || paused) return;
+    if (!many) return;
     const t = window.setTimeout(() => go(index + 1, 1), SLIDE_MS);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, paused, many]);
+  }, [index, many]);
 
   if (!banners.length) return null;
   const current = index % banners.length; // an offer may have just ended
@@ -64,9 +63,6 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
     <section
       aria-roledescription="carousel"
       aria-label="Offers"
-      // Only a real mouse pauses it (a tap on a phone would otherwise pause it for good)
-      onPointerEnter={(e) => e.pointerType === "mouse" && setPaused(true)}
-      onPointerLeave={(e) => e.pointerType === "mouse" && setPaused(false)}
       // Portrait: as tall as the banner (set by the invisible copy below), whole artwork shown.
       // Landscape: full width, 16:9 tall but never taller than one screen under the navbar. The wide
       // image is padded to 7:2 in the banner's border colour (fitWide in menu-data.ts), so filling the
@@ -119,22 +115,8 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
 
       {many && (
         <>
-          <button
-            onClick={() => go(current - 1, -1)}
-            aria-label="Previous offer"
-            className="hidden md:flex absolute left-5 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/80 text-navy items-center justify-center shadow-lg hover:bg-white transition-colors"
-          >
-            <ChevronLeft size={22} />
-          </button>
-          <button
-            onClick={() => go(current + 1, 1)}
-            aria-label="Next offer"
-            className="hidden md:flex absolute right-5 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/80 text-navy items-center justify-center shadow-lg hover:bg-white transition-colors"
-          >
-            <ChevronRight size={22} />
-          </button>
-          {/* Dots: at the top on portrait screens (the button is at the bottom), bottom centre on landscape */}
-          <div className="absolute top-4 landscape:top-auto landscape:bottom-6 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-black/30 backdrop-blur-sm rounded-full px-3 py-2">
+          {/* Dots: bottom centre on every screen, just under the banner's QR code */}
+          <div className="absolute bottom-2 md:bottom-3 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-1.5">
             {banners.map((b, i) => (
               <button
                 key={b.id}
@@ -148,11 +130,12 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
         </>
       )}
 
-      {/* Bottom centre on portrait screens (under the banner text), bottom left on landscape
+      {/* Bottom centre on portrait screens (under the banner text; raised above the dots when several
+          offers slide), bottom left on landscape
           ones (on the side area, clear of the artwork and of the floating buttons on the right) */}
       <Link
         href={OFFERS_HREF}
-        className="group absolute z-10 bottom-5 left-1/2 -translate-x-1/2 landscape:left-8 landscape:translate-x-0 landscape:bottom-8 inline-flex items-center gap-3 whitespace-nowrap bg-navy text-cream rounded-lg py-3.5 px-7 md:py-4 md:px-9 font-jost text-[10px] md:text-[11px] font-bold tracking-[2.5px] uppercase no-underline shadow-2xl transition-colors duration-300 hover:bg-ocean hover:text-navy"
+        className={`group absolute z-10 ${many ? "bottom-11" : "bottom-5"} left-1/2 -translate-x-1/2 landscape:left-8 landscape:translate-x-0 landscape:bottom-8 inline-flex items-center gap-3 whitespace-nowrap bg-navy text-cream rounded-lg py-3.5 px-7 md:py-4 md:px-9 font-jost text-[10px] md:text-[11px] font-bold tracking-[2.5px] uppercase no-underline shadow-2xl transition-colors duration-300 hover:bg-ocean hover:text-navy`}
       >
         View More Offers
         <ArrowRight size={16} className="transition-transform group-hover:translate-x-1.5" />
