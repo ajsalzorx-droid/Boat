@@ -21,7 +21,7 @@ const PAW = [
 const EDGE_OVERFLOW = 8;
 const LOAD_MS = 1000; // start downloading the clip once the page has settled
 const FIRST_RUN_MS = 3000;
-const REPEAT_MS = 5000; // pause after the cat has left before it comes again
+const REPEAT_MS = 7000; // pause after the cat has left before it comes again
 const FISH_AWAY_MS = 3000;
 
 export default function CatFishGrab({
