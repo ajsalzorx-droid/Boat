@@ -2,6 +2,8 @@
 // brings fish from the market, the chefs cook it). Shared by the form in the browser (mistakes
 // show right away) and createBooking on the server (the check that counts).
 
+import { formatPrice } from '@/lib/offers'
+
 export type BookingType = 'table' | 'fish'
 export type BookingStatus = 'new' | 'confirmed' | 'cancelled'
 
@@ -149,13 +151,36 @@ export function checkBooking(b: BookingInput, hours: { opens: string; closes: st
   return null
 }
 
-// The confirmation sent to the customer on WhatsApp. parts = the 4 values of the approved
-// template (src/lib/whatsapp-api.ts); text = the same message written out (tap-to-send fallback).
-export function confirmationMessage(b: { type: BookingType; name: string; guests: number; fish_type: string | null; date: string; time: string; items?: unknown[] | null }) {
-  const count = b.items?.length ?? 0
-  const what =
-    (b.type === 'fish' ? `your fish preparation (${b.fish_type})` : `your table for ${b.guests}`) +
-    (count ? ` with ${count} pre-ordered ${count === 1 ? 'dish' : 'dishes'}` : '')
-  const parts = [b.name, what, formatDate(b.date), formatTime(b.time)]
-  return { parts, text: `Hello ${parts[0]}, this is Boat Seafood Restaurant. We confirm ${parts[1]} on ${parts[2]} at ${parts[3]}. See you soon!` }
+// The confirmation sent to the customer on WhatsApp, with their pre-ordered dishes and prices.
+// text = the whole message written out (tap-to-send fallback).
+// parts = values for the approved templates (src/lib/whatsapp-api.ts):
+//   booking_confirmed (4):          name, what, date, time
+//   booking_confirmed_preorder (6): name, what, date, time, dishes, total   (when dishes were pre-ordered)
+// Template values can't hold line breaks, so there the dishes are one line, comma separated.
+export function confirmationMessage(b: {
+  type: BookingType
+  name: string
+  guests: number
+  fish_type: string | null
+  date: string
+  time: string
+  items?: PreorderItem[] | null
+  items_total?: number | null
+}) {
+  const items = b.items ?? []
+  const what = b.type === 'fish' ? `your fish preparation (${b.fish_type})` : `your table for ${b.guests}`
+  const base = [b.name, what, formatDate(b.date), formatTime(b.time)]
+  const intro = `Hello ${base[0]}, this is Boat Seafood Restaurant. We confirm ${base[1]} on ${base[2]} at ${base[3]}.`
+  if (!items.length) return { parts: base, preorderParts: null, text: `${intro} See you soon!` }
+
+  const lineTotal = (i: PreorderItem) => `AED ${formatPrice(Math.round(i.price * i.quantity * 100) / 100)}`
+  const total = `AED ${formatPrice(b.items_total ?? Math.round(items.reduce((s, i) => s + i.price * i.quantity, 0) * 100) / 100)}`
+  const dishes = items.map((i) => `${i.quantity} x ${i.name} (${lineTotal(i)})`).join(', ')
+  const count = items.reduce((s, i) => s + i.quantity, 0)
+  return {
+    // Basic template only (no pre-order template set up): the dishes are mentioned briefly
+    parts: [base[0], `${what} with ${count} pre-ordered ${count === 1 ? 'dish' : 'dishes'} (total ${total})`, base[2], base[3]],
+    preorderParts: [...base, dishes, total],
+    text: `${intro}\n\nYour pre-order:\n${items.map((i) => `• ${i.quantity} x ${i.name} – ${lineTotal(i)}`).join('\n')}\nTotal: ${total}\n\nSee you soon!`,
+  }
 }

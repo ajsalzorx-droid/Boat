@@ -5,9 +5,16 @@ import 'server-only'
 //   WHATSAPP_API_TOKEN          permanent access token (System User in Meta Business Settings)
 //   WHATSAPP_PHONE_NUMBER_ID    "Phone number ID" of the business number (WhatsApp -> API Setup)
 //   WHATSAPP_CONFIRM_TEMPLATE   name of the approved template, e.g. booking_confirmed
-//   WHATSAPP_TEMPLATE_LANG      its language code (default "en")
-// Messages the restaurant starts must use an approved template; booking_confirmed has 4 values:
-//   Hello {{1}}, this is Boat Seafood Restaurant. We confirm {{2}} on {{3}} at {{4}}. See you soon!
+//   WHATSAPP_PREORDER_TEMPLATE  (optional) template for bookings with pre-ordered dishes,
+//                               e.g. booking_confirmed_preorder
+//   WHATSAPP_TEMPLATE_LANG      their language code (default "en")
+// Messages the restaurant starts must use approved templates:
+//   booking_confirmed (4 values):
+//     Hello {{1}}, this is Boat Seafood Restaurant. We confirm {{2}} on {{3}} at {{4}}. See you soon!
+//   booking_confirmed_preorder (6 values):
+//     Hello {{1}}, this is Boat Seafood Restaurant. We confirm {{2}} on {{3}} at {{4}}.
+//     Your pre-order: {{5}}. Total: {{6}}. See you soon!
+// Without the pre-order template, bookings with dishes use booking_confirmed (dish count + total).
 
 const GRAPH_VERSION = 'v21.0'
 
@@ -18,7 +25,7 @@ export function whatsappApiReady() {
 export type SendResult = { ok: true } | { ok: false; error: string }
 
 // to = international digits without + (e.g. 971501234567); values fill {{1}}, {{2}}, ...
-export async function sendTemplate(to: string, values: string[]): Promise<SendResult> {
+export async function sendTemplate(to: string, values: string[], template = process.env.WHATSAPP_CONFIRM_TEMPLATE): Promise<SendResult> {
   if (!whatsappApiReady()) return { ok: false, error: 'WhatsApp API is not set up.' }
   try {
     const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
@@ -29,7 +36,7 @@ export async function sendTemplate(to: string, values: string[]): Promise<SendRe
         to,
         type: 'template',
         template: {
-          name: process.env.WHATSAPP_CONFIRM_TEMPLATE,
+          name: template,
           language: { code: process.env.WHATSAPP_TEMPLATE_LANG || 'en' },
           components: [{ type: 'body', parameters: values.map((text) => ({ type: 'text', text })) }],
         },

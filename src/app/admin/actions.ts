@@ -560,7 +560,13 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
     // Confirming sends the customer a WhatsApp message from the restaurant's number (once)
     if (status !== 'confirmed' || before.status === 'confirmed' || !whatsappApiReady()) return { whatsapp: 'off' }
     const b = toPlain(before) as unknown as BookingRow
-    const sent = await sendTemplate(whatsappDigits(b.phone), confirmationMessage(b).parts)
+    // With pre-ordered dishes: the template that lists them and the total, when it is set up
+    const message = confirmationMessage(b)
+    const preorderTemplate = process.env.WHATSAPP_PREORDER_TEMPLATE
+    const sent =
+      message.preorderParts && preorderTemplate
+        ? await sendTemplate(whatsappDigits(b.phone), message.preorderParts, preorderTemplate)
+        : await sendTemplate(whatsappDigits(b.phone), message.parts)
     await bookings.updateOne(
       { _id: String(id) },
       { $set: sent.ok ? { whatsapp_sent_at: new Date(), whatsapp_error: null } : { whatsapp_error: sent.error } }
