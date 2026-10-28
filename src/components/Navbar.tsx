@@ -60,7 +60,7 @@ export default function Navbar() {
 
   return (
     <header 
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+      className={`site-navbar fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
         // Only shift on desktop, where the 38px top contact bar exists
         isScrolled ? "md:-translate-y-[38px]" : "translate-y-0"
       }`}

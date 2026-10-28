@@ -2,25 +2,29 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { ArrowRight, X } from "lucide-react";
 import type { OfferBanner } from "@/lib/offers";
 
-// Homepage offers section (the first thing on the page, above the hero): the banners added in
-// Admin -> Offers, each filling the section as a background image. Several offers slide by as
-// a carousel. Not on the page at all when no live offer has a banner.
+// Homepage offers: the page opens on the hero; START_DELAY_MS later the banners added in
+// Admin -> Offers slide in over it, one after another: each comes in from the right and stays SLIDE_MS, the next pushes it
+// out to the left, and after the last one (or the only one) the banner slides away to the left,
+// showing the hero and the navbar. Not shown at all when no live offer has a banner.
 // The screen's shape picks the image: portrait (phones, upright tablets) the tall one,
 // landscape (desktops, sideways tablets) the wide one (see offerBanners in menu-data.ts).
+const START_DELAY_MS = 3000;
 const SLIDE_MS = 5000;
 const OFFERS_HREF = "/menu?offers";
-// Swipe further than this (px) to change slide
-const SWIPE_PX = 50;
 // Longest single wait for the next offer end (browsers can't time more than ~24 days at once)
 const MAX_WAIT_MS = 24 * 60 * 60 * 1000;
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function OfferBanners({ banners: all }: { banners: OfferBanner[] }) {
   const [index, setIndex] = useState(0);
-  const [direction, setDirection] = useState(1);
+  // Shown once per page visit: closed at first (the hero shows), opened START_DELAY_MS later,
+  // closed for good after the last banner (or Skip)
+  const [open, setOpen] = useState(false);
+  const [started, setStarted] = useState(false);
   // The page HTML can be a few minutes old (and a tab can stay open for hours): the browser
   // checks the end dates too, so an offer disappears the moment it ends. null = not checked yet
   // (first render matches the server HTML).
@@ -37,110 +41,159 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
   }, [all, now]);
 
   const banners = now === null ? all : all.filter((b) => !b.endsAt || Date.parse(b.endsAt) >= now);
-  const many = banners.length > 1;
+  const showing = open && banners.length > 0;
 
-  const go = (next: number, dir: number) => {
-    setDirection(dir);
-    setIndex((next + banners.length) % banners.length);
-  };
-
-  // Always moves on by itself (also under the mouse); restarts its time after every change
+  // The hero shows first; the banners come in START_DELAY_MS after the page opens
+  const hasBanners = all.length > 0;
   useEffect(() => {
-    if (!many) return;
-    const t = window.setTimeout(() => go(index + 1, 1), SLIDE_MS);
+    if (!hasBanners || started) return;
+    const t = window.setTimeout(() => {
+      setStarted(true);
+      setOpen(true);
+    }, START_DELAY_MS);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, many]);
+  }, [hasBanners, started]);
 
-  if (!banners.length) return null;
-  const current = index % banners.length; // an offer may have just ended
+  // Download every banner this screen will show right away, so each slide is ready when it comes
+  useEffect(() => {
+    const portrait = window.matchMedia("(orientation: portrait)").matches;
+    all.forEach((b) => {
+      new Image().src = portrait ? b.tall : b.wide;
+    });
+  }, [all]);
+
+  // Each banner stays SLIDE_MS; after the last one the banners leave to the left
+  useEffect(() => {
+    if (!showing) return;
+    const t = window.setTimeout(() => {
+      if (index < banners.length - 1) setIndex(index + 1);
+      else setOpen(false);
+    }, SLIDE_MS);
+    return () => clearTimeout(t);
+  }, [showing, index, banners.length]);
+
+  // While the banners show: the page behind doesn't scroll, and Escape skips them
+  useEffect(() => {
+    if (!showing) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    const html = document.documentElement;
+    const overflow = html.style.overflow;
+    html.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      html.style.overflow = overflow;
+    };
+  }, [showing]);
+
+  // Visitors who ask their device for less motion get the plain slide (no zoom or shine)
+  const calm = useReducedMotion();
+
+  const current = banners.length ? Math.min(index, banners.length - 1) : 0; // an offer may have just ended
   const banner = banners[current];
 
   return (
-    // The navbar is fixed over the top of the page: this dark strip sits under it, so the
-    // banner starts below the navbar (heights match the navbar: 92px phone, 137px from md)
-    <div className="bg-ink pt-[92px] md:pt-[137px]">
-    <section
-      aria-roledescription="carousel"
-      aria-label="Offers"
-      // Portrait: as tall as the banner (set by the invisible copy below), whole artwork shown.
-      // Landscape: full width, 16:9 tall but never taller than one screen under the navbar. The wide
-      // image is padded to 7:2 in the banner's border colour (fitWide in menu-data.ts), so filling the
-      // width only trims that padding: the whole banner stays visible
-      className="relative w-full overflow-hidden bg-navy portrait:min-h-[60svh] landscape:h-[min(56.25vw,calc(100svh-92px))] md:landscape:h-[min(56.25vw,calc(100svh-137px))]"
-    >
-      {/* Portrait: an invisible copy of the tall banner sets the height, so a banner taller than
-          9:16 grows the section and shows whole (nothing cut at the top or bottom) */}
-      <img src={banner.tall} alt="" aria-hidden className="invisible block w-full h-auto landscape:hidden" />
-
-      <AnimatePresence initial={false} custom={direction}>
-        <motion.div
-          key={banner.id}
-          custom={direction}
-          variants={{
-            enter: (d: number) => ({ x: `${d * 100}%` }),
-            center: { x: 0 },
-            exit: (d: number) => ({ x: `${d * -100}%` }),
-          }}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          drag={many ? "x" : false}
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.2}
-          onDragEnd={(_, info) => {
-            if (info.offset.x < -SWIPE_PX) go(current + 1, 1);
-            else if (info.offset.x > SWIPE_PX) go(current - 1, -1);
-          }}
-          className="absolute inset-0"
-          aria-roledescription="slide"
-          aria-label={`${current + 1} of ${banners.length}: ${banner.title}`}
+    <AnimatePresence>
+      {showing && banner && (
+        <motion.section
+          key="offer-banners"
+          // The navbar is hidden while this is on the page (globals.css, #offer-banners)
+          id="offer-banners"
+          data-covering-nav="true"
+          data-lenis-prevent
+          role="dialog"
+          aria-modal="true"
+          aria-roledescription="carousel"
+          aria-label="Today's offers"
+          // The whole banner leaves to the left when done, showing the hero
+          exit={{ x: "-100%" }}
+          transition={{ duration: 0.8, ease: EASE }}
+          className="fixed inset-0 z-[70] overflow-hidden"
         >
-          <Link href={OFFERS_HREF} draggable={false} aria-label={`${banner.title}: view offers`} className="block w-full h-full">
-            <picture>
-              <source media="(orientation: portrait)" srcSet={banner.tall || banner.wide} />
-              <img
-                src={banner.wide || banner.tall}
-                alt={banner.title}
-                draggable={false}
-                loading={current === 0 ? "eager" : "lazy"}
-                // Portrait: pinned to the top so the logo and heading are never cut (any crop is at the bottom)
-                className="w-full h-full object-cover portrait:object-top select-none"
-              />
-            </picture>
+          {/* The hero darkens softly as the banner arrives */}
+          <motion.div
+            aria-hidden
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="absolute inset-0 bg-ink/90"
+          />
+
+          {/* Each banner comes in from the right (settling from a slight zoom) and goes out to the left */}
+          <AnimatePresence initial={true}>
+            <motion.div
+              key={banner.id}
+              initial={{ x: "100%", scale: calm ? 1 : 1.04 }}
+              animate={{ x: 0, scale: 1 }}
+              exit={{ x: "-100%", opacity: 0.6 }}
+              transition={{ duration: 0.9, ease: EASE }}
+              className="absolute inset-0 overflow-hidden shadow-2xl"
+              aria-roledescription="slide"
+              aria-label={`${current + 1} of ${banners.length}: ${banner.title}`}
+            >
+              <Link href={OFFERS_HREF} aria-label={`${banner.title}: view offers`} className="block w-full h-full">
+                {/* Slow zoom while it shows, so the banner feels alive */}
+                <motion.div
+                  initial={{ scale: calm ? 1 : 1.08 }}
+                  animate={{ scale: 1 }}
+                  transition={{ duration: SLIDE_MS / 1000 + 1, ease: "easeOut" }}
+                  className="w-full h-full"
+                >
+                  <picture>
+                    <source media="(orientation: portrait)" srcSet={banner.tall} />
+                    <img src={banner.wide} alt={banner.title} className="w-full h-full object-cover select-none" draggable={false} />
+                  </picture>
+                </motion.div>
+              </Link>
+              {/* A soft light sweeps across once, right after the banner lands */}
+              {!calm && (
+                <motion.div
+                  aria-hidden
+                  initial={{ x: "-120%" }}
+                  animate={{ x: "320%" }}
+                  transition={{ duration: 1.3, delay: 0.85, ease: "easeInOut" }}
+                  className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Buttons and dots fade up just after the banner lands */}
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.7, ease: EASE }}
+            className="absolute inset-0 pointer-events-none [&>*]:pointer-events-auto"
+          >
+
+          <button
+            onClick={() => setOpen(false)}
+            className="absolute top-4 right-4 md:top-6 md:right-6 z-10 flex items-center gap-2 bg-black/40 backdrop-blur-md text-white rounded-full pl-4 pr-3 py-2 text-[11px] font-bold tracking-[2px] uppercase hover:bg-black/60 transition-colors"
+          >
+            Skip <X size={16} />
+          </button>
+
+          {banners.length > 1 && (
+            // Dots: bottom centre, show which offer is on screen
+            <div className="absolute bottom-2 md:bottom-3 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-1.5">
+              {banners.map((b, i) => (
+                <span key={b.id} aria-hidden className={`h-2.5 rounded-full transition-all ${i === current ? "w-7 bg-white" : "w-2.5 bg-white/60"}`} />
+              ))}
+            </div>
+          )}
+
+          {/* Bottom centre on portrait screens (raised above the dots when several offers show),
+              bottom left on landscape ones */}
+          <Link
+            href={OFFERS_HREF}
+            className={`group absolute z-10 ${banners.length > 1 ? "bottom-11" : "bottom-5"} left-1/2 -translate-x-1/2 landscape:left-8 landscape:translate-x-0 landscape:bottom-8 inline-flex items-center gap-3 whitespace-nowrap bg-navy text-cream rounded-lg py-3.5 px-7 md:py-4 md:px-9 font-jost text-[10px] md:text-[11px] font-bold tracking-[2.5px] uppercase no-underline shadow-2xl transition-colors duration-300 hover:bg-ocean hover:text-navy`}
+          >
+            View More Offers
+            <ArrowRight size={16} className="transition-transform group-hover:translate-x-1.5" />
           </Link>
-        </motion.div>
-      </AnimatePresence>
-
-      {many && (
-        <>
-          {/* Dots: bottom centre on every screen, just under the banner's QR code */}
-          <div className="absolute bottom-2 md:bottom-3 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-1.5">
-            {banners.map((b, i) => (
-              <button
-                key={b.id}
-                onClick={() => go(i, i > current ? 1 : -1)}
-                aria-label={`Show offer ${i + 1}: ${b.title}`}
-                aria-current={i === current}
-                className={`h-2.5 rounded-full transition-all ${i === current ? "w-7 bg-white" : "w-2.5 bg-white/60 hover:bg-white"}`}
-              />
-            ))}
-          </div>
-        </>
+          </motion.div>
+        </motion.section>
       )}
-
-      {/* Bottom centre on portrait screens (under the banner text; raised above the dots when several
-          offers slide), bottom left on landscape
-          ones (on the side area, clear of the artwork and of the floating buttons on the right) */}
-      <Link
-        href={OFFERS_HREF}
-        className={`group absolute z-10 ${many ? "bottom-11" : "bottom-5"} left-1/2 -translate-x-1/2 landscape:left-8 landscape:translate-x-0 landscape:bottom-8 inline-flex items-center gap-3 whitespace-nowrap bg-navy text-cream rounded-lg py-3.5 px-7 md:py-4 md:px-9 font-jost text-[10px] md:text-[11px] font-bold tracking-[2.5px] uppercase no-underline shadow-2xl transition-colors duration-300 hover:bg-ocean hover:text-navy`}
-      >
-        View More Offers
-        <ArrowRight size={16} className="transition-transform group-hover:translate-x-1.5" />
-      </Link>
-    </section>
-    </div>
+    </AnimatePresence>
   );
 }

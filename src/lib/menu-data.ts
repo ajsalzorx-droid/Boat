@@ -70,25 +70,25 @@ export function withOffers(items: MenuItem[], offers: Offer[]): MenuItem[] {
   })
 }
 
-// For wide screens Cloudinary pads the banner out to a very wide 7:2 strip, filled with the
-// banner's own border colour so the sides blend into it. The homepage section (full width,
-// 16:9 or wider) shows it with object-cover: only that padding is trimmed to fit the screen,
-// never the artwork, so the whole banner is always visible. Other addresses are used unchanged.
-function fitWide(url: string) {
+// An offer with only a phone (tall) banner: for wide screens Cloudinary pads it out to 16:9,
+// filled with the banner's own border colour so the sides blend into it. Other addresses
+// are used unchanged.
+function padToWide(url: string) {
   return url.replace(
     /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)/,
-    '$1c_pad,ar_7:2,h_1080,b_auto:border/'
+    '$1c_pad,ar_16:9,h_1080,b_auto:border/'
   )
 }
 
 // Homepage banner slides: each live offer that has a banner, biggest discount first.
-// wide = for landscape screens (the wide banner, else the tall one padded to 16:9);
-// tall = for portrait screens (the phone banner, else the wide one)
+// wide = for landscape screens (the desktop banner as uploaded, else the phone one padded to 16:9);
+// tall = for portrait screens (the phone banner, else the desktop one).
+// The homepage section takes the shape of whichever image it shows (OfferBanners.tsx).
 export function offerBanners(offers: Offer[]): OfferBanner[] {
   return offers.flatMap((o) => {
-    const wide = o.banner_url || o.banner_mobile_url
+    const wide = o.banner_url || (o.banner_mobile_url ? padToWide(o.banner_mobile_url) : '')
     const tall = o.banner_mobile_url || o.banner_url
-    return wide && tall ? [{ id: o.id, title: o.title, wide: fitWide(wide), tall, endsAt: o.ends_at }] : []
+    return wide && tall ? [{ id: o.id, title: o.title, wide, tall, endsAt: o.ends_at }] : []
   })
 }
 
