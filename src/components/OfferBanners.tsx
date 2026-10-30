@@ -23,6 +23,15 @@ const UNROLL_S = 1.4;
 const ROLL_UP_S = 0.8;
 // Space under the navbar for the cords and rod, and under the banner for its buttons (px)
 const ROD_SPACE_PX = 34;
+// The rod (12px thick) sits this far under the navbar; the banner's top edge starts behind it
+const ROD_TOP_PX = 22;
+const BANNER_TOP_PX = ROD_TOP_PX + 3;
+// Rod, cords and banner swing together (one damped swing once a banner is open) around the
+// middle of the rod, so the banner always stays on the rod
+const ROD_MID_PX = ROD_TOP_PX + 6;
+const SWAY = { rotate: [0, 0.5, -0.32, 0.15, 0] };
+const SWAY_DELAY_S = 0.25 + UNROLL_S - 0.2;
+const SWAY_S = 2.2;
 const BUTTONS_SPACE_PX = 84;
 // Confetti in the site's colours: ocean, cream, offer red, gold, white
 const CONFETTI_COLORS = ["#669bbc", "#fdf0d5", "#c1121f", "#C49A3C", "#ffffff"];
@@ -171,17 +180,24 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
     return () => clearTimeout(t);
   }, [showing, index, banners.length]);
 
-  // While the banners show: the page behind doesn't scroll, and Escape skips them
+  // While the banners show: the page behind doesn't scroll, and Escape skips them.
+  // Scrolling is blocked at the wheel, touch and keys rather than with overflow: hidden, which
+  // would remove the scrollbar for a moment and make the whole page jump sideways.
   useEffect(() => {
     if (!showing) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const SCROLL_KEYS = [" ", "PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown"];
+    const stop = (e: Event) => e.preventDefault();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+      else if (SCROLL_KEYS.includes(e.key) && !(e.target instanceof HTMLElement && e.target.closest("a,button"))) e.preventDefault();
+    };
+    window.addEventListener("wheel", stop, { passive: false });
+    window.addEventListener("touchmove", stop, { passive: false });
     window.addEventListener("keydown", onKey);
-    const html = document.documentElement;
-    const overflow = html.style.overflow;
-    html.style.overflow = "hidden";
     return () => {
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchmove", stop);
       window.removeEventListener("keydown", onKey);
-      html.style.overflow = overflow;
     };
   }, [showing]);
 
@@ -225,28 +241,32 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
             className="absolute inset-0 bg-ink/80"
           />
 
-          {/* Cords from the navbar to the rod, and the rod itself */}
-          <div className="absolute left-1/2 -translate-x-1/2 top-0 flex flex-col items-center" style={{ width: rodW }}>
+          {/* Cords from the navbar to the rod, and the rod itself (in front of the banner's top edge) */}
+          <motion.div
+            className="absolute z-20 left-1/2 top-0"
+            style={{ width: rodW, marginLeft: -rodW / 2 }}
+            initial={{ y: -40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.45, ease: EASE, delay: 0.1 }}
+          >
+            {/* Swings with the banner (restarts for each banner) */}
             <motion.div
-              initial={{ scaleY: 0 }}
-              animate={{ scaleY: 1 }}
-              transition={{ duration: 0.35, ease: EASE }}
-              className="absolute top-0 inset-x-6 h-6 origin-top flex justify-between"
-              aria-hidden
+              key={`sway-${banner.id}`}
+              className="absolute inset-x-0 top-0"
+              style={{ transformOrigin: `50% ${ROD_MID_PX}px` }}
+              animate={calm ? undefined : SWAY}
+              transition={{ duration: SWAY_S, delay: SWAY_DELAY_S, ease: "easeInOut" }}
             >
-              <span className="w-[2px] h-full bg-[#c9a46a]/80" />
-              <span className="w-[2px] h-full bg-[#c9a46a]/80" />
+              {/* The cords start above the screen edge, so they stay attached while swinging */}
+              <div aria-hidden className="absolute inset-x-6 flex justify-between" style={{ top: -14, height: ROD_TOP_PX + 16 }}>
+                <span className="w-[2px] h-full bg-[#c9a46a]/80" />
+                <span className="w-[2px] h-full bg-[#c9a46a]/80" />
+              </div>
+              <div className="absolute z-10 left-0" style={{ top: ROD_TOP_PX }}>
+                <Bar width={rodW} thick={12} />
+              </div>
             </motion.div>
-            <motion.div
-              initial={{ y: -40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.45, ease: EASE, delay: 0.15 }}
-              className="absolute z-10"
-              style={{ top: 22 }}
-            >
-              <Bar width={rodW} thick={12} />
-            </motion.div>
-          </div>
+          </motion.div>
 
           {/* The banner unrolls down from the rod,
               sways a little once open, and rolls back up when its time is over */}
@@ -254,10 +274,11 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
             <motion.div
               key={banner.id}
               className="absolute left-1/2"
-              style={{ top: ROD_SPACE_PX - 4, width: bannerW, height: bannerH, marginLeft: -bannerW / 2, transformOrigin: "50% 0%" }}
+              style={{ top: BANNER_TOP_PX, width: bannerW, height: bannerH, marginLeft: -bannerW / 2, transformOrigin: `50% ${ROD_MID_PX - BANNER_TOP_PX}px` }}
               initial={{ rotate: 0 }}
-              animate={calm ? { rotate: 0 } : { rotate: [0, 0.9, -0.6, 0.3, 0] }}
-              transition={{ duration: 2.2, delay: 0.25 + UNROLL_S - 0.2, ease: "easeInOut" }}
+              // Same swing and pivot as the rod above
+              animate={calm ? { rotate: 0 } : SWAY}
+              transition={{ duration: SWAY_S, delay: SWAY_DELAY_S, ease: "easeInOut" }}
               exit={{ opacity: 1, transition: { duration: ROLL_UP_S } }}
               aria-roledescription="slide"
               aria-label={`${current + 1} of ${banners.length}: ${banner.title}`}
@@ -291,7 +312,7 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
             transition={{ duration: 0.5, delay: 0.25 + UNROLL_S, ease: EASE }}
             className="absolute inset-0 z-30 pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto"
           >
-            <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-3" style={{ top: ROD_SPACE_PX + bannerH + 18 }}>
+            <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-3" style={{ top: BANNER_TOP_PX + bannerH + 18 }}>
               <div className="flex items-center gap-2.5">
               <Link
                 href={OFFERS_HREF}
