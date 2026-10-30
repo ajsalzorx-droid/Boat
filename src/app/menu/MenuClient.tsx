@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Utensils, Truck, Tag } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -24,6 +24,18 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
   const hasOffers = initialItems.some((item) => item.discount);
   const categories = hasOffers ? ["All", OFFERS_TAB, ...MENU_CATEGORIES] : ["All", ...MENU_CATEGORIES];
   const [activeCategory, setActiveCategory] = useState(openOffers && hasOffers ? OFFERS_TAB : "All");
+
+  // Opened from an offer link (navbar "Offer", "View More Offers"): glide down past the hero to
+  // the Offers tab and its dishes. Waits a moment: a new page starts at the top first (SmoothScroll)
+  const categoriesRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!openOffers || !hasOffers) return;
+    const t = window.setTimeout(() => {
+      const nav = categoriesRef.current;
+      if (nav) window.scrollTo({ top: nav.getBoundingClientRect().top + window.scrollY - 75, behavior: "smooth" });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [openOffers, hasOffers]);
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [orderStatus, setOrderStatus] = useState<'idle' | 'submitting' | 'complete'>('idle');
@@ -116,7 +128,7 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
         </section>
 
         {/* Menu Navigation */}
-        <nav aria-label="Menu categories" className="sticky top-[75px] z-30 bg-white/95 backdrop-blur-md border-b border-navy/10 px-8 md:px-20 py-6 overflow-x-auto">
+        <nav ref={categoriesRef} aria-label="Menu categories" className="sticky top-[75px] z-30 bg-white/95 backdrop-blur-md border-b border-navy/10 px-8 md:px-20 py-6 overflow-x-auto">
           <div className="flex items-center gap-8 no-scrollbar">
             {categories.map(cat => (
               <button
@@ -143,7 +155,7 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
           <h2 id="menu-dishes-title" className="sr-only">{activeCategory === "All" ? "All dishes" : activeCategory}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
             <AnimatePresence mode="popLayout">
-            {filteredItems.map((item) => (
+            {filteredItems.map((item, i) => (
               <motion.article
                 key={item.id}
                 layout
@@ -154,7 +166,8 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
                 className="group flex flex-col"
               >
                 <div className={`relative aspect-[4/3] overflow-hidden mb-6 rounded-sm shadow-sm ${item.discount ? "ring-2 ring-offer ring-offset-4 ring-offset-white" : ""}`}>
-                  <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  {/* First row loads right away; the rest only when scrolled near (lazy) */}
+                  <img src={item.image} alt={item.name} loading={i < 3 ? "eager" : "lazy"} decoding="async" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                   <div className="absolute top-4 left-4 flex flex-col gap-2">
                     {item.tag && (
                       <span className="bg-navy/90 backdrop-blur-md text-cream text-[8px] font-bold tracking-[3px] uppercase py-1.5 px-3 rounded-full">
@@ -271,7 +284,7 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
                     cart.map(({ item, quantity }) => (
                       <div key={item.id} className="flex gap-4">
                         <div className="w-20 h-20 shrink-0 rounded-sm overflow-hidden">
-                          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                          <img src={item.image} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-grow">
                           <div className="flex justify-between items-start mb-1">

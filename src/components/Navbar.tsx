@@ -40,7 +40,7 @@ export default function Navbar() {
     { href: "/#exp", label: nav.nav_experience },
     { href: "/#loc", label: nav.nav_location },
     { href: "/events", label: nav.nav_events },
-    { href: "/offer", label: nav.nav_offer },
+    { href: "/menu?offers", label: nav.nav_offer },
     // Falls back while the site text cache is older than this label
     { href: "/book", label: nav.nav_prebook || "Pre-Book" },
     { href: "/your-fish", label: nav.nav_fresh, accent: true },
@@ -145,7 +145,7 @@ export default function Navbar() {
             </li>
             <li>
               <Link
-                href="/offer"
+                href="/menu?offers"
                 className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
               >
                 {nav.nav_offer}
