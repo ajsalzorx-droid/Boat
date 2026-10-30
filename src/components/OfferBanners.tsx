@@ -6,18 +6,91 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ArrowRight, X } from "lucide-react";
 import type { OfferBanner } from "@/lib/offers";
 
-// Homepage offers: the page opens on the hero; START_DELAY_MS later the banners added in
-// Admin -> Offers slide in over it, one after another: each comes in from the right and stays SLIDE_MS, the next pushes it
-// out to the left, and after the last one (or the only one) the banner slides away to the left,
-// showing the hero and the navbar. Not shown at all when no live offer has a banner.
+// Homepage offers: the page opens on the hero; START_DELAY_MS later a hanging banner appears under
+// the navbar: a wooden rod on two cords, from which the offer banner (Admin -> Offers) unrolls
+// downwards like a fabric scroll, sways a little and pops confetti. Each stays SLIDE_MS, then rolls
+// back up (the next one unrolls in its place). Not shown at all when no live offer has a banner.
 // The screen's shape picks the image: portrait (phones, upright tablets) the tall one,
 // landscape (desktops, sideways tablets) the wide one (see offerBanners in menu-data.ts).
-const START_DELAY_MS = 3000;
+const START_DELAY_MS = 1000;
 const SLIDE_MS = 5000;
 const OFFERS_HREF = "/menu?offers";
 // Longest single wait for the next offer end (browsers can't time more than ~24 days at once)
 const MAX_WAIT_MS = 24 * 60 * 60 * 1000;
 const EASE = [0.16, 1, 0.3, 1] as const;
+// How long the banner takes to unroll / roll back up (seconds)
+const UNROLL_S = 1.4;
+const ROLL_UP_S = 0.8;
+// Space under the navbar for the cords and rod, and under the banner for its buttons (px)
+const ROD_SPACE_PX = 34;
+const BUTTONS_SPACE_PX = 84;
+// Confetti in the site's colours: ocean, cream, offer red, gold, white
+const CONFETTI_COLORS = ["#669bbc", "#fdf0d5", "#c1121f", "#C49A3C", "#ffffff"];
+const CONFETTI_PER_SIDE = 32;
+
+// Same "random" numbers every time for a given piece (0..1)
+const rand = (i: number, salt: number) => {
+  const x = Math.sin(i * 12.9898 + salt * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+
+// Two party poppers in the bottom corners shoot confetti up and inward; it then falls and fades
+function Confetti({ delay }: { delay: number }) {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+      {(["left", "right"] as const).map((side) =>
+        Array.from({ length: CONFETTI_PER_SIDE }, (_, k) => {
+          const i = k + (side === "right" ? CONFETTI_PER_SIDE : 0);
+          const dir = side === "left" ? 1 : -1;
+          const reach = 0.25 + rand(i, 1) * 0.45; // how far across the screen (share of its width)
+          const rise = 0.35 + rand(i, 2) * 0.45; // how high (share of its height)
+          const size = 7 + rand(i, 3) * 8;
+          const round = rand(i, 4) > 0.6;
+          const duration = 1.6 + rand(i, 5) * 0.9;
+          return (
+            <motion.span
+              key={i}
+              initial={{ x: 0, y: 0, rotate: 0, opacity: 0 }}
+              animate={{
+                x: [0, `${dir * reach * 100}vw`, `${dir * (reach + 0.05) * 100}vw`],
+                y: [0, `${-rise * 100}vh`, `${(-rise + 0.45) * 100}vh`],
+                rotate: [0, dir * (180 + rand(i, 6) * 540)],
+                opacity: [1, 1, 0],
+              }}
+              transition={{ duration, delay: delay + rand(i, 7) * 0.15, ease: "easeOut", times: [0, 0.45, 1] }}
+              className={`absolute bottom-4 ${side === "left" ? "left-4" : "right-4"} block`}
+              style={{
+                width: size,
+                height: round ? size : size * 1.8,
+                borderRadius: round ? "9999px" : "2px",
+                background: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+              }}
+            />
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+// A round wooden bar with knobs at both ends (the rod the banner hangs from)
+function Bar({ width, thick }: { width: number; thick: number }) {
+  return (
+    <div className="relative" style={{ width, height: thick }}>
+      <div
+        className="absolute inset-0 rounded-full shadow-[0_6px_14px_rgba(0,0,0,0.45)]"
+        style={{ background: "linear-gradient(180deg,#a4713f 0%,#7a4b23 45%,#4e2d12 100%)" }}
+      />
+      {(["left", "right"] as const).map((side) => (
+        <div
+          key={side}
+          className={`absolute top-1/2 -translate-y-1/2 rounded-full shadow-md ${side === "left" ? "-left-2" : "-right-2"}`}
+          style={{ width: thick + 8, height: thick + 8, background: "radial-gradient(circle at 35% 35%,#c9a46a,#7a4b23 60%,#3e2410)" }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function OfferBanners({ banners: all }: { banners: OfferBanner[] }) {
   const [index, setIndex] = useState(0);
@@ -25,6 +98,10 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
   // closed for good after the last banner (or Skip)
   const [open, setOpen] = useState(false);
   const [started, setStarted] = useState(false);
+  // Where the navbar ends (px from the top) and the screen size: the banner is sized to fit
+  const [layout, setLayout] = useState({ top: 0, w: 1280, h: 800, portrait: false });
+  // Shape (width / height) of each banner image as it shows on this screen, once downloaded
+  const [ratios, setRatios] = useState<Record<string, number>>({});
   // The page HTML can be a few minutes old (and a tab can stay open for hours): the browser
   // checks the end dates too, so an offer disappears the moment it ends. null = not checked yet
   // (first render matches the server HTML).
@@ -43,32 +120,54 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
   const banners = now === null ? all : all.filter((b) => !b.endsAt || Date.parse(b.endsAt) >= now);
   const showing = open && banners.length > 0;
 
-  // The hero shows first; the banners come in START_DELAY_MS after the page opens
+  // Download every banner this screen will show right away (so each one is ready when it comes),
+  // and note its shape for sizing the hanging banner
+  useEffect(() => {
+    const portrait = window.matchMedia("(orientation: portrait)").matches;
+    all.forEach((b) => {
+      const img = new Image();
+      img.onload = () => setRatios((r) => ({ ...r, [b.id]: img.naturalWidth / img.naturalHeight }));
+      img.src = portrait ? b.tall : b.wide;
+    });
+  }, [all]);
+
+  // Measures where the navbar ends and the screen size (again whenever the window resizes)
+  useEffect(() => {
+    const measure = () =>
+      setLayout({
+        top: Math.max(0, document.querySelector(".site-navbar")?.getBoundingClientRect().bottom ?? 0),
+        w: window.innerWidth,
+        h: window.innerHeight,
+        portrait: window.matchMedia("(orientation: portrait)").matches,
+      });
+    const first = window.setTimeout(measure, 0);
+    window.addEventListener("resize", measure);
+    return () => {
+      clearTimeout(first);
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+
+  // The hero shows first; the banner comes START_DELAY_MS after the page opens
   const hasBanners = all.length > 0;
   useEffect(() => {
     if (!hasBanners || started) return;
     const t = window.setTimeout(() => {
+      // The navbar may have moved since the page opened (it shifts up a little once scrolled)
+      setLayout((l) => ({ ...l, top: Math.max(0, document.querySelector(".site-navbar")?.getBoundingClientRect().bottom ?? l.top) }));
       setStarted(true);
       setOpen(true);
     }, START_DELAY_MS);
     return () => clearTimeout(t);
   }, [hasBanners, started]);
 
-  // Download every banner this screen will show right away, so each slide is ready when it comes
-  useEffect(() => {
-    const portrait = window.matchMedia("(orientation: portrait)").matches;
-    all.forEach((b) => {
-      new Image().src = portrait ? b.tall : b.wide;
-    });
-  }, [all]);
-
-  // Each banner stays SLIDE_MS; after the last one the banners leave to the left
+  // Each banner unrolls, stays SLIDE_MS, then the next one comes (or all roll up after the last)
   useEffect(() => {
     if (!showing) return;
     const t = window.setTimeout(() => {
       if (index < banners.length - 1) setIndex(index + 1);
       else setOpen(false);
-    }, SLIDE_MS);
+    }, SLIDE_MS + UNROLL_S * 1000);
     return () => clearTimeout(t);
   }, [showing, index, banners.length]);
 
@@ -86,111 +185,136 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
     };
   }, [showing]);
 
-  // Visitors who ask their device for less motion get the plain slide (no zoom or shine)
+  // Visitors who ask their device for less motion get a plain fade (no unroll, sway or confetti)
   const calm = useReducedMotion();
 
   const current = banners.length ? Math.min(index, banners.length - 1) : 0; // an offer may have just ended
   const banner = banners[current];
+
+  // The banner as big as fits between the rod and the buttons, in its own shape
+  const ratio = (banner && ratios[banner.id]) || (layout.portrait ? 0.5 : 16 / 9);
+  const availW = layout.w * (layout.portrait ? 0.9 : 0.92);
+  const availH = layout.h - layout.top - ROD_SPACE_PX - BUTTONS_SPACE_PX;
+  const bannerW = Math.round(Math.max(160, Math.min(availW, availH * ratio)));
+  const bannerH = Math.round(bannerW / ratio);
+  const rodW = bannerW + 28;
 
   return (
     <AnimatePresence>
       {showing && banner && (
         <motion.section
           key="offer-banners"
-          // The navbar is hidden while this is on the page (globals.css, #offer-banners)
           id="offer-banners"
-          data-covering-nav="true"
           data-lenis-prevent
           role="dialog"
           aria-modal="true"
           aria-roledescription="carousel"
           aria-label="Today's offers"
-          // The whole banner leaves to the left when done, showing the hero
-          exit={{ x: "-100%" }}
-          transition={{ duration: 0.8, ease: EASE }}
-          className="fixed inset-0 z-[70] overflow-hidden"
+          // Under the navbar (which stays on top)
+          style={{ top: layout.top }}
+          initial={{ opacity: 1 }}
+          exit={{ opacity: 0, transition: { duration: 0.35, delay: ROLL_UP_S } }}
+          className="fixed inset-x-0 bottom-0 z-[48] overflow-hidden"
         >
-          {/* The hero darkens softly as the banner arrives */}
+          {/* The hero darkens softly behind the hanging banner */}
           <motion.div
             aria-hidden
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            className="absolute inset-0 bg-ink/90"
+            transition={{ duration: 0.4 }}
+            className="absolute inset-0 bg-ink/80"
           />
 
-          {/* Each banner comes in from the right (settling from a slight zoom) and goes out to the left */}
-          <AnimatePresence initial={true}>
+          {/* Cords from the navbar to the rod, and the rod itself */}
+          <div className="absolute left-1/2 -translate-x-1/2 top-0 flex flex-col items-center" style={{ width: rodW }}>
+            <motion.div
+              initial={{ scaleY: 0 }}
+              animate={{ scaleY: 1 }}
+              transition={{ duration: 0.35, ease: EASE }}
+              className="absolute top-0 inset-x-6 h-6 origin-top flex justify-between"
+              aria-hidden
+            >
+              <span className="w-[2px] h-full bg-[#c9a46a]/80" />
+              <span className="w-[2px] h-full bg-[#c9a46a]/80" />
+            </motion.div>
+            <motion.div
+              initial={{ y: -40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.45, ease: EASE, delay: 0.15 }}
+              className="absolute z-10"
+              style={{ top: 22 }}
+            >
+              <Bar width={rodW} thick={12} />
+            </motion.div>
+          </div>
+
+          {/* The banner unrolls down from the rod,
+              sways a little once open, and rolls back up when its time is over */}
+          <AnimatePresence mode="wait">
             <motion.div
               key={banner.id}
-              initial={{ x: "100%", scale: calm ? 1 : 1.04 }}
-              animate={{ x: 0, scale: 1 }}
-              exit={{ x: "-100%", opacity: 0.6 }}
-              transition={{ duration: 0.9, ease: EASE }}
-              className="absolute inset-0 overflow-hidden shadow-2xl"
+              className="absolute left-1/2"
+              style={{ top: ROD_SPACE_PX - 4, width: bannerW, height: bannerH, marginLeft: -bannerW / 2, transformOrigin: "50% 0%" }}
+              initial={{ rotate: 0 }}
+              animate={calm ? { rotate: 0 } : { rotate: [0, 0.9, -0.6, 0.3, 0] }}
+              transition={{ duration: 2.2, delay: 0.25 + UNROLL_S - 0.2, ease: "easeInOut" }}
+              exit={{ opacity: 1, transition: { duration: ROLL_UP_S } }}
               aria-roledescription="slide"
               aria-label={`${current + 1} of ${banners.length}: ${banner.title}`}
             >
-              <Link href={OFFERS_HREF} aria-label={`${banner.title}: view offers`} className="block w-full h-full">
-                {/* Slow zoom while it shows, so the banner feels alive */}
-                <motion.div
-                  initial={{ scale: calm ? 1 : 1.08 }}
-                  animate={{ scale: 1 }}
-                  transition={{ duration: SLIDE_MS / 1000 + 1, ease: "easeOut" }}
-                  className="w-full h-full"
-                >
+              <motion.div
+                className="absolute inset-0 overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+                initial={calm ? { opacity: 0 } : { clipPath: "inset(0% 0% 100% 0%)" }}
+                animate={calm ? { opacity: 1 } : { clipPath: "inset(0% 0% 0% 0%)" }}
+                exit={calm ? { opacity: 0 } : { clipPath: "inset(0% 0% 100% 0%)", transition: { duration: ROLL_UP_S, ease: [0.65, 0, 0.35, 1] } }}
+                transition={{ duration: UNROLL_S, delay: 0.25, ease: [0.33, 1, 0.68, 1] }}
+              >
+                <Link href={OFFERS_HREF} aria-label={`${banner.title}: view offers`} className="block w-full h-full">
                   <picture>
                     <source media="(orientation: portrait)" srcSet={banner.tall} />
                     <img src={banner.wide} alt={banner.title} className="w-full h-full object-cover select-none" draggable={false} />
                   </picture>
-                </motion.div>
-              </Link>
-              {/* A soft light sweeps across once, right after the banner lands */}
-              {!calm && (
-                <motion.div
-                  aria-hidden
-                  initial={{ x: "-120%" }}
-                  animate={{ x: "320%" }}
-                  transition={{ duration: 1.3, delay: 0.85, ease: "easeInOut" }}
-                  className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/25 to-transparent"
-                />
-              )}
+                </Link>
+                {/* Soft fabric shading: lighter in the middle, darker at the edges */}
+                <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.18),transparent_12%,transparent_88%,rgba(0,0,0,0.18))]" />
+              </motion.div>
+
             </motion.div>
           </AnimatePresence>
 
-          {/* Buttons and dots fade up just after the banner lands */}
+          {!calm && <Confetti key={`pop-${banner.id}`} delay={0.25 + UNROLL_S - 0.15} />}
+
+          {/* Buttons fade up once the banner is open, under it: View More Offers, Skip and the dots */}
           <motion.div
-            initial={{ opacity: 0, y: 14 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.7, ease: EASE }}
-            className="absolute inset-0 pointer-events-none [&>*]:pointer-events-auto"
+            transition={{ duration: 0.5, delay: 0.25 + UNROLL_S, ease: EASE }}
+            className="absolute inset-0 z-30 pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto"
           >
-
-          <button
-            onClick={() => setOpen(false)}
-            className="absolute top-4 right-4 md:top-6 md:right-6 z-10 flex items-center gap-2 bg-black/40 backdrop-blur-md text-white rounded-full pl-4 pr-3 py-2 text-[11px] font-bold tracking-[2px] uppercase hover:bg-black/60 transition-colors"
-          >
-            Skip <X size={16} />
-          </button>
-
-          {banners.length > 1 && (
-            // Dots: bottom centre, show which offer is on screen
-            <div className="absolute bottom-2 md:bottom-3 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-1.5">
-              {banners.map((b, i) => (
-                <span key={b.id} aria-hidden className={`h-2.5 rounded-full transition-all ${i === current ? "w-7 bg-white" : "w-2.5 bg-white/60"}`} />
-              ))}
+            <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-3" style={{ top: ROD_SPACE_PX + bannerH + 18 }}>
+              <div className="flex items-center gap-2.5">
+              <Link
+                href={OFFERS_HREF}
+                className="group inline-flex items-center gap-3 whitespace-nowrap bg-cream text-navy rounded-lg py-3 px-7 md:px-9 font-jost text-[10px] md:text-[11px] font-bold tracking-[2.5px] uppercase no-underline shadow-2xl transition-colors duration-300 hover:bg-ocean"
+              >
+                View More Offers
+                <ArrowRight size={16} className="transition-transform group-hover:translate-x-1.5" />
+              </Link>
+              <button
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-1.5 bg-white/10 border border-white/20 backdrop-blur-md text-white rounded-lg px-4 py-3 text-[10px] md:text-[11px] font-bold tracking-[2px] uppercase hover:bg-white/20 transition-colors"
+              >
+                Skip <X size={14} />
+              </button>
+              </div>
+              {banners.length > 1 && (
+                <div className="flex gap-2">
+                  {banners.map((b, i) => (
+                    <span key={b.id} aria-hidden className={`h-2 rounded-full transition-all ${i === current ? "w-6 bg-white" : "w-2 bg-white/50"}`} />
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-
-          {/* Bottom centre on portrait screens (raised above the dots when several offers show),
-              bottom left on landscape ones */}
-          <Link
-            href={OFFERS_HREF}
-            className={`group absolute z-10 ${banners.length > 1 ? "bottom-11" : "bottom-5"} left-1/2 -translate-x-1/2 landscape:left-8 landscape:translate-x-0 landscape:bottom-8 inline-flex items-center gap-3 whitespace-nowrap bg-navy text-cream rounded-lg py-3.5 px-7 md:py-4 md:px-9 font-jost text-[10px] md:text-[11px] font-bold tracking-[2.5px] uppercase no-underline shadow-2xl transition-colors duration-300 hover:bg-ocean hover:text-navy`}
-          >
-            View More Offers
-            <ArrowRight size={16} className="transition-transform group-hover:translate-x-1.5" />
-          </Link>
           </motion.div>
         </motion.section>
       )}

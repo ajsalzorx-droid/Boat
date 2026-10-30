@@ -231,11 +231,3 @@ html::-webkit-scrollbar-button {
     --book-reserve: 112px;
   }
 }
-
-/* Homepage offer banners on screen (they slide in over the hero when the page opens): the navbar
-   steps aside until they have gone (OfferBanners.tsx) */
-html:has(#offer-banners[data-covering-nav="true"]) .site-navbar {
-  opacity: 0;
-  transform: translateY(-100%);
-  pointer-events: none;
-}
