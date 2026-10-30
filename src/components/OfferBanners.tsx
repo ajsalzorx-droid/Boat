@@ -33,6 +33,10 @@ const SWAY = { rotate: [0, 0.5, -0.32, 0.15, 0] };
 const SWAY_DELAY_S = 0.25 + UNROLL_S - 0.2;
 const SWAY_S = 2.2;
 const BUTTONS_SPACE_PX = 84;
+// Phones get more breathing room: narrower banner, bigger gap above its buttons
+const BUTTONS_SPACE_PHONE_PX = 108;
+const BUTTONS_GAP_PX = 18;
+const BUTTONS_GAP_PHONE_PX = 30;
 // Confetti in the site's colours: ocean, cream, offer red, gold, white
 const CONFETTI_COLORS = ["#669bbc", "#fdf0d5", "#c1121f", "#C49A3C", "#ffffff"];
 const CONFETTI_PER_SIDE = 32;
@@ -104,7 +108,7 @@ function Bar({ width, thick }: { width: number; thick: number }) {
 export default function OfferBanners({ banners: all }: { banners: OfferBanner[] }) {
   const [index, setIndex] = useState(0);
   // Shown once per page visit: closed at first (the hero shows), opened START_DELAY_MS later,
-  // closed for good after the last banner (or Skip)
+  // closed for good after the last banner (or the close icon)
   const [open, setOpen] = useState(false);
   const [started, setStarted] = useState(false);
   // Where the navbar ends (px from the top) and the screen size: the banner is sized to fit
@@ -209,8 +213,8 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
 
   // The banner as big as fits between the rod and the buttons, in its own shape
   const ratio = (banner && ratios[banner.id]) || (layout.portrait ? 0.5 : 16 / 9);
-  const availW = layout.w * (layout.portrait ? 0.9 : 0.92);
-  const availH = layout.h - layout.top - ROD_SPACE_PX - BUTTONS_SPACE_PX;
+  const availW = layout.w * (layout.portrait ? 0.78 : 0.92);
+  const availH = layout.h - layout.top - ROD_SPACE_PX - (layout.portrait ? BUTTONS_SPACE_PHONE_PX : BUTTONS_SPACE_PX);
   const bannerW = Math.round(Math.max(160, Math.min(availW, availH * ratio)));
   const bannerH = Math.round(bannerW / ratio);
   const rodW = bannerW + 28;
@@ -305,14 +309,25 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
 
           {!calm && <Confetti key={`pop-${banner.id}`} delay={0.25 + UNROLL_S - 0.15} />}
 
-          {/* Buttons fade up once the banner is open, under it: View More Offers, Skip and the dots */}
+          {/* Buttons fade up once the banner is open: a close icon at the banner's top right, and
+              View More Offers with the dots under it */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.25 + UNROLL_S, ease: EASE }}
             className="absolute inset-0 z-30 pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto"
           >
-            <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-3" style={{ top: BANNER_TOP_PX + bannerH + 18 }}>
+            <button
+              onClick={() => setOpen(false)}
+              aria-label="Close offers"
+              title="Close"
+              className="absolute flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-full bg-black/55 backdrop-blur-md text-white shadow-lg ring-1 ring-white/25 hover:bg-black/75 transition-colors"
+              // Inside the banner's top-right corner, just under the rod
+              style={{ top: BANNER_TOP_PX + 18, left: `calc(50% + ${bannerW / 2 - (layout.portrait ? 46 : 54)}px)` }}
+            >
+              <X size={18} />
+            </button>
+            <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-3" style={{ top: BANNER_TOP_PX + bannerH + (layout.portrait ? BUTTONS_GAP_PHONE_PX : BUTTONS_GAP_PX) }}>
               <div className="flex items-center gap-2.5">
               <Link
                 href={OFFERS_HREF}
@@ -321,12 +336,6 @@ export default function OfferBanners({ banners: all }: { banners: OfferBanner[] 
                 View More Offers
                 <ArrowRight size={16} className="transition-transform group-hover:translate-x-1.5" />
               </Link>
-              <button
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-1.5 bg-white/10 border border-white/20 backdrop-blur-md text-white rounded-lg px-4 py-3 text-[10px] md:text-[11px] font-bold tracking-[2px] uppercase hover:bg-white/20 transition-colors"
-              >
-                Skip <X size={14} />
-              </button>
               </div>
               {banners.length > 1 && (
                 <div className="flex gap-2">
