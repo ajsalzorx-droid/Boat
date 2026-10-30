@@ -9,6 +9,7 @@ import Experience from "@/components/Experience";
 import Testimonials from "@/components/Testimonials";
 import Gallery from "@/components/Gallery";
 import Location from "@/components/Location";
+import Tour360 from "@/components/Tour360";
 import Footer from "@/components/Footer";
 import { whatsapp } from "@/lib/whatsapp";
 import { getBusinessInfo, pageMetadata } from "@/lib/seo-data";
@@ -178,6 +179,7 @@ export default async function Home() {
           </div>
         </section>
 
+        <Tour360 />
         <Location />
       </main>
       <Footer />
