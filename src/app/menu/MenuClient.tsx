@@ -39,6 +39,11 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [orderStatus, setOrderStatus] = useState<'idle' | 'submitting' | 'complete'>('idle');
+  // When the page opened: the server refuses orders sent instantly (bots), see src/lib/rate-limit.ts
+  const openedAt = useRef(0);
+  useEffect(() => {
+    openedAt.current = Date.now();
+  }, []);
 
   const dbMenuItems = initialItems;
 
@@ -65,7 +70,7 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
     // browser can't choose the total or insert into orders directly.
     let result: PlaceOrderResult;
     try {
-      result = await placeOrder(tableNumber, cart.map(c => ({ id: c.item.id, quantity: c.quantity })));
+      result = await placeOrder(tableNumber, cart.map(c => ({ id: c.item.id, quantity: c.quantity })), { hp: "", ms: Date.now() - openedAt.current });
     } catch (e) {
       console.error("Unexpected error saving order:", e);
       result = { ok: false, error: "Could not send your order. Please try again or ask a waiter." };

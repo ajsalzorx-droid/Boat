@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { CalendarDays, Fish, Check, Phone, Home } from "lucide-react";
@@ -69,6 +69,13 @@ export default function BookingForm({
   const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
   // Dates and times depend on the visitor's current time: worked out after the page loads
   const [now, setNow] = useState<number | null>(null);
+  // Spam checks (src/lib/rate-limit.ts): a hidden field real visitors never see or fill, and when
+  // the form opened (the server refuses forms sent instantly)
+  const [website, setWebsite] = useState("");
+  const openedAt = useRef(0);
+  useEffect(() => {
+    openedAt.current = Date.now();
+  }, []);
 
   useEffect(() => {
     const t = window.setTimeout(() => setNow(Date.now()), 0);
@@ -92,7 +99,7 @@ export default function BookingForm({
     setStatus("sending");
     let res;
     try {
-      res = await createBooking(booking);
+      res = await createBooking(booking, { hp: website, ms: Date.now() - openedAt.current });
     } catch {
       res = { ok: false as const, error: "Could not send your booking. Please try again or call us." };
     }
@@ -170,6 +177,11 @@ export default function BookingForm({
                   </motion.div>
                 ) : (
                   <motion.form key={type} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} onSubmit={submit} noValidate className="flex flex-col gap-4">
+                    {/* Hidden from people (and screen readers); bots that fill every field get caught */}
+                    <div aria-hidden className="absolute -left-[9999px] w-px h-px overflow-hidden">
+                      <label htmlFor="b-website">Website</label>
+                      <input id="b-website" name="website" type="text" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
+                    </div>
                     <p className="text-[13px] text-navy/70 leading-relaxed">{tab.intro}</p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
