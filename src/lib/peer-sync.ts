@@ -19,7 +19,8 @@ export function peerSites() {
   return (process.env.PEER_SITES ?? '')
     .split(',')
     .map((s) => s.trim().replace(/\/+$/, ''))
-    .filter((s) => /^https?:\/\//.test(s))
+    // HTTPS only (the secret must never travel unencrypted); plain http just for a local test server
+    .filter((s) => /^https:\/\//.test(s) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(s))
 }
 
 // Never throws: a server that is down or slow must not make the publish fail
@@ -34,6 +35,8 @@ export async function notifyPeers(tags: SyncTag[]) {
         headers: { 'Content-Type': 'application/json', 'x-revalidate-secret': secret },
         body: JSON.stringify({ tags }),
         cache: 'no-store',
+        // Never follow a redirect: it would send the secret on to whatever address it points to
+        redirect: 'error',
         signal: AbortSignal.timeout(TIMEOUT_MS),
       })
       if (!res.ok) throw new Error(`${site}: HTTP ${res.status}`)
