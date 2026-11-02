@@ -1,6 +1,7 @@
 'use server'
 
 import { cookies, headers } from 'next/headers'
+import { clientIp, hit, hits } from '@/lib/rate-limit'
 import { getDb } from '@/lib/mongodb'
 import {
   createSession,
@@ -19,37 +20,36 @@ export type LoginResult = { ok: true; role: Role; home: string } | { ok: false; 
 
 const WRONG = 'Wrong email or password.'
 
-// Per-IP limit on login attempts. In-memory, so it only covers this single server process.
+// Limits, counted in the database so they hold on every server: attempts per IP, and wrong
+// passwords per account (this one can't be dodged by changing or faking the IP)
 const WINDOW_MS = 15 * 60_000
-const MAX_ATTEMPTS = 10
-const attempts = new Map<string, number[]>()
-
-function tooManyAttempts(key: string) {
-  const now = Date.now()
-  const hits = (attempts.get(key) ?? []).filter((t) => now - t < WINDOW_MS)
-  hits.push(now)
-  attempts.set(key, hits)
-  return hits.length > MAX_ATTEMPTS
-}
+const MAX_ATTEMPTS_PER_IP = 20
+const MAX_FAILS_PER_ACCOUNT = 8
+const TOO_MANY = 'Too many attempts. Please wait 15 minutes and try again.'
 
 // Compared against when the email is unknown, so a wrong email takes as long as a wrong password
 let dummyHash: Promise<string> | null = null
 
 export async function login(email: string, password: string): Promise<LoginResult> {
   const h = await headers()
-  const ip = h.get('x-forwarded-for')?.split(',')[0].trim() || h.get('x-real-ip') || null
-  if (tooManyAttempts(ip ?? 'unknown')) return { ok: false, error: 'Too many attempts. Please wait 15 minutes and try again.' }
+  const ip = await clientIp()
+  if (await hit(`login-ip:${ip}`, MAX_ATTEMPTS_PER_IP, WINDOW_MS)) return { ok: false, error: TOO_MANY }
 
-  const cleanEmail = String(email ?? '').trim().toLowerCase()
+  const cleanEmail = String(email ?? '').trim().toLowerCase().slice(0, 200)
   const pass = String(password ?? '')
   if (!cleanEmail || !pass || pass.length > 200) return { ok: false, error: WRONG }
+  const failKey = `login-fail:${cleanEmail}`
+  if ((await hits(failKey, WINDOW_MS)) >= MAX_FAILS_PER_ACCOUNT) return { ok: false, error: TOO_MANY }
 
   try {
     const db = await getDb()
     const user = await db.collection<AdminUser>('admin_users').findOne({ email: cleanEmail })
     dummyHash ??= hashPassword('not-a-real-password')
     const valid = await verifyPassword(pass, user?.password_hash ?? (await dummyHash))
-    if (!user || !valid) return { ok: false, error: WRONG }
+    if (!user || !valid) {
+      await hit(failKey, MAX_FAILS_PER_ACCOUNT, WINDOW_MS)
+      return { ok: false, error: WRONG }
+    }
 
     // Each role has its own cookie: logging in here leaves the other area's session alone
     const cookieName = SESSION_COOKIES[user.role]

@@ -1,40 +1,25 @@
 'use server'
 
-import { headers } from 'next/headers'
 import { getDb, newId, toPlain, type IdDoc } from '@/lib/mongodb'
 import { bestOffer, offerStatus, unitPrice, type Offer } from '@/lib/offers'
+import { clientIp, hit, looksLikeBot, type FormGuard } from '@/lib/rate-limit'
 
 export type OrderLine = { id: string; quantity: number }
 export type PlaceOrderResult = { ok: true } | { ok: false; error: string }
 
 const GENERIC_ERROR = 'Could not send your order. Please try again or ask a waiter.'
 
-// Per-IP limit. In-memory, so it only covers this single Node process (server.js).
-const WINDOW_MS = 60_000
-const MAX_ORDERS_PER_WINDOW = 3
-const recentOrders = new Map<string, number[]>()
+// Limits, counted in the database so they hold on every server: per visitor, and for the whole
+// site (so a bot that fakes its IP still can't flood the kitchen screen)
+const MAX_ORDERS_PER_IP = 3 // per minute
+const MAX_ORDERS_SITE = 120 // per 10 minutes, all visitors together
+const TOO_MANY = 'Too many orders. Please wait a minute and try again.'
 
-function isRateLimited(key: string) {
-  const now = Date.now()
-  const hits = (recentOrders.get(key) ?? []).filter((t) => now - t < WINDOW_MS)
-  const limited = hits.length >= MAX_ORDERS_PER_WINDOW
-  if (!limited) hits.push(now)
-  recentOrders.set(key, hits)
-
-  if (recentOrders.size > 5000) {
-    for (const [k, v] of recentOrders) {
-      if (v.every((t) => now - t >= WINDOW_MS)) recentOrders.delete(k)
-    }
-  }
-  return limited
-}
-
-export async function placeOrder(table: string | null, lines: OrderLine[]): Promise<PlaceOrderResult> {
-  const h = await headers()
-  const ip = h.get('x-forwarded-for')?.split(',')[0].trim() || h.get('x-real-ip')
-  if (ip && isRateLimited(ip)) {
-    return { ok: false, error: 'Too many orders. Please wait a minute and try again.' }
-  }
+export async function placeOrder(table: string | null, lines: OrderLine[], guard?: FormGuard): Promise<PlaceOrderResult> {
+  // Bots: a hidden field was filled, or the order was sent instantly
+  if (looksLikeBot(guard)) return { ok: false, error: GENERIC_ERROR }
+  if (await hit(`order-ip:${await clientIp()}`, MAX_ORDERS_PER_IP, 60_000)) return { ok: false, error: TOO_MANY }
+  if (await hit('order-site', MAX_ORDERS_SITE, 10 * 60_000)) return { ok: false, error: TOO_MANY }
 
   // Table comes from the QR code (?table=); anything else is treated as invalid
   const tableName = table?.trim() || 'Takeaway'

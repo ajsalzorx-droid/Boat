@@ -1,41 +1,30 @@
 'use server'
 
-import { headers } from 'next/headers'
 import { getDb, newId, toPlain, type IdDoc } from '@/lib/mongodb'
 import { bestOffer, offerStatus, unitPrice, type Offer } from '@/lib/offers'
 import { getBusinessInfo } from '@/lib/seo-data'
+import { clientIp, hit, looksLikeBot, type FormGuard } from '@/lib/rate-limit'
 import { checkBooking, MAX_PREORDER_QTY, type BookingInput, type PreorderItem } from '@/lib/bookings'
 
 export type CreateBookingResult = { ok: true } | { ok: false; error: string }
 
 const GENERIC_ERROR = 'Could not send your booking. Please try again or call us.'
 
-// Per-IP limit. In-memory, so it only covers this single Node process (server.js).
+// Limits, counted in the database so they hold on every server: per visitor, and for the whole
+// site (so a bot that fakes its IP still can't flood Admin -> Bookings)
 const WINDOW_MS = 10 * 60_000
-const MAX_BOOKINGS_PER_WINDOW = 5
-const recentBookings = new Map<string, number[]>()
-
-function isRateLimited(key: string) {
-  const now = Date.now()
-  const hits = (recentBookings.get(key) ?? []).filter((t) => now - t < WINDOW_MS)
-  const limited = hits.length >= MAX_BOOKINGS_PER_WINDOW
-  if (!limited) hits.push(now)
-  recentBookings.set(key, hits)
-
-  if (recentBookings.size > 5000) {
-    for (const [k, v] of recentBookings) {
-      if (v.every((t) => now - t >= WINDOW_MS)) recentBookings.delete(k)
-    }
-  }
-  return limited
-}
+const MAX_BOOKINGS_PER_IP = 5
+const MAX_BOOKINGS_SITE = 40
 
 // Saves a table reservation or fish-preparation request; staff see it in Admin -> Bookings
-export async function createBooking(input: BookingInput): Promise<CreateBookingResult> {
-  const h = await headers()
-  const ip = h.get('x-forwarded-for')?.split(',')[0].trim() || h.get('x-real-ip')
-  if (ip && isRateLimited(ip)) {
-    return { ok: false, error: 'Too many bookings from this device. Please wait a few minutes or call us.' }
+export async function createBooking(input: BookingInput, guard?: FormGuard): Promise<CreateBookingResult> {
+  // Bots: a hidden field was filled, or the form was sent instantly
+  if (looksLikeBot(guard)) return { ok: false, error: GENERIC_ERROR }
+  if (
+    (await hit(`booking-ip:${await clientIp()}`, MAX_BOOKINGS_PER_IP, WINDOW_MS)) ||
+    (await hit('booking-site', MAX_BOOKINGS_SITE, WINDOW_MS))
+  ) {
+    return { ok: false, error: 'Too many bookings right now. Please wait a few minutes or call us.' }
   }
 
   // Opening hours come from the SEO Studio (business info), the same ones the form shows
