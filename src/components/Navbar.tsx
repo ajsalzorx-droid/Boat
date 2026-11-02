@@ -40,7 +40,9 @@ export default function Navbar() {
     { href: "/#exp", label: nav.nav_experience },
     { href: "/#loc", label: nav.nav_location },
     { href: "/events", label: nav.nav_events },
-    { href: "/offer", label: nav.nav_offer },
+    { href: "/menu?offers", label: nav.nav_offer },
+    // Falls back while the site text cache is older than this label
+    { href: "/book", label: nav.nav_prebook || "Pre-Book" },
     { href: "/your-fish", label: nav.nav_fresh, accent: true },
   ];
   const [isScrolled, setIsScrolled] = useState(false);
@@ -58,7 +60,7 @@ export default function Navbar() {
 
   return (
     <header 
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+      className={`site-navbar fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
         // Only shift on desktop, where the 38px top contact bar exists
         isScrolled ? "md:-translate-y-[38px]" : "translate-y-0"
       }`}
@@ -143,10 +145,19 @@ export default function Navbar() {
             </li>
             <li>
               <Link
-                href="/offer"
+                href="/menu?offers"
                 className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
               >
                 {nav.nav_offer}
+                <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/book"
+                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group whitespace-nowrap"
+              >
+                {nav.nav_prebook || "Pre-Book"}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
               </Link>
             </li>

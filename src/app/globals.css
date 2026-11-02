@@ -9,6 +9,8 @@
   --color-ink: #001e2e;
   --color-ocean: #669bbc;
   --color-ocean-light: #8db8d4;
+  /* Offers: discount badges and offer prices */
+  --color-offer: #c1121f;
 
   --font-playfair: var(--font-playfair-display), serif;
   --font-jost: var(--font-jost), sans-serif;

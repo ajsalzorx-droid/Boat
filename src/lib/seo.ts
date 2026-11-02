@@ -42,6 +42,13 @@ export const SEO_PAGES = [
       'Buy fresh fish at Waterfront Market and our chefs will clean, cook and serve it your way. Grilled, fried or curry.',
   },
   {
+    path: '/book',
+    label: 'Book',
+    title: 'Book a Table or Fish Preparation | Boat Seafood Dubai',
+    description:
+      'Reserve a table at Boat Seafood, Waterfront Market, Dubai, or book our chefs to cook the fish you bring from the market: grilled, fried, tawa or curry.',
+  },
+  {
     path: '/profile',
     label: 'Flipbook',
     title: 'Company Profile Flipbook | Boat Seafood Dubai',

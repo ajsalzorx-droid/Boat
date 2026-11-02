@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MenuItem } from '@/data/menu';
+import { unitPrice } from '@/lib/offers';
 
 interface CartItem {
   item: MenuItem;
@@ -47,7 +48,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = () => setCart([]);
 
-  const cartTotal = cart.reduce((sum, item) => sum + (parseInt(item.item.price) * item.quantity), 0);
+  // Offer prices apply (the server works out the same total when the order is placed)
+  const cartTotal = Math.round(cart.reduce((sum, item) => sum + unitPrice(item.item) * item.quantity, 0) * 100) / 100;
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
