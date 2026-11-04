@@ -8,7 +8,6 @@ import { newId, toPlain, type IdDoc, type Plain } from '@/lib/mongodb'
 import { DEFAULT_BUSINESS, SEO_PAGES, SEO_TAG, type BusinessInfo } from '@/lib/seo'
 import { CONTENT_TAG, getSectionDef, type FieldType, type SectionData } from '@/lib/content'
 import { MENU_TAG } from '@/lib/menu-data'
-import { notifyPeers, type SyncTag } from '@/lib/peer-sync'
 import { MENU_CATEGORIES } from '@/data/menu'
 import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/offers'
 import { confirmationMessage, whatsappDigits, type BookingStatus, type BookingType, type PreorderItem } from '@/lib/bookings'
@@ -34,13 +33,6 @@ async function withAdmin<T>(
     console.error('Admin action failed:', e)
     return { ok: false, error: e instanceof Error ? e.message : 'Something went wrong.' }
   }
-}
-
-// Clears this server's cache for these tags right away, then asks the other servers (Hostinger /
-// Vercel) to clear theirs too (src/lib/peer-sync.ts)
-async function expireTags(...tags: SyncTag[]) {
-  for (const tag of tags) updateTag(tag)
-  await notifyPeers(tags)
 }
 
 function fail(message: string): never {
@@ -105,14 +97,14 @@ export async function saveMenuItem(id: string | null, input: MenuItemInput) {
     const items = db.collection<IdDoc>('menu_items')
     if (id) found(await items.updateOne({ _id: String(id) }, { $set: row }))
     else await items.insertOne({ _id: newId(), ...row, is_active: true, created_at: new Date() })
-    await expireTags(MENU_TAG) // the site reads dishes from cache (src/lib/menu-data.ts)
+    updateTag(MENU_TAG) // the site reads dishes from cache (src/lib/menu-data.ts)
   })
 }
 
 export async function deleteMenuItem(id: string) {
   return withAdmin(async (db) => {
     found(await db.collection<IdDoc>('menu_items').deleteOne({ _id: String(id) }))
-    await expireTags(MENU_TAG)
+    updateTag(MENU_TAG)
   })
 }
 
@@ -142,14 +134,14 @@ export async function saveDailyCatch(id: string | null, input: DailyCatchInput) 
     const catches = db.collection<IdDoc>('daily_catch')
     if (id) found(await catches.updateOne({ _id: String(id) }, { $set: row }))
     else await catches.insertOne({ _id: newId(), ...row })
-    await expireTags(MENU_TAG)
+    updateTag(MENU_TAG)
   })
 }
 
 export async function deleteDailyCatch(id: string) {
   return withAdmin(async (db) => {
     found(await db.collection<IdDoc>('daily_catch').deleteOne({ _id: String(id) }))
-    await expireTags(MENU_TAG)
+    updateTag(MENU_TAG)
   })
 }
 
@@ -160,7 +152,7 @@ export async function setDailyCatchAvailability(id: string, isAvailable: boolean
         .collection<IdDoc>('daily_catch')
         .updateOne({ _id: String(id) }, { $set: { is_available: !!isAvailable, updated_at: new Date() } })
     )
-    await expireTags(MENU_TAG)
+    updateTag(MENU_TAG)
   })
 }
 
@@ -222,14 +214,14 @@ export async function saveOffer(id: string | null, input: OfferInput) {
     const offers = db.collection<IdDoc>('offers')
     if (id) found(await offers.updateOne({ _id: String(id) }, { $set: row }))
     else await offers.insertOne({ _id: newId(), ...row, created_at: new Date() })
-    await expireTags(MENU_TAG) // menu prices and the homepage banner read offers from cache
+    updateTag(MENU_TAG) // menu prices and the homepage banner read offers from cache
   })
 }
 
 export async function deleteOffer(id: string) {
   return withAdmin(async (db) => {
     found(await db.collection<IdDoc>('offers').deleteOne({ _id: String(id) }))
-    await expireTags(MENU_TAG)
+    updateTag(MENU_TAG)
   })
 }
 
@@ -240,7 +232,7 @@ export async function setOfferActive(id: string, isActive: boolean) {
         .collection<IdDoc>('offers')
         .updateOne({ _id: String(id) }, { $set: { is_active: !!isActive, updated_at: new Date() } })
     )
-    await expireTags(MENU_TAG)
+    updateTag(MENU_TAG)
   })
 }
 
@@ -271,7 +263,8 @@ export async function publishSite() {
     const now = new Date()
     await db.collection<IdDoc<number>>('site_publish').updateOne({ _id: 1 }, { $set: { published_at: now } }, { upsert: true })
     const publishedAt = now.toISOString()
-    await expireTags(SEO_TAG, CONTENT_TAG)
+    updateTag(SEO_TAG)
+    updateTag(CONTENT_TAG)
     return { publishedAt }
   }, 'seo')
 }
