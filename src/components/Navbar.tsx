@@ -43,6 +43,7 @@ export default function Navbar() {
     { href: "/menu?offers", label: nav.nav_offer },
     // Falls back while the site text cache is older than this label
     { href: "/book", label: nav.nav_prebook || "Pre-Book" },
+    { href: "/virtual-tour", label: nav.nav_tour || "Virtual Tour" },
     { href: "/your-fish", label: nav.nav_fresh, accent: true },
   ];
   const [isScrolled, setIsScrolled] = useState(false);
@@ -106,11 +107,11 @@ export default function Navbar() {
 
         {/* Desktop Menu */}
         <nav aria-label="Main" className="hidden lg:block">
-          <ul className="flex items-center gap-5 min-[1440px]:gap-11 list-none m-0 p-0">
+          <ul className="flex items-center gap-3 min-[1280px]:gap-4 min-[1440px]:gap-7 list-none m-0 p-0">
             <li>
               <Link
                 href="/menu"
-                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
+                className="text-white/65 hover:text-white text-[11.5px] min-[1280px]:text-[13px] min-[1440px]:text-[14px] font-medium tracking-[0.8px] min-[1280px]:tracking-[1.2px] min-[1440px]:tracking-[1.5px] uppercase transition-colors relative group"
               >
                 {nav.nav_menu}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
@@ -119,7 +120,7 @@ export default function Navbar() {
             <li>
               <Link
                 href="/#exp"
-                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
+                className="text-white/65 hover:text-white text-[11.5px] min-[1280px]:text-[13px] min-[1440px]:text-[14px] font-medium tracking-[0.8px] min-[1280px]:tracking-[1.2px] min-[1440px]:tracking-[1.5px] uppercase transition-colors relative group"
               >
                 {nav.nav_experience}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
@@ -128,7 +129,7 @@ export default function Navbar() {
             <li>
               <Link
                 href="/#loc"
-                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
+                className="text-white/65 hover:text-white text-[11.5px] min-[1280px]:text-[13px] min-[1440px]:text-[14px] font-medium tracking-[0.8px] min-[1280px]:tracking-[1.2px] min-[1440px]:tracking-[1.5px] uppercase transition-colors relative group"
               >
                 {nav.nav_location}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
@@ -137,7 +138,7 @@ export default function Navbar() {
             <li>
               <Link
                 href="/events"
-                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
+                className="text-white/65 hover:text-white text-[11.5px] min-[1280px]:text-[13px] min-[1440px]:text-[14px] font-medium tracking-[0.8px] min-[1280px]:tracking-[1.2px] min-[1440px]:tracking-[1.5px] uppercase transition-colors relative group"
               >
                 {nav.nav_events}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
@@ -146,7 +147,7 @@ export default function Navbar() {
             <li>
               <Link
                 href="/menu?offers"
-                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group"
+                className="text-white/65 hover:text-white text-[11.5px] min-[1280px]:text-[13px] min-[1440px]:text-[14px] font-medium tracking-[0.8px] min-[1280px]:tracking-[1.2px] min-[1440px]:tracking-[1.5px] uppercase transition-colors relative group"
               >
                 {nav.nav_offer}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
@@ -155,7 +156,7 @@ export default function Navbar() {
             <li>
               <Link
                 href="/book"
-                className="text-white/65 hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group whitespace-nowrap"
+                className="text-white/65 hover:text-white text-[11.5px] min-[1280px]:text-[13px] min-[1440px]:text-[14px] font-medium tracking-[0.8px] min-[1280px]:tracking-[1.2px] min-[1440px]:tracking-[1.5px] uppercase transition-colors relative group whitespace-nowrap"
               >
                 {nav.nav_prebook || "Pre-Book"}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
@@ -163,8 +164,17 @@ export default function Navbar() {
             </li>
             <li>
               <Link
+                href="/virtual-tour"
+                className="text-white/65 hover:text-white text-[11.5px] min-[1280px]:text-[13px] min-[1440px]:text-[14px] font-medium tracking-[0.8px] min-[1280px]:tracking-[1.2px] min-[1440px]:tracking-[1.5px] uppercase transition-colors relative group whitespace-nowrap"
+              >
+                {nav.nav_tour || "Virtual Tour"}
+                <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
+              </Link>
+            </li>
+            <li>
+              <Link
                 href="/your-fish"
-                className="text-[#C49A3C] hover:text-white text-[13px] min-[1440px]:text-[15px] font-medium tracking-[1.5px] min-[1440px]:tracking-[2px] uppercase transition-colors relative group whitespace-nowrap"
+                className="text-[#C49A3C] hover:text-white text-[11.5px] min-[1280px]:text-[13px] min-[1440px]:text-[14px] font-medium tracking-[0.8px] min-[1280px]:tracking-[1.2px] min-[1440px]:tracking-[1.5px] uppercase transition-colors relative group whitespace-nowrap"
               >
                 {nav.nav_fresh}
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-[#C49A3C] scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
@@ -173,9 +183,9 @@ export default function Navbar() {
           </ul>
         </nav>
         
-        <div className="hidden lg:flex items-center gap-4 min-[1440px]:gap-6">
+        <div className="hidden lg:flex items-center gap-2 min-[1280px]:gap-3 min-[1440px]:gap-5">
           {/* Delivery Button with Dropdown */}
-          <div className="relative ml-4 min-[1440px]:ml-11 group pb-2 -mb-2">
+          <div className="relative ml-1 min-[1280px]:ml-3 min-[1440px]:ml-6 group pb-2 -mb-2">
             <button 
               className="flex flex-col items-center justify-center text-white/80 hover:text-white transition-colors"
             >

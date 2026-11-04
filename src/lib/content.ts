@@ -130,6 +130,7 @@ export const CONTENT_SECTIONS = [
       text('nav_events', 'Link – Events', 'Events'),
       text('nav_offer', 'Link – Offer', 'Offer'),
       text('nav_prebook', 'Link – Pre-Book (booking form)', 'Pre-Book'),
+      text('nav_tour', 'Link – Virtual Tour (360° view)', 'Virtual Tour'),
       text('nav_fresh', 'Link – Fresh Catch', 'Fresh Catch'),
       text('delivery', 'Delivery button', 'Delivery'),
       text('order', 'Order button', 'Order Online'),
