@@ -1,31 +1,39 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Jost, Cormorant_Garamond, Outfit } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const playfair = Playfair_Display({
-  subsets: ["latin"],
+// The fonts live in the repo (src/app/fonts, Latin, from Google Fonts) so a build never has to
+// download them: a bad reply from Google can't break a deploy. Each file holds a range of weights.
+const playfair = localFont({
+  src: [
+    { path: "./fonts/playfair-normal.woff2", weight: "400 600", style: "normal" },
+    { path: "./fonts/playfair-italic.woff2", weight: "400 600", style: "italic" },
+  ],
   variable: "--font-playfair-display",
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
+  adjustFontFallback: "Times New Roman",
 });
 
-const jost = Jost({
-  subsets: ["latin"],
+const jost = localFont({
+  src: "./fonts/jost-normal.woff2",
+  weight: "200 500",
+  style: "normal",
   variable: "--font-jost",
-  weight: ["200", "300", "400", "500"],
 });
 
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
+const cormorant = localFont({
+  src: [
+    { path: "./fonts/cormorant-normal.woff2", weight: "300 400", style: "normal" },
+    { path: "./fonts/cormorant-italic.woff2", weight: "300 400", style: "italic" },
+  ],
   variable: "--font-cormorant-garamond",
-  weight: ["300", "400"],
-  style: ["normal", "italic"],
+  adjustFontFallback: "Times New Roman",
 });
 
-const outfit = Outfit({
-  subsets: ["latin"],
+const outfit = localFont({
+  src: "./fonts/outfit-normal.woff2",
+  weight: "300 600",
+  style: "normal",
   variable: "--font-outfit",
-  weight: ["300", "400", "500", "600"],
 });
 
 import SmoothScroll from "@/components/SmoothScroll";
