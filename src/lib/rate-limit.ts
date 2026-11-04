@@ -17,8 +17,7 @@ async function limits() {
     indexReady = null
     console.error('rate_limits index:', e)
   })
-  await indexReady
-  return col
+  return col // the index is set up in the background; nothing has to wait for it
 }
 
 const windowId = (key: string, windowMs: number) => {

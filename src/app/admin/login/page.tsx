@@ -30,7 +30,6 @@ export default function AdminLogin() {
       const allowed = res.role === "seo" ? /^\/seo(\/|$)/ : /^\/(admin|kitchen)(\/|$)/;
       const target = next && /^\/(?![/\\])/.test(next) && allowed.test(next) ? next : res.home;
       router.push(target);
-      router.refresh();
     }
   };
 
