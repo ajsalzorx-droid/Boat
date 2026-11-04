@@ -308,7 +308,7 @@ const pages: BookPage[] = [
     alt: "Waterfront Market, Dubai, with BOAT's contact details",
     text: (
       <address>
-        boatseafood.com · Tel. 971 4 324 7998 · M/W. {WHATSAPP_DISPLAY} · 971 50 298 1902, 971 502 989 345 · boatdxb26@gmail.com
+        boatseafood.com · Tel. 971 4 324 7998 · M/W. {WHATSAPP_DISPLAY} · 971 502 989 345 · boatdxb26@gmail.com
       </address>
     ),
     links: [
