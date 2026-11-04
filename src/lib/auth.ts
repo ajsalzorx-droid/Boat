@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { getDb } from '@/lib/mongodb'
 import { readSession, SESSION_COOKIES, touchSession, type Role } from '@/lib/session'
 
+
 export class AuthError extends Error {
   constructor(message: string, public status: 401 | 403) {
     super(message)
