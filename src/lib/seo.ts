@@ -49,6 +49,13 @@ export const SEO_PAGES = [
       'Reserve a table at Boat Seafood, Waterfront Market, Dubai, or book our chefs to cook the fish you bring from the market: grilled, fried, tawa or curry.',
   },
   {
+    path: '/virtual-tour',
+    label: 'Virtual Tour',
+    title: 'Virtual Tour | 360° View of Boat Seafood Dubai',
+    description:
+      'Take a 360° virtual tour of Boat Seafood Restaurant at Waterfront Market, Deira, Dubai. Look around the entrance and the waterfront before you visit.',
+  },
+  {
     path: '/profile',
     label: 'Flipbook',
     title: 'Company Profile Flipbook | Boat Seafood Dubai',

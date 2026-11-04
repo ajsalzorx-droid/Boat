@@ -12,7 +12,7 @@ import { notifyPeers, type SyncTag } from '@/lib/peer-sync'
 import { MENU_CATEGORIES } from '@/data/menu'
 import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/offers'
 import { confirmationMessage, whatsappDigits, type BookingStatus, type BookingType, type PreorderItem } from '@/lib/bookings'
-import { sendTemplate, whatsappApiReady } from '@/lib/whatsapp-api'
+import { sendConfirmation, whatsappApiReady } from '@/lib/whatsapp-api'
 
 // Every admin write goes through here: verify the token first, then touch the database.
 // Server Actions are reachable by direct POST, so the check must live inside each action.
@@ -567,13 +567,7 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
     // Confirming sends the customer a WhatsApp message from the restaurant's number (once)
     if (status !== 'confirmed' || before.status === 'confirmed' || !whatsappApiReady()) return { whatsapp: 'off' }
     const b = toPlain(before) as unknown as BookingRow
-    // With pre-ordered dishes: the template that lists them and the total, when it is set up
-    const message = confirmationMessage(b)
-    const preorderTemplate = process.env.WHATSAPP_PREORDER_TEMPLATE
-    const sent =
-      message.preorderParts && preorderTemplate
-        ? await sendTemplate(whatsappDigits(b.phone), message.preorderParts, preorderTemplate)
-        : await sendTemplate(whatsappDigits(b.phone), message.parts)
+    const sent = await sendConfirmation(whatsappDigits(b.phone), confirmationMessage(b))
     await bookings.updateOne(
       { _id: String(id) },
       { $set: sent.ok ? { whatsapp_sent_at: new Date(), whatsapp_error: null } : { whatsapp_error: sent.error } }

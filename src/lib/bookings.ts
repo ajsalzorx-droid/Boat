@@ -154,8 +154,8 @@ export function checkBooking(b: BookingInput, hours: { opens: string; closes: st
 // The confirmation sent to the customer on WhatsApp, with their pre-ordered dishes and prices.
 // text = the whole message written out (tap-to-send fallback).
 // parts = values for the approved templates (src/lib/whatsapp-api.ts):
-//   booking_confirmed (4):          name, what, date, time
-//   booking_confirmed_preorder (6): name, what, date, time, dishes, total   (when dishes were pre-ordered)
+//   booking_confirmed:          customer_name, booking, date, time
+//   booking_confirmed_preorder: the same, then dishes, total   (when dishes were pre-ordered)
 // Template values can't hold line breaks, so there the dishes are one line, comma separated.
 export function confirmationMessage(b: {
   type: BookingType
