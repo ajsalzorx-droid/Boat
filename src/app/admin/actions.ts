@@ -11,6 +11,7 @@ import { MENU_TAG } from '@/lib/menu-data'
 import { MENU_CATEGORIES } from '@/data/menu'
 import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/offers'
 import { confirmationMessage, whatsappDigits, type BookingStatus, type BookingType, type PreorderItem } from '@/lib/bookings'
+import { broadcastOffer, offerBroadcastReady, subscriberCount } from '@/lib/offer-broadcast'
 import { sendConfirmation, whatsappApiReady } from '@/lib/whatsapp-api'
 
 // Every admin write goes through here: verify the token first, then touch the database.
@@ -170,6 +171,7 @@ export type OfferInput = {
   start_day: string // "2026-11-01" in Dubai time, or "" = from now
   end_day: string // or "" = until switched off
   is_active: boolean
+  send_whatsapp?: boolean // new offers only: send the banner to customers who agreed to offers
 }
 
 function day(value: unknown, field: string, edge: 'start' | 'end') {
@@ -212,9 +214,23 @@ export async function saveOffer(id: string | null, input: OfferInput) {
     }
 
     const offers = db.collection<IdDoc>('offers')
-    if (id) found(await offers.updateOne({ _id: String(id) }, { $set: row }))
-    else await offers.insertOne({ _id: newId(), ...row, created_at: new Date() })
-    updateTag(MENU_TAG) // menu prices and the homepage banner read offers from cache
+    if (id) {
+      found(await offers.updateOne({ _id: String(id) }, { $set: row }))
+      updateTag(MENU_TAG) // menu prices and the homepage banner read offers from cache
+      return { whatsapp: null }
+    }
+    const offerId = newId()
+    await offers.insertOne({ _id: offerId, ...row, created_at: new Date() })
+    updateTag(MENU_TAG)
+    if (!input?.send_whatsapp) return { whatsapp: null }
+    return {
+      whatsapp: await broadcastOffer(db, {
+        ...row,
+        id: offerId,
+        starts_at: startsAt?.toISOString() ?? null,
+        ends_at: endsAt?.toISOString() ?? null,
+      }),
+    }
   })
 }
 
@@ -469,7 +485,9 @@ export async function listDailyCatch() {
 // All offers, newest first, plus every dish (name and category) for the "applies to" picker
 export async function listOffers() {
   return withAdmin(async (db) => {
-    const [offers, dishes] = await Promise.all([
+    const broadcastReady = offerBroadcastReady()
+    const [subscribers, offers, dishes] = await Promise.all([
+      broadcastReady ? subscriberCount(db) : 0,
       db.collection('offers').find().sort({ created_at: -1, _id: 1 }).toArray(),
       db
         .collection('menu_items')
@@ -478,6 +496,8 @@ export async function listOffers() {
         .toArray(),
     ])
     return {
+      broadcastReady,
+      subscribers, // the count only: numbers stay on the server
       offers: offers.map((d) => toPlain(d) as unknown as Offer),
       dishes: dishes.map((d) => ({ id: String(d._id), name: String(d.name), category: String(d.category), price: Number(d.price) })),
     }
