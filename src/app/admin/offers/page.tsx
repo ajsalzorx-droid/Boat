@@ -38,6 +38,7 @@ const EMPTY_FORM = {
   start_day: "",
   end_day: "",
   is_active: true,
+  send_whatsapp: true,
 };
 
 const STATUS_STYLE = {
@@ -55,6 +56,7 @@ export default function AdminOffersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [dishSearch, setDishSearch] = useState("");
+  const [broadcast, setBroadcast] = useState({ ready: false, subscribers: 0 });
   const [formData, setFormData] = useState(EMPTY_FORM);
 
   // Bumped to refetch after add/edit/delete
@@ -67,6 +69,7 @@ export default function AdminOffersPage() {
       if (!actionFailed(res) && res.ok) {
         setOffers(res.data!.offers);
         setDishes(res.data!.dishes);
+        setBroadcast({ ready: res.data!.broadcastReady, subscribers: res.data!.subscribers });
       }
       setLoading(false);
     });
@@ -95,6 +98,7 @@ export default function AdminOffersPage() {
         start_day: toDubaiDay(offer.starts_at),
         end_day: toDubaiDay(offer.ends_at),
         is_active: offer.is_active,
+        send_whatsapp: false,
       });
     } else {
       setEditingId(null);
@@ -133,7 +137,13 @@ export default function AdminOffersPage() {
     const payload: OfferInput = { ...formData, percent: Number(formData.percent) };
 
     // Token is verified on the server before the offer is saved
-    if (actionFailed(await saveOffer(editingId, payload))) return;
+    const res = await saveOffer(editingId, payload);
+    if (actionFailed(res)) return;
+
+    const sent = res.ok ? res.data?.whatsapp : null;
+    if (sent?.status === "sent") alert(`Offer saved. WhatsApp banner accepted for ${sent.accepted} customers${sent.rejected ? ` (${sent.rejected} rejected)` : ""}.`);
+    if (sent?.status === "skipped") alert(`Offer saved. WhatsApp banner not sent: ${sent.reason}`);
+    if (sent?.status === "failed") alert(`Offer saved, but the WhatsApp banner failed: ${sent.error}`);
 
     setIsModalOpen(false);
     fetchOffers();
@@ -438,6 +448,18 @@ export default function AdminOffersPage() {
                 <input type="checkbox" checked={formData.is_active} onChange={e => setFormData({...formData, is_active: e.target.checked})} className="w-4 h-4 text-ocean rounded border-gray-300" />
                 <span className="text-sm font-medium text-gray-700">Offer is on</span>
               </label>
+
+              {!editingId && broadcast.ready && (
+                <label className="flex items-start gap-2 cursor-pointer p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <input type="checkbox" checked={formData.send_whatsapp} onChange={e => setFormData({...formData, send_whatsapp: e.target.checked})} className="w-4 h-4 mt-0.5 text-ocean rounded border-gray-300" />
+                  <span className="text-sm text-gray-700">
+                    <span className="font-medium">Send the banner on WhatsApp</span>
+                    <span className="block text-xs text-gray-500 mt-0.5">
+                      To {broadcast.subscribers} customers who agreed to offers. Goes out once when you add the offer, costs per message and can&apos;t be undone. Needs a banner, and the offer must be live today.
+                    </span>
+                  </span>
+                </label>
+              )}
 
               <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 mt-6">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors">Cancel</button>

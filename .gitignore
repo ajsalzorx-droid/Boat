@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Local data backups (contain order data)
 /backup/
+
+# 360 originals (20 MB each): the site uses the WebP versions
+/public/images/360/IMG_*

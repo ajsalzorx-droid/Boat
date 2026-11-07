@@ -50,10 +50,10 @@ export const SEO_PAGES = [
   },
   {
     path: '/virtual-tour',
-    label: 'Virtual Tour',
-    title: 'Virtual Tour | 360° View of Boat Seafood Dubai',
+    label: '360 View',
+    title: '360 View of Boat Seafood Dubai | Waterfront Market',
     description:
-      'Take a 360° virtual tour of Boat Seafood Restaurant at Waterfront Market, Deira, Dubai. Look around the entrance and the waterfront before you visit.',
+      'See Boat Seafood Restaurant in 360° at Waterfront Market, Deira, Dubai. Walk through the waterfront, terrace, dining hall and kitchen before you visit.',
   },
   {
     path: '/profile',
