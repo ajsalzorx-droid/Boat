@@ -132,6 +132,24 @@ export async function sendTemplateToMany(template: string, broadcast: string, re
   }
 }
 
+// "typing..." in the customer's chat while the reply is prepared; it also marks their message as
+// read. Shown until the reply arrives, or 25 seconds. Best effort: a failure changes nothing else.
+export async function sendTyping(target: string) {
+  if (!whatsappChatReady()) return
+  const host = process.env.WATI_API_HOST!.replace(/\/+$/, '')
+  try {
+    const res = await fetch(`${host}/api/ext/v3/conversations/typingIndicator`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.WATI_API_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target }),
+      signal: AbortSignal.timeout(5_000),
+    })
+    if (!res.ok) console.error('WhatsApp typing indicator:', res.status)
+  } catch (e) {
+    console.error('WhatsApp typing indicator failed:', e instanceof Error ? e.message : e)
+  }
+}
+
 const named = (names: string[], values: string[]) => Object.fromEntries(names.map((n, i) => [n, values[i]]))
 
 // Booking confirmation: with the dishes and total when the pre-order template is set up
