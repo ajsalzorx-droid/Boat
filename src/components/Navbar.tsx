@@ -7,6 +7,7 @@ import { Menu as MenuIcon, X, ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useSection } from "@/context/ContentContext";
 import { cdn } from "@/lib/cdn";
+import { TOUR_PUBLISHED } from "@/lib/seo";
 
 const smoothEase = [0.16, 1, 0.3, 1] as const;
 
@@ -43,7 +44,7 @@ export default function Navbar() {
     { href: "/menu?offers", label: nav.nav_offer },
     // Falls back while the site text cache is older than this label
     { href: "/book", label: nav.nav_prebook || "Pre-Book" },
-    { href: "/virtual-tour", label: nav.nav_tour || "360 View" },
+    ...(TOUR_PUBLISHED ? [{ href: "/virtual-tour", label: nav.nav_tour || "360 View" }] : []),
     { href: "/your-fish", label: nav.nav_fresh, accent: true },
   ];
   const [isScrolled, setIsScrolled] = useState(false);
@@ -162,6 +163,7 @@ export default function Navbar() {
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
               </Link>
             </li>
+            {TOUR_PUBLISHED && (
             <li>
               <Link
                 href="/virtual-tour"
@@ -171,6 +173,7 @@ export default function Navbar() {
                 <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
               </Link>
             </li>
+            )}
             <li>
               <Link
                 href="/your-fish"
