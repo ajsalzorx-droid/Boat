@@ -327,11 +327,13 @@ async function consentReply(question: string, contact: ContactDoc, lang: Lang, c
 type Reply = { reply: string; source: string; pause: boolean; remember: boolean }
 
 async function geminiReply(text: string, turns: Turn[], lang: Lang, cache: Stores['cache'], cacheKey: string, knowledge: string): Promise<Reply> {
+  // The daily count is taken alongside the call, not before it: the cap can run over by a call or two
   const limit = Number(process.env.WATI_BOT_AI_DAILY_LIMIT) || 1000
-  if (await hit('bot-ai-day', limit, 24 * 60 * 60_000)) {
-    return { reply: FIXED.trouble[lang], source: 'daily-limit', pause: false, remember: false }
-  }
-  const answer = await askGemini(instructions(knowledge), promptFor(text, turns))
+  const [overLimit, answer] = await Promise.all([
+    hit('bot-ai-day', limit, 24 * 60 * 60_000),
+    askGemini(instructions(knowledge), promptFor(text, turns)),
+  ])
+  if (overLimit) return { reply: FIXED.trouble[lang], source: 'daily-limit', pause: false, remember: false }
   if (!answer) return { reply: FIXED.trouble[lang], source: 'error', pause: false, remember: false }
   if (answer.category === 'handoff') return { reply: FIXED.handoff[lang], source: 'handoff', pause: true, remember: false }
 
@@ -341,7 +343,9 @@ async function geminiReply(text: string, turns: Turn[], lang: Lang, cache: Store
   if (inventsFacts(reply, knowledge)) return { reply: FIXED.trouble[lang], source: 'blocked', pause: false, remember: false }
 
   if (worthSaving(answer, text, turns)) {
-    await cache.replaceOne({ _id: cacheKey }, { reply, expires_at: inFuture(CACHE_MS) }, { upsert: true })
+    void cache
+      .replaceOne({ _id: cacheKey }, { reply, expires_at: inFuture(CACHE_MS) }, { upsert: true })
+      .catch((e) => console.error('Chatbot cache:', e))
   }
   return { reply, source: answer.category === 'off_topic' ? 'off-topic' : 'gemini', pause: false, remember: answer.category === 'restaurant' }
 }
@@ -416,17 +420,19 @@ export async function handleWatiEvent(event: WatiEvent) {
 
   const messageId = event.whatsappMessageId || event.id
   const age = Date.now() / 1000 - Number(event.timestamp)
-  if (!messageId || !(age <= MAX_MESSAGE_AGE_S) || !(await firstDelivery(seen, messageId))) return // no timestamp fails too
+  if (!messageId || !(age <= MAX_MESSAGE_AGE_S)) return // no timestamp fails too
 
+  // All at once: the server is far from the database, so every round trip adds to the wait
   const received = Date.now()
   const number = event.waId?.replace(/\D/g, '')
-  const [userLimited, siteLimited, contact, chatBefore] = await Promise.all([
+  const [isNew, userLimited, siteLimited, contact, chatBefore] = await Promise.all([
+    firstDelivery(seen, messageId),
     hit(`bot-user:${user}`, MAX_MESSAGES_PER_HOUR, 60 * 60_000),
     hit('bot-sends', MAX_SENDS_PER_HOUR, 60 * 60_000),
     number ? saveContact(contacts, number) : null,
     chats.findOne({ _id: user }),
   ])
-  if (userLimited || siteLimited) return
+  if (!isNew || userLimited || siteLimited) return // a repeat delivery is dropped here
   const text = String(event.text ?? '').trim().slice(0, MAX_INPUT_CHARS)
   const type = String(event.type ?? 'text')
   if (NO_REPLY_TYPES.has(type)) return

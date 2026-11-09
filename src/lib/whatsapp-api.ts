@@ -144,7 +144,11 @@ export async function sendTyping(target: string) {
       body: JSON.stringify({ target }),
       signal: AbortSignal.timeout(5_000),
     })
-    if (!res.ok) console.error('WhatsApp typing indicator:', res.status)
+    // Wati can answer 200 with success: false (for example when typing indicators are switched off)
+    const body = (await res.json().catch(() => null)) as { success?: boolean; error?: unknown; message?: unknown } | null
+    if (!res.ok || body?.success === false) {
+      console.error('WhatsApp typing indicator:', res.status, (errorText(body?.error) || errorText(body?.message)).slice(0, 200))
+    }
   } catch (e) {
     console.error('WhatsApp typing indicator failed:', e instanceof Error ? e.message : e)
   }
