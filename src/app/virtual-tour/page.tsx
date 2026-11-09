@@ -1,11 +1,14 @@
+import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Tour360Viewer from "@/components/Tour360Viewer";
 import { pageMetadata } from "@/lib/seo-data";
+import { TOUR_PUBLISHED } from "@/lib/seo";
 
 export const generateMetadata = () => pageMetadata("/virtual-tour");
 
 // Full page 360° view of the restaurant: the view fills the screen under the navbar
 export default function VirtualTourPage() {
+  if (!TOUR_PUBLISHED) notFound(); // not published yet: see TOUR_PUBLISHED in src/lib/seo.ts
   return (
     <>
       <Navbar />
