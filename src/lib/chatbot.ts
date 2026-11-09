@@ -5,7 +5,7 @@ import { askGemini, type BotAnswer } from '@/lib/gemini'
 import { restaurantKnowledge } from '@/lib/chatbot-knowledge'
 import { getDb } from '@/lib/mongodb'
 import { hit } from '@/lib/rate-limit'
-import { botTestNumbers, sendText, whatsappChatReady } from '@/lib/whatsapp-api'
+import { botTestNumbers, sendText, sendTyping, whatsappChatReady } from '@/lib/whatsapp-api'
 
 // The WhatsApp assistant: restaurant questions only, answered from the live menu and offers.
 // Each message tries the cheapest answer first: a fixed reply, then a saved answer, then Gemini.
@@ -14,6 +14,7 @@ import { botTestNumbers, sendText, whatsappChatReady } from '@/lib/whatsapp-api'
 //   WATI_BOT_TEST_NUMBERS   comma-separated numbers; while set, only these get replies
 //   WATI_BOT_AI_DAILY_LIMIT Gemini calls a day across all customers (default 1000)
 //   WATI_BOT_REPLY_DELAY_MS wait before replying, so staff can answer first (default 0: no wait)
+//   WATI_BOT_TYPING         "false" to stop showing "typing..." (each one is a Wati API call)
 //
 // MongoDB collections, created on first use, all cleaned up by TTL indexes:
 //   bot_seen   message ids already handled (Wati can deliver one twice)
@@ -417,27 +418,38 @@ export async function handleWatiEvent(event: WatiEvent) {
   const age = Date.now() / 1000 - Number(event.timestamp)
   if (!messageId || !(age <= MAX_MESSAGE_AGE_S) || !(await firstDelivery(seen, messageId))) return // no timestamp fails too
 
-  if (await hit(`bot-user:${user}`, MAX_MESSAGES_PER_HOUR, 60 * 60_000)) return
-  if (await hit('bot-sends', MAX_SENDS_PER_HOUR, 60 * 60_000)) return
-
+  const received = Date.now()
   const number = event.waId?.replace(/\D/g, '')
-  const contact = number ? await saveContact(contacts, number) : null
+  const [userLimited, siteLimited, contact, chatBefore] = await Promise.all([
+    hit(`bot-user:${user}`, MAX_MESSAGES_PER_HOUR, 60 * 60_000),
+    hit('bot-sends', MAX_SENDS_PER_HOUR, 60 * 60_000),
+    number ? saveContact(contacts, number) : null,
+    chats.findOne({ _id: user }),
+  ])
+  if (userLimited || siteLimited) return
   const text = String(event.text ?? '').trim().slice(0, MAX_INPUT_CHARS)
+  const type = String(event.type ?? 'text')
+  if (NO_REPLY_TYPES.has(type)) return
+
+  // "typing..." at once, while the reply is worked out: not in a chat staff have taken over, and not
+  // for a message that gets no reply (only emoji or punctuation)
+  const willAnswer = !TEXT_TYPES.has(type) || normalize(text) !== ''
+  if (willAnswer && !isPaused(chatBefore) && process.env.WATI_BOT_TYPING !== 'false') void sendTyping(target)
 
   // Consent comes first and at once: STOP must work even in a chat staff have taken over
   const consent = contact && text ? await consentReply(normalize(text), contact, languageOf(text), contacts) : null
   if (consent) return say(target, user, consent, chats, {}, [])
 
-  if (isPaused(await chats.findOne({ _id: user }))) return
-
-  const type = String(event.type ?? 'text')
-  if (NO_REPLY_TYPES.has(type)) return
+  if (isPaused(chatBefore)) return
 
   // Optional head start for staff (off by default): a reply from them in this wait pauses the chat
   const delay = Number(process.env.WATI_BOT_REPLY_DELAY_MS || DEFAULT_REPLY_DELAY_MS)
-  if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
-  const chat = await chats.findOne({ _id: user })
-  if (isPaused(chat)) return
+  let chat = chatBefore
+  if (delay > 0) {
+    await new Promise((resolve) => setTimeout(resolve, delay))
+    chat = await chats.findOne({ _id: user })
+    if (isPaused(chat)) return
+  }
 
   if (!TEXT_TYPES.has(type) || !text) {
     return say(target, user, FIXED.textOnly.en, chats, {}, [])
@@ -450,7 +462,7 @@ export async function handleWatiEvent(event: WatiEvent) {
     ? [{ role: 'customer', text: redact(text) }, { role: 'assistant', text: answer.reply.slice(0, SENT_KEY_CHARS) }]
     : []
   await say(target, user, answer.reply, chats, answer.pause ? { paused_until: inFuture(STAFF_PAUSE_MS) } : {}, turns)
-  console.log(`Chatbot reply: ${answer.source} in ${Date.now() - started} ms`) // never the message or number
+  console.log(`Chatbot reply: ${answer.source}, answer ${Date.now() - started} ms, total ${Date.now() - received} ms`) // never the message or number
 
   // Asked once, after a real answer, so nobody's first message gets a marketing question back
   if (contact && answer.remember && !contact.opted_in && !contact.consent_asked_at && !contact.opted_out_at) {
