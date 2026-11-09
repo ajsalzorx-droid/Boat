@@ -13,7 +13,7 @@ import { botTestNumbers, sendText, whatsappChatReady } from '@/lib/whatsapp-api'
 //   WATI_BOT_ENABLED        "true" to reply at all
 //   WATI_BOT_TEST_NUMBERS   comma-separated numbers; while set, only these get replies
 //   WATI_BOT_AI_DAILY_LIMIT Gemini calls a day across all customers (default 1000)
-//   WATI_BOT_REPLY_DELAY_MS wait before replying, so staff can answer first (default 2000)
+//   WATI_BOT_REPLY_DELAY_MS wait before replying, so staff can answer first (default 0: no wait)
 //
 // MongoDB collections, created on first use, all cleaned up by TTL indexes:
 //   bot_seen   message ids already handled (Wati can deliver one twice)
@@ -22,7 +22,7 @@ import { botTestNumbers, sendText, whatsappChatReady } from '@/lib/whatsapp-api'
 //   bot_contacts  every customer's number, and whether they agreed to offers (kept, no TTL).
 //                 Offers go only to those who said YES (src/lib/offer-broadcast.ts).
 
-const DEFAULT_REPLY_DELAY_MS = 2000
+const DEFAULT_REPLY_DELAY_MS = 0 // reply at once; staff who answer a chat still pause the bot there
 const CONSENT_REPLY_MS = 24 * 60 * 60_000 // a YES counts as an answer to our question for this long
 const HISTORY_TURNS = 6
 const HISTORY_MS = 60 * 60_000
@@ -433,9 +433,9 @@ export async function handleWatiEvent(event: WatiEvent) {
   const type = String(event.type ?? 'text')
   if (NO_REPLY_TYPES.has(type)) return
 
-  // Staff get the first chance: a reply from them in this wait pauses the chat, and the bot stays out
-  const delay = Number(process.env.WATI_BOT_REPLY_DELAY_MS ?? DEFAULT_REPLY_DELAY_MS)
-  await new Promise((resolve) => setTimeout(resolve, delay))
+  // Optional head start for staff (off by default): a reply from them in this wait pauses the chat
+  const delay = Number(process.env.WATI_BOT_REPLY_DELAY_MS || DEFAULT_REPLY_DELAY_MS)
+  if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
   const chat = await chats.findOne({ _id: user })
   if (isPaused(chat)) return
 
