@@ -47,7 +47,7 @@ export default function FloatingActions() {
   const isStaffPage = pathname.startsWith("/admin") || pathname.startsWith("/kitchen");
   // Not on the SEO Studio itself (they would cover the editor); its live preview still shows them.
   // Also not on the standalone flipbook viewer, or the booking page (only the form shows there)
-  const hidden = pathname.startsWith("/seo") || pathname === "/profile" || pathname === "/book" || pathname === "/virtual-tour";
+  const hidden = pathname.startsWith("/seo") || pathname === "/profile" || pathname === "/book" || pathname === "/360-view";
 
   if (hidden) return null;
 

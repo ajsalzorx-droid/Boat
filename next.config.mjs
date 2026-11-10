@@ -21,7 +21,11 @@ const nextConfig = {
   },
   // The flip book has one address; old /seafood-menu-book links (and Google) move to it permanently
   async redirects() {
-    return [{ source: "/seafood-menu-book", destination: "/profile", permanent: true }];
+    return [
+      { source: "/seafood-menu-book", destination: "/profile", permanent: true },
+      // The 360° view moved from /virtual-tour; old links keep working
+      { source: "/virtual-tour", destination: "/360-view", permanent: true },
+    ];
   },
   // Don't advertise the framework (an "X-Powered-By: Next.js" header helps attackers pick exploits)
   poweredByHeader: false,

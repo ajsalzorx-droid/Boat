@@ -4,7 +4,7 @@ import Tour360Viewer from "@/components/Tour360Viewer";
 import { pageMetadata } from "@/lib/seo-data";
 import { TOUR_PUBLISHED } from "@/lib/seo";
 
-export const generateMetadata = () => pageMetadata("/virtual-tour");
+export const generateMetadata = () => pageMetadata("/360-view");
 
 // Full page 360° view of the restaurant: the view fills the screen under the navbar
 export default function VirtualTourPage() {
@@ -13,8 +13,8 @@ export default function VirtualTourPage() {
     <>
       <Navbar />
       <main className="bg-ink">
-        <section aria-labelledby="virtual-tour-title" className="pt-[92px] md:pt-[137px]">
-          <h1 id="virtual-tour-title" className="sr-only">360 view of Boat Seafood Restaurant, Waterfront Market, Dubai</h1>
+        <section aria-labelledby="tour-title" className="pt-[92px] md:pt-[137px]">
+          <h1 id="tour-title" className="sr-only">360 view of Boat Seafood Restaurant, Waterfront Market, Dubai</h1>
           <Tour360Viewer className="w-full h-[calc(100svh-92px)] md:h-[calc(100svh-137px)] min-h-[380px] bg-navy" />
         </section>
       </main>

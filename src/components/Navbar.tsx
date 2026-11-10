@@ -44,7 +44,7 @@ export default function Navbar() {
     { href: "/menu?offers", label: nav.nav_offer },
     // Falls back while the site text cache is older than this label
     { href: "/book", label: nav.nav_prebook || "Pre-Book" },
-    ...(TOUR_PUBLISHED ? [{ href: "/virtual-tour", label: nav.nav_tour || "360 View" }] : []),
+    ...(TOUR_PUBLISHED ? [{ href: "/360-view", label: nav.nav_tour || "360 View" }] : []),
     { href: "/your-fish", label: nav.nav_fresh, accent: true },
   ];
   const [isScrolled, setIsScrolled] = useState(false);
@@ -166,7 +166,7 @@ export default function Navbar() {
             {TOUR_PUBLISHED && (
             <li>
               <Link
-                href="/virtual-tour"
+                href="/360-view"
                 className="text-white/65 hover:text-white text-[11.5px] min-[1280px]:text-[13px] min-[1440px]:text-[14px] font-medium tracking-[0.8px] min-[1280px]:tracking-[1.2px] min-[1440px]:tracking-[1.5px] uppercase transition-colors relative group whitespace-nowrap"
               >
                 {nav.nav_tour || "360 View"}
