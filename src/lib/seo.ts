@@ -4,9 +4,9 @@ import { cdn } from '@/lib/cdn'
 // schema.org helpers. Safe in client components; the database reads are in src/lib/seo-data.ts.
 export const SEO_TAG = 'seo'
 
-// The 360° view (/360-view) is built but not published yet: while false, the page answers
+// The 360° view (/360-view) is hidden for now (2026-11-10): while false, the page answers
 // 404, the navbar has no link to it and it is left out of the sitemap. Set to true to publish.
-export const TOUR_PUBLISHED = true
+export const TOUR_PUBLISHED = false
 
 // Public pages the SEO dashboard manages. The defaults are used until the tables exist
 // or when a field is left empty.
