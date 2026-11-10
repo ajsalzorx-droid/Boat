@@ -4,7 +4,7 @@ import { cdn } from '@/lib/cdn'
 // schema.org helpers. Safe in client components; the database reads are in src/lib/seo-data.ts.
 export const SEO_TAG = 'seo'
 
-// The 360° view (/virtual-tour) is built but not published yet: while false, the page answers
+// The 360° view (/360-view) is built but not published yet: while false, the page answers
 // 404, the navbar has no link to it and it is left out of the sitemap. Set to true to publish.
 export const TOUR_PUBLISHED = true
 
@@ -53,7 +53,7 @@ export const SEO_PAGES = [
       'Reserve a table at Boat Seafood, Waterfront Market, Dubai, or book our chefs to cook the fish you bring from the market: grilled, fried, tawa or curry.',
   },
   {
-    path: '/virtual-tour',
+    path: '/360-view',
     label: '360 View',
     title: '360 View of Boat Seafood Dubai | Waterfront Market',
     description:
