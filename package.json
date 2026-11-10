@@ -10,10 +10,10 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.99",
-    "@ai-sdk/google": "^4.0.114",
+    "@ai-sdk/anthropic": "4.0.87",
+    "@ai-sdk/google": "4.0.104",
     "@photo-sphere-viewer/core": "^5.15.1",
-    "ai": "^7.0.166",
+    "ai": "7.0.150",
     "cloudinary": "^2.11.0",
     "framer-motion": "^12.38.0",
     "lenis": "^1.3.23",
