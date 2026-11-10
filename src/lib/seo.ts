@@ -6,7 +6,7 @@ export const SEO_TAG = 'seo'
 
 // The 360° view (/virtual-tour) is built but not published yet: while false, the page answers
 // 404, the navbar has no link to it and it is left out of the sitemap. Set to true to publish.
-export const TOUR_PUBLISHED = false
+export const TOUR_PUBLISHED = true
 
 // Public pages the SEO dashboard manages. The defaults are used until the tables exist
 // or when a field is left empty.

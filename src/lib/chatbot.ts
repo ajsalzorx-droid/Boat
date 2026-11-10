@@ -1,18 +1,18 @@
 import 'server-only'
 import { createHash } from 'node:crypto'
 import type { Db } from 'mongodb'
-import { askGemini, type BotAnswer } from '@/lib/gemini'
+import { askAi, type BotAnswer } from '@/lib/ai'
 import { restaurantKnowledge } from '@/lib/chatbot-knowledge'
 import { getDb } from '@/lib/mongodb'
 import { hit } from '@/lib/rate-limit'
 import { botTestNumbers, sendText, sendTyping, whatsappChatReady } from '@/lib/whatsapp-api'
 
 // The WhatsApp assistant: restaurant questions only, answered from the live menu and offers.
-// Each message tries the cheapest answer first: a fixed reply, then a saved answer, then Gemini.
-// Set in .env.local (see also src/lib/gemini.ts and src/lib/whatsapp-api.ts):
+// Each message tries the cheapest answer first: a fixed reply, then a saved answer, then the AI (Gemini, with Claude as a fallback).
+// Set in .env.local (see also src/lib/ai.ts and src/lib/whatsapp-api.ts):
 //   WATI_BOT_ENABLED        "true" to reply at all
 //   WATI_BOT_TEST_NUMBERS   comma-separated numbers; while set, only these get replies
-//   WATI_BOT_AI_DAILY_LIMIT Gemini calls a day across all customers (default 1000)
+//   WATI_BOT_AI_DAILY_LIMIT AI calls a day across all customers (default 1000)
 //   WATI_BOT_REPLY_DELAY_MS wait before replying, so staff can answer first (default 0: no wait)
 //   WATI_BOT_TYPING         "false" to stop showing "typing..." (each one is a Wati API call)
 //
@@ -176,7 +176,7 @@ function fixedReply(question: string, lang: Lang) {
   return null
 }
 
-// ---- The instructions Gemini works under ----
+// ---- The instructions the AI works under ----
 
 const instructions = (knowledge: string) => `You are the WhatsApp assistant of a seafood restaurant in Dubai. Serve its customers only.
 
@@ -203,7 +203,7 @@ function dubaiNow() {
   return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', dateStyle: 'full', timeStyle: 'short' }).format(new Date())
 }
 
-// Emails and phone numbers never leave for Gemini or stay in the chat history
+// Emails and phone numbers never leave for the AI or stay in the chat history
 const redact = (text: string) =>
   text.replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '[email]').replace(/\+?\d[\d\s-]{7,}\d/g, '[number]')
 
@@ -281,7 +281,7 @@ const plainDigits = (text: string) =>
     return String(code - (code >= 0x966 ? 0x966 : code >= 0x6f0 ? 0x6f0 : 0x660))
   })
 
-// A last check on what Gemini wrote: every price, percentage and link must be in our data, nothing
+// A last check on what the AI wrote: every price, percentage and link must be in our data, nothing
 // is promised free unless the data says so, and it stays a short message, not an essay or code.
 function inventsFacts(answer: string, knowledge: string) {
   const reply = plainDigits(answer)
@@ -326,12 +326,12 @@ async function consentReply(question: string, contact: ContactDoc, lang: Lang, c
 
 type Reply = { reply: string; source: string; pause: boolean; remember: boolean }
 
-async function geminiReply(text: string, turns: Turn[], lang: Lang, cache: Stores['cache'], cacheKey: string, knowledge: string): Promise<Reply> {
+async function aiReply(text: string, turns: Turn[], lang: Lang, cache: Stores['cache'], cacheKey: string, knowledge: string): Promise<Reply> {
   // The daily count is taken alongside the call, not before it: the cap can run over by a call or two
   const limit = Number(process.env.WATI_BOT_AI_DAILY_LIMIT) || 1000
   const [overLimit, answer] = await Promise.all([
     hit('bot-ai-day', limit, 24 * 60 * 60_000),
-    askGemini(instructions(knowledge), promptFor(text, turns)),
+    askAi(instructions(knowledge), promptFor(text, turns)),
   ])
   if (overLimit) return { reply: FIXED.trouble[lang], source: 'daily-limit', pause: false, remember: false }
   if (!answer) return { reply: FIXED.trouble[lang], source: 'error', pause: false, remember: false }
@@ -347,7 +347,7 @@ async function geminiReply(text: string, turns: Turn[], lang: Lang, cache: Store
       .replaceOne({ _id: cacheKey }, { reply, expires_at: inFuture(CACHE_MS) }, { upsert: true })
       .catch((e) => console.error('Chatbot cache:', e))
   }
-  return { reply, source: answer.category === 'off_topic' ? 'off-topic' : 'gemini', pause: false, remember: answer.category === 'restaurant' }
+  return { reply, source: answer.category === 'off_topic' ? 'off-topic' : answer.model, pause: false, remember: answer.category === 'restaurant' }
 }
 
 async function replyTo(text: string, turns: Turn[], cache: Stores['cache']): Promise<Reply | null> {
@@ -364,7 +364,7 @@ async function replyTo(text: string, turns: Turn[], cache: Stores['cache']): Pro
   const saved = await cache.findOne({ _id: cacheKey })
   if (saved) return { reply: saved.reply, source: 'cache', pause: false, remember: true }
 
-  return geminiReply(text, turns, lang, cache, cacheKey, knowledge.text)
+  return aiReply(text, turns, lang, cache, cacheKey, knowledge.text)
 }
 
 async function say(target: string, user: string, text: string, chats: Stores['chats'], extra: Partial<ChatDoc>, newTurns: Turn[]) {
