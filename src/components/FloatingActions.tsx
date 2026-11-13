@@ -7,7 +7,11 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
 import { useSection } from "@/context/ContentContext";
+import dynamic from "next/dynamic";
 import CatFishGrab from "@/components/CatFishGrab";
+
+// Catbo Racing, opened from the peeking cat: its code and pictures load only when it is opened
+const CatboRace = dynamic(() => import("@/components/catbo-race/CatboRace"), { ssr: false });
 
 // MenuIcon-02 split in two layers: the plate (circle, fork, knife) and the fish Catbo steals
 const FISH_SRC = "/MenuIcon-fish.webp";
@@ -37,6 +41,7 @@ const MenuIcon = ({ size = 24, alt, fishGone }: { size?: number; alt: string; fi
 
 export default function FloatingActions() {
   const [fishGone, setFishGone] = useState(false);
+  const [racing, setRacing] = useState(false);
   const menuRef = useRef<HTMLAnchorElement>(null);
   const pathname = usePathname();
   const { cartCount } = useCart();
@@ -90,7 +95,9 @@ export default function FloatingActions() {
 
     </div>
     {/* Not on /menu: the button shows Home there, there is no fish */}
-    {!isMenuPage && <CatFishGrab target={menuRef} fishSrc={FISH_SRC} onFishGone={setFishGone} />}
+    {/* Not while the race is open: no "Press to play" over the game */}
+    {!isMenuPage && !racing && <CatFishGrab target={menuRef} fishSrc={FISH_SRC} onFishGone={setFishGone} onPlay={() => setRacing(true)} />}
+    {racing && <CatboRace onClose={() => setRacing(false)} />}
     </>
   );
 }

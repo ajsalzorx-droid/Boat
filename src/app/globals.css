@@ -232,3 +232,10 @@ html::-webkit-scrollbar-button {
   }
 }
 
+
+/* The peeking cat's "Press to play" bubble nudges toward it now and then */
+@keyframes catbo-nudge {
+  0%, 70%, 100% { transform: translate(0, -50%); }
+  80% { transform: translate(-6px, -50%); }
+  90% { transform: translate(2px, -50%); }
+}
