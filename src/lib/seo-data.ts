@@ -67,7 +67,7 @@ export const getBusinessInfo = unstable_cache(
     }
     return merged
   },
-  ['business-info'],
+  ['business-info-v2'], // v2: renamed so the 11:00–01:00 hours (Nov 2026) show without waiting for a publish
   { tags: [SEO_TAG] },
 )
 

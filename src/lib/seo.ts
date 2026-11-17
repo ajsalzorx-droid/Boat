@@ -119,8 +119,8 @@ export const DEFAULT_BUSINESS: BusinessInfo = {
   country: 'AE',
   latitude: '25.2759',
   longitude: '55.3202',
-  opens: '12:00',
-  closes: '23:00',
+  opens: '11:00',
+  closes: '01:00', // after midnight: the next day (bookings and Google read it that way)
   price_range: '$$',
   cuisine: 'Seafood',
   instagram: 'https://www.instagram.com/boat_seafood_/',
