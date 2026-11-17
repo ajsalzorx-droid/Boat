@@ -39,7 +39,7 @@ const errorText = (e: unknown) => (typeof e === 'string' ? e : e ? JSON.stringif
 
 // to = international digits without + (e.g. 971501234567); params = template variables by name
 async function sendTemplate(to: string, template: string, params: Record<string, string>): Promise<SendResult> {
-  if (!whatsappApiReady()) return { ok: false, error: 'WhatsApp API is not set up.' }
+  if (!whatsappChatReady() || !template) return { ok: false, error: 'WhatsApp API is not set up.' }
   const host = process.env.WATI_API_HOST!.replace(/\/+$/, '')
   try {
     const res = await fetch(`${host}/api/ext/v3/messageTemplates/send`, {
@@ -162,4 +162,16 @@ export function sendConfirmation(to: string, message: { parts: string[]; preorde
   return message.preorderParts && preorderTemplate
     ? sendTemplate(to, preorderTemplate, named(PREORDER_PARAMS, message.preorderParts))
     : sendTemplate(to, process.env.WATI_CONFIRM_TEMPLATE ?? '', named(CONFIRM_PARAMS, message.parts))
+}
+
+// The code that proves a phone number for Catbo Racing discounts (src/components/catbo-race/claims.ts).
+// Set in .env.local:
+//   WATI_OTP_TEMPLATE  an approved Authentication template in Wati, e.g. "{{1}} is your Boat
+//                      Seafood code." with a Copy code button. Empty = codes are not sent (in
+//                      development they are printed in the server's terminal instead).
+//   WATI_OTP_PARAM     the template variable that holds the code (default "1")
+export const otpReady = () => whatsappChatReady() && !!process.env.WATI_OTP_TEMPLATE
+
+export function sendOtp(to: string, code: string) {
+  return sendTemplate(to, process.env.WATI_OTP_TEMPLATE ?? '', { [process.env.WATI_OTP_PARAM || '1']: code })
 }

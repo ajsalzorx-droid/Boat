@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
-import { Play } from "lucide-react";
 
 // Catbo peeks in from the right edge, swipes the fish off the View Menu button and runs off with it.
 // The clip (public/video/cat-grab.mp4) is filmed on green: each frame is keyed to transparent on a
@@ -24,7 +23,7 @@ const LOAD_MS = 1000; // start downloading the clip once the page has settled
 const FIRST_RUN_MS = 3000;
 const REPEAT_MS = 7000; // pause after the cat has left before it comes again
 const FISH_AWAY_MS = 3000;
-// While the cat is in view, a "Press to play" bubble sits by its head, and the head can be pressed
+// While the cat is in view, a round "Click to play" bubble sits by its head, and the head can be pressed
 // too: both open Catbo Racing. In the clip's pixels: the head's box, and when it is in view (s)
 const HEAD = { l: 110, t: 30, r: 470, b: 380 };
 const PLAY_FROM = 0.45;
@@ -206,16 +205,16 @@ export default function CatFishGrab({
             ref={playRef}
             type="button"
             onClick={onPlay}
-            aria-label="Press to play Catbo Racing"
+            aria-label="Click to play Catbo Racing"
             className="absolute pointer-events-auto cursor-pointer bg-transparent group"
             style={{ display: "none" }}
           >
-            <span className="absolute right-full top-[38%] -translate-y-1/2 mr-1 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white text-navy pl-2.5 pr-3.5 py-2 text-[12px] md:text-[13px] font-bold shadow-[0_6px_18px_-6px_rgba(0,48,73,0.55)] motion-safe:animate-[catbo-nudge_1.6s_ease-in-out_infinite] group-hover:bg-navy group-hover:text-cream">
-              <span className="w-6 h-6 rounded-full bg-offer text-white flex items-center justify-center">
-                <Play size={12} className="fill-current ml-0.5" aria-hidden />
-              </span>
-              Press to play!
-              <span aria-hidden className="absolute -right-1 top-1/2 -translate-y-1/2 w-3 h-3 rotate-45 bg-inherit" />
+            {/* A round speech bubble, its tail at the bottom right toward the cat */}
+            <span className="absolute right-full top-[30%] -translate-y-1/2 mr-1 flex flex-col items-center justify-center w-[76px] h-[76px] md:w-[88px] md:h-[88px] rounded-full bg-white text-navy font-[family-name:var(--font-playfair-display)] font-semibold uppercase text-[15px] md:text-[17px] leading-[1.02] tracking-[0.5px] text-center shadow-[0_6px_18px_-6px_rgba(0,48,73,0.55)] motion-safe:animate-[catbo-nudge_1.6s_ease-in-out_infinite] group-hover:bg-navy group-hover:text-cream">
+              <span>Click</span>
+              <span>to</span>
+              <span>play</span>
+              <span aria-hidden className="absolute right-[6%] bottom-[4%] w-3 h-3 rotate-45 bg-inherit" />
             </span>
           </button>
         )}

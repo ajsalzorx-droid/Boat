@@ -13,6 +13,8 @@ import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/
 import { confirmationMessage, whatsappDigits, type BookingStatus, type BookingType, type PreorderItem } from '@/lib/bookings'
 import { broadcastOffer, offerBroadcastReady, subscriberCount } from '@/lib/offer-broadcast'
 import { sendConfirmation, whatsappApiReady } from '@/lib/whatsapp-api'
+import { CODE_LENGTH, normalizeCode, type ClaimStatus } from '@/lib/game-claims'
+import type { ClaimDoc } from '@/components/catbo-race/claims'
 
 // Every admin write goes through here: verify the token first, then touch the database.
 // Server Actions are reachable by direct POST, so the check must live inside each action.
@@ -659,4 +661,112 @@ export async function getStudioRows() {
       publishedAt: publish?.published_at ? publish.published_at.toISOString() : null,
     }
   }, 'seo')
+}
+
+// ---------- Game claims (Catbo Racing played for a discount: src/lib/game-claims.ts) ----------
+
+export type GameClaimRow = {
+  id: string
+  code: string
+  name: string
+  phone: string // as the customer typed it
+  phone_digits: string // for WhatsApp
+  offers: boolean // agreed to offers on WhatsApp
+  day: string
+  chances_used: number
+  fish: number | null
+  metres: number | null
+  percent: number
+  locked: boolean
+  status: ClaimStatus
+  created_at: string
+  expires_at: string
+  used_at: string | null
+  bill_no: string | null
+  bill_amount: number | null
+  discount_amount: number | null
+}
+
+export type GameClaimFilter = 'ready' | 'used' | 'all'
+
+const claimRow = (d: ClaimDoc): GameClaimRow => ({
+  id: d._id,
+  code: d.code,
+  name: d.name,
+  phone: d.phone_typed,
+  phone_digits: d.phone,
+  offers: !!d.offers,
+  day: d.day,
+  chances_used: d.chances_used,
+  fish: d.fish,
+  metres: d.metres,
+  percent: d.percent,
+  locked: d.locked,
+  status: d.status === 'open' && d.expires_at.getTime() < Date.now() ? 'expired' : d.status,
+  created_at: d.created_at.toISOString(),
+  expires_at: d.expires_at.toISOString(),
+  used_at: d.used_at ? d.used_at.toISOString() : null,
+  bill_no: d.bill_no ?? null,
+  bill_amount: d.bill_amount ?? null,
+  discount_amount: d.discount_amount ?? null,
+})
+
+// One page of claims, newest first. search = a claim code or (part of) a phone number.
+// ready = a discount waiting to be used at the till; used = applied to a bill.
+export async function listGameClaims(search: string, filter: GameClaimFilter, page: number, pageSize: number) {
+  return withAdmin(async (db) => {
+    if (!['ready', 'used', 'all'].includes(filter)) fail('Invalid filter.')
+    const size = Math.min(Math.max(Math.floor(pageSize) || 12, 1), 100)
+    const skip = Math.max(Math.floor(page) || 0, 0) * size
+    const now = new Date()
+    const q = text(search, 'Search', 40)
+    const code = normalizeCode(q)
+    const digits = q.replace(/\D/g, '')
+    const find: Record<string, unknown> = {}
+    if (q) {
+      const or: Record<string, unknown>[] = []
+      if (code.length === CODE_LENGTH) or.push({ code })
+      // a local number typed at the till ("050 123 4567") matches the saved international digits
+      // (digits only, so safe inside a regex)
+      if (digits.length >= 4) or.push({ phone: { $regex: digits.startsWith('0') ? digits.slice(1) : digits } })
+      if (!or.length) return { claims: [], total: 0, counts: { ready: 0, used: 0, all: 0 }, offersCount: 0 }
+      find.$or = or
+    }
+    const ready = { status: 'open' as const, percent: { $gt: 0 }, expires_at: { $gt: now } }
+    const query = { ...find, ...(filter === 'ready' ? ready : filter === 'used' ? { status: 'used' } : {}) }
+    const col = db.collection<ClaimDoc>('game_claims')
+    const [docs, total, readyCount, usedCount, allCount, offersCount] = await Promise.all([
+      col.find(query).sort({ created_at: -1, _id: 1 }).skip(skip).limit(size).toArray(),
+      col.countDocuments(query),
+      col.countDocuments({ ...find, ...ready }),
+      col.countDocuments({ ...find, status: 'used' }),
+      col.countDocuments(find),
+      db.collection('bot_contacts').countDocuments({ source: 'game', opted_in: true }),
+    ])
+    return { claims: docs.map(claimRow), total, counts: { ready: readyCount, used: usedCount, all: allCount }, offersCount }
+  })
+}
+
+// Applies a claim's discount to a bill, once: the bill number and amount are kept with it
+export async function applyGameClaim(id: string, billNo: string, billAmount: number) {
+  return withAdmin<GameClaimRow>(async (db) => {
+    const bill = text(billNo, 'Bill number', 40, true)
+    const amount = price(billAmount)
+    if (amount <= 0) fail('Enter the bill amount.')
+    const col = db.collection<ClaimDoc>('game_claims')
+    const doc = await col.findOne({ _id: String(id) })
+    if (!doc) fail('This claim no longer exists. Please refresh.')
+    if (doc.status === 'used') fail(`This claim was already used on bill ${doc.bill_no ?? ''}.`.trim())
+    if (doc.expires_at.getTime() < Date.now()) fail('This claim has expired.')
+    if (doc.percent <= 0) fail('This claim has no discount (no fish caught).')
+    const discount = Math.round(amount * doc.percent) / 100 // AED, to the fil (percent can be 0.25, 7.5, ...)
+    const updated = await col.findOneAndUpdate(
+      { _id: doc._id, status: 'open' },
+      // using it also ends the customer's chances: the score can't change after the bill
+      { $set: { status: 'used', locked: true, used_at: new Date(), bill_no: bill, bill_amount: amount, discount_amount: discount } },
+      { returnDocument: 'after' }
+    )
+    if (!updated) fail('This claim was just used. Please refresh.')
+    return claimRow(updated)
+  })
 }

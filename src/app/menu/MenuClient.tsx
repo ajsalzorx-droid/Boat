@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Utensils, Truck, Tag } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import FlipBookPopup from "@/components/FlipBookPopup";
 import { MENU_CATEGORIES, type MenuItem } from "@/data/menu";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
@@ -94,6 +95,8 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
   return (
     <>
       <Navbar />
+      {/* The profile flip book invitation, each time the menu opens (not when ordering from a table) */}
+      <FlipBookPopup key={openOffers ? "offers" : "menu"} skip={!!tableNumber} /> {/* key: restarts when the link switches between the menu and its offers */}
       <main className="bg-white min-h-screen text-navy">
 
         {/* Hero Section */}
