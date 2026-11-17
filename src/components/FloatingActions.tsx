@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageCircle, Home } from "lucide-react";
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -43,6 +43,17 @@ export default function FloatingActions() {
   const [fishGone, setFishGone] = useState(false);
   const [racing, setRacing] = useState(false);
   const menuRef = useRef<HTMLAnchorElement>(null);
+
+  // The game QR code (boatseafood.com/game -> /?play=game) opens Catbo Racing straight away. The
+  // "?play=game" is then taken off the address, so a reload or a shared link is the plain homepage
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("play") !== "game") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the address is only known in the browser, after the first render
+    setRacing(true);
+    url.searchParams.delete("play");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  }, []);
   const pathname = usePathname();
   const { cartCount } = useCart();
   // Button names, alt text and WhatsApp link are edited in the SEO Studio (Header & Footer)

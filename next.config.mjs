@@ -25,6 +25,9 @@ const nextConfig = {
       { source: "/seafood-menu-book", destination: "/profile", permanent: true },
       // The 360° view moved from /virtual-tour; old links keep working
       { source: "/virtual-tour", destination: "/360-view", permanent: true },
+      // The printed game QR code (public/images/qr/game-qr.*): the homepage with Catbo Racing open.
+      // Not permanent, so where it leads can change later without reprinting the code
+      { source: "/game", destination: "/?play=game", permanent: false },
     ];
   },
   // Don't advertise the framework (an "X-Powered-By: Next.js" header helps attackers pick exploits)
