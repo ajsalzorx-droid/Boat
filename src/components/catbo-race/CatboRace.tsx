@@ -231,12 +231,12 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
       <X size={18} aria-hidden />
     </button>
   );
-  const card = "relative bg-cream rounded-2xl px-6 py-6 md:px-7 md:py-7 text-center shadow-2xl max-w-sm w-full my-auto";
+  const card = "relative bg-cream rounded-2xl px-4 py-5 sm:px-6 sm:py-6 md:px-7 md:py-7 text-center shadow-2xl max-w-sm w-full my-auto";
   const buttonAlt =
-    "inline-flex items-center justify-center gap-2 bg-white text-navy border-2 border-navy rounded-full px-7 py-3 text-[12px] tracking-[3px] uppercase font-bold hover:bg-ocean hover:border-ocean transition-colors disabled:opacity-60";
-  const field = "w-full rounded-lg border border-navy/20 bg-white px-3.5 py-2.5 text-[15px] text-navy placeholder:text-navy/35 focus:outline-none focus:ring-2 focus:ring-ocean/50";
+    "inline-flex items-center justify-center gap-2 bg-white text-navy border-2 border-navy rounded-full px-4 sm:px-7 py-2.5 sm:py-3 text-[11px] sm:text-[12px] tracking-[1.5px] sm:tracking-[3px] whitespace-nowrap uppercase font-bold hover:bg-ocean hover:border-ocean transition-colors disabled:opacity-60";
+  const field = "w-full rounded-lg border border-navy/20 bg-white px-3.5 py-2.5 text-[16px] text-navy placeholder:text-navy/35 focus:outline-none focus:ring-2 focus:ring-ocean/50";
   const button =
-    "inline-flex items-center justify-center gap-2 bg-navy text-cream rounded-full px-7 py-3.5 text-[12px] tracking-[3px] uppercase font-bold hover:bg-ocean hover:text-navy transition-colors";
+    "inline-flex items-center justify-center gap-2 bg-navy text-cream rounded-full px-4 sm:px-7 py-3 sm:py-3.5 text-[11px] sm:text-[12px] tracking-[1.5px] sm:tracking-[3px] whitespace-nowrap uppercase font-bold hover:bg-ocean hover:text-navy transition-colors";
 
   return createPortal(
     <div
@@ -343,15 +343,15 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
             next race; for a discount only the buttons do */}
         {state && state.phase !== "racing" && (
           <div
-            className={`absolute inset-0 flex items-center justify-center bg-navy/30 p-4 overflow-y-auto ${mode === "free" ? "cursor-pointer" : ""}`}
+            className={`absolute inset-0 flex items-center justify-center bg-navy/30 p-3 sm:p-4 overflow-y-auto ${mode === "free" ? "cursor-pointer" : ""}`}
             onClick={() => mode === "free" && raceRef.current?.jump()}
           >
             {mode === "choose" && state.phase === "ready" && (
               <div className={card} role="status">
                 {closeX}
-                <p className="text-[10px] tracking-[4px] uppercase text-ocean font-bold mb-2">Catbo Racing</p>
-                <p className="font-playfair text-[28px] leading-tight font-bold text-navy mb-3">Surf with Catbo!</p>
-                <p className="text-navy/75 text-[14px] mb-5">
+                <p className="text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-ocean font-bold mb-2">Catbo Racing</p>
+                <p className="font-playfair text-[22px] sm:text-[28px] leading-tight font-bold text-navy mb-3">Surf with Catbo!</p>
+                <p className="text-navy/75 text-[12.5px] leading-snug mb-4 sm:text-[14px] sm:leading-normal sm:mb-5">
                   <span className="hidden md:inline">Click or press Space</span>
                   <span className="md:hidden">Tap the screen</span> to jump over buoys. Dolphins leap over you: don&rsquo;t jump into them! To fish, <span className="hidden md:inline">press ↓</span><span className="md:hidden">tap 🎣</span>. One hit and the race is over. It gets harder every 100 m, and more and more sea creatures swim among the fish: never hook an octopus, a jellyfish or a sea snake!
                 </p>
@@ -362,7 +362,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                   <button type="button" className={buttonAlt} onClick={chooseClaim}>
                     <Gift size={16} aria-hidden /> {claim ? "My discount claim" : "Play for a discount"}
                   </button>
-                  <p className="text-[12px] text-navy/60">Off your bill: {RULES} · {CLAIM_CHANCES} chances a day</p>
+                  <p className="text-[11px] sm:text-[12px] leading-snug text-navy/60">Off your bill: {RULES} · {CLAIM_CHANCES} chances a day</p>
                 </div>
               </div>
             )}
@@ -370,9 +370,9 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
             {mode === "register" && !sentTo && (
               <form className={`${card} text-left`} onSubmit={sendCode} noValidate>
                 {closeX}
-                <p className="text-[10px] tracking-[4px] uppercase text-ocean font-bold mb-2 text-center">Play for a discount</p>
-                <p className="font-playfair text-[24px] leading-tight font-bold text-navy mb-2 text-center">Register to play</p>
-                <p className="text-navy/70 text-[13px] mb-4 text-center">
+                <p className="text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-ocean font-bold mb-2 text-center">Play for a discount</p>
+                <p className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-2 text-center">Register to play</p>
+                <p className="text-navy/70 text-[12px] sm:text-[13px] leading-snug mb-3 sm:mb-4 text-center">
                   Catch fish for money off your bill: {RULES}. You get {CLAIM_CHANCES} chances today, and your latest score counts.
                 </p>
                 <div aria-hidden className="absolute -left-[9999px] w-px h-px overflow-hidden">
@@ -408,8 +408,8 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
             {mode === "register" && sentTo && (
               <form className={card} onSubmit={verify} noValidate>
                 {closeX}
-                <p className="text-[10px] tracking-[4px] uppercase text-ocean font-bold mb-2">Play for a discount</p>
-                <p className="font-playfair text-[24px] leading-tight font-bold text-navy mb-2">Enter your code</p>
+                <p className="text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-ocean font-bold mb-2">Play for a discount</p>
+                <p className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-2">Enter your code</p>
                 <p className="text-navy/70 text-[13px] mb-4">
                   We sent a 6-digit code on WhatsApp to <b className="whitespace-nowrap">{sentTo}</b>.
                 </p>
@@ -448,9 +448,9 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
             {mode === "free" && state.phase === "over" && (
               <div className={card} role="status">
                 {closeX}
-                <p className="text-[10px] tracking-[4px] uppercase text-offer font-bold mb-2">Race over</p>
+                <p className="text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-offer font-bold mb-2">Race over</p>
                 {state.cause && <p className="text-navy font-semibold text-[15px] mb-2">{state.cause}</p>}
-                <p className="font-playfair text-5xl font-bold text-navy mb-1">{state.metres} m</p>
+                <p className="font-playfair text-4xl sm:text-5xl font-bold text-navy mb-1">{state.metres} m</p>
                 <p className="flex items-center justify-center gap-1.5 text-navy/75 text-[14px] mb-3">
                   <Fish size={15} aria-hidden /> {state.fish} fish caught
                 </p>
@@ -512,19 +512,19 @@ function ClaimCard({
   return (
     <div className={card} role="status" onClick={(e) => e.stopPropagation()}>
       {closeX}
-      <p className="text-[10px] tracking-[4px] uppercase text-ocean font-bold mb-2">Your discount claim</p>
+      <p className="text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-ocean font-bold mb-2">Your discount claim</p>
       {busy && raceOver && c.fish === null ? (
         <p className="flex items-center justify-center gap-2 text-navy py-6"><Loader2 size={18} className="animate-spin" aria-hidden /> Saving your score…</p>
       ) : (
         <>
           {c.fish === null ? (
-            <p className="font-playfair text-[24px] leading-tight font-bold text-navy mb-2">Good luck, {c.name}!</p>
+            <p className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-2">Good luck, {c.name}!</p>
           ) : (
             <>
               <p className="flex items-center justify-center gap-2 text-navy/75 text-[14px]">
                 <Fish size={15} aria-hidden /> {done ? "Your score" : `Chance ${c.chancesUsed} of ${CLAIM_CHANCES}`}: {c.fish} fish
               </p>
-              <p className="font-playfair text-5xl font-bold text-navy my-1">{formatPercent(c.percent)}% off</p>
+              <p className="font-playfair text-4xl sm:text-5xl font-bold text-navy my-1">{formatPercent(c.percent)}% off</p>
               {more > 0 && !done && <p className="text-navy/70 text-[13px]">Every fish adds more: {FISH_FOR_MAX} fish give {MAX_DISCOUNT_PERCENT}% off.</p>}
             </>
           )}
@@ -559,7 +559,7 @@ function ClaimCard({
               ) : c.percent > 0 ? (
                 <>
                   <p className="text-navy/75 text-[13px] mb-1">Show this code when you pay:</p>
-                  <p className="font-mono text-[34px] font-bold tracking-[6px] text-navy bg-white rounded-xl py-2 mb-1 select-all">{c.code}</p>
+                  <p className="font-mono text-[28px] sm:text-[34px] font-bold tracking-[4px] sm:tracking-[6px] text-navy bg-white rounded-xl py-2 mb-1 select-all">{c.code}</p>
                   <p className="text-navy/60 text-[12px]">Valid until {valid} · one bill</p>
                 </>
               ) : (
