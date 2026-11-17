@@ -59,7 +59,9 @@ const toMinutes = (hhmm: string) => {
 }
 const toHHMM = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
 
-// Booking times from opening to an hour before closing, every 30 minutes ("00:00" close = midnight).
+// Booking times from opening to an hour before closing, every 30 minutes ("00:00" close = midnight;
+// a close after midnight, e.g. "01:00", is the next day). Never past 11:30 PM: a booking keeps its
+// date, and "12:00 AM" on it would read as the start of that day, not the end.
 // On today's date only times at least MIN_NOTICE_MIN from now.
 export function timeSlots(opens: string, closes: string, date: string, now = Date.now()) {
   const start = toMinutes(opens)
@@ -68,7 +70,8 @@ export function timeSlots(opens: string, closes: string, date: string, now = Dat
   const today = dubaiNow(now)
   const earliest = date === today.date ? today.minutes + MIN_NOTICE_MIN : -1
   const slots: string[] = []
-  for (let m = start; m <= end - LAST_SLOT_BEFORE_CLOSE_MIN; m += SLOT_MINUTES) {
+  const last = Math.min(end - LAST_SLOT_BEFORE_CLOSE_MIN, 24 * 60 - SLOT_MINUTES)
+  for (let m = start; m <= last; m += SLOT_MINUTES) {
     if (m >= earliest) slots.push(toHHMM(m))
   }
   return slots

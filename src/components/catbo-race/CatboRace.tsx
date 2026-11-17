@@ -217,6 +217,20 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     };
   }, [onClose]);
 
+  // The X in a card's corner: closes the game (like the X at the top, which a card can cover on a phone)
+  const closeX = (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
+      aria-label="Close the game"
+      className="absolute right-2.5 top-2.5 w-9 h-9 rounded-full flex items-center justify-center text-navy/55 hover:bg-navy/5 hover:text-navy transition-colors"
+    >
+      <X size={18} aria-hidden />
+    </button>
+  );
   const card = "relative bg-cream rounded-2xl px-6 py-6 md:px-7 md:py-7 text-center shadow-2xl max-w-sm w-full my-auto";
   const buttonAlt =
     "inline-flex items-center justify-center gap-2 bg-white text-navy border-2 border-navy rounded-full px-7 py-3 text-[12px] tracking-[3px] uppercase font-bold hover:bg-ocean hover:border-ocean transition-colors disabled:opacity-60";
@@ -334,6 +348,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
           >
             {mode === "choose" && state.phase === "ready" && (
               <div className={card} role="status">
+                {closeX}
                 <p className="text-[10px] tracking-[4px] uppercase text-ocean font-bold mb-2">Catbo Racing</p>
                 <p className="font-playfair text-[28px] leading-tight font-bold text-navy mb-3">Surf with Catbo!</p>
                 <p className="text-navy/75 text-[14px] mb-5">
@@ -354,6 +369,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
 
             {mode === "register" && !sentTo && (
               <form className={`${card} text-left`} onSubmit={sendCode} noValidate>
+                {closeX}
                 <p className="text-[10px] tracking-[4px] uppercase text-ocean font-bold mb-2 text-center">Play for a discount</p>
                 <p className="font-playfair text-[24px] leading-tight font-bold text-navy mb-2 text-center">Register to play</p>
                 <p className="text-navy/70 text-[13px] mb-4 text-center">
@@ -391,6 +407,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
             {/* Step 2: the code from WhatsApp */}
             {mode === "register" && sentTo && (
               <form className={card} onSubmit={verify} noValidate>
+                {closeX}
                 <p className="text-[10px] tracking-[4px] uppercase text-ocean font-bold mb-2">Play for a discount</p>
                 <p className="font-playfair text-[24px] leading-tight font-bold text-navy mb-2">Enter your code</p>
                 <p className="text-navy/70 text-[13px] mb-4">
@@ -426,10 +443,11 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
               </form>
             )}
 
-            {mode === "claim" && claim && <ClaimCard claim={claim} busy={busy || pendingChance !== null} error={error} raceOver={state.phase === "over"} onStart={startChance} onKeep={keepScore} onFree={playFree} card={card} button={button} buttonAlt={buttonAlt} />}
+            {mode === "claim" && claim && <ClaimCard claim={claim} busy={busy || pendingChance !== null} error={error} raceOver={state.phase === "over"} onStart={startChance} onKeep={keepScore} onFree={playFree} card={card} button={button} buttonAlt={buttonAlt} closeX={closeX} />}
 
             {mode === "free" && state.phase === "over" && (
               <div className={card} role="status">
+                {closeX}
                 <p className="text-[10px] tracking-[4px] uppercase text-offer font-bold mb-2">Race over</p>
                 {state.cause && <p className="text-navy font-semibold text-[15px] mb-2">{state.cause}</p>}
                 <p className="font-playfair text-5xl font-bold text-navy mb-1">{state.metres} m</p>
@@ -474,6 +492,7 @@ function ClaimCard({
   card,
   button,
   buttonAlt,
+  closeX,
 }: {
   claim: ClaimView;
   busy: boolean;
@@ -485,12 +504,14 @@ function ClaimCard({
   card: string;
   button: string;
   buttonAlt: string;
+  closeX: React.ReactNode;
 }) {
   const done = c.status !== "open" || c.chancesLeft === 0;
   const more = c.fish !== null ? Math.max(0, FISH_FOR_MAX - c.fish) : 0; // fish still to catch for the most
   const valid = new Date(c.expiresAt).toLocaleDateString([], { day: "numeric", month: "short" });
   return (
     <div className={card} role="status" onClick={(e) => e.stopPropagation()}>
+      {closeX}
       <p className="text-[10px] tracking-[4px] uppercase text-ocean font-bold mb-2">Your discount claim</p>
       {busy && raceOver && c.fish === null ? (
         <p className="flex items-center justify-center gap-2 text-navy py-6"><Loader2 size={18} className="animate-spin" aria-hidden /> Saving your score…</p>
