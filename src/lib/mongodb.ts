@@ -9,7 +9,9 @@ const globalForMongo = globalThis as unknown as { mongoClient?: Promise<MongoCli
 function client() {
   const uri = process.env.MONGODB_URI
   if (!uri) throw new Error('MONGODB_URI is not set in .env.local')
-  globalForMongo.mongoClient ??= new MongoClient(uri).connect().catch((e) => {
+  // When the database can't be reached, give up after 10 s (the driver's default is 30 s per step,
+  // so a customer could wait over a minute for a form): pages and forms show their error sooner
+  globalForMongo.mongoClient ??= new MongoClient(uri, { serverSelectionTimeoutMS: 10_000, connectTimeoutMS: 10_000 }).connect().catch((e) => {
     globalForMongo.mongoClient = undefined // let the next request try again
     throw e
   })

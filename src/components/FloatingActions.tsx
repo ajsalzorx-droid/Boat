@@ -95,7 +95,7 @@ export default function FloatingActions() {
 
     </div>
     {/* Not on /menu: the button shows Home there, there is no fish */}
-    {/* Not while the race is open: no "Press to play" over the game */}
+    {/* Not while the race is open: no "Click to play" over the game */}
     {!isMenuPage && !racing && <CatFishGrab target={menuRef} fishSrc={FISH_SRC} onFishGone={setFishGone} onPlay={() => setRacing(true)} />}
     {racing && <CatboRace onClose={() => setRacing(false)} />}
     </>

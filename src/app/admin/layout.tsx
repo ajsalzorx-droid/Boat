@@ -3,7 +3,7 @@
 import { ReactNode, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Menu as MenuIcon, Fish, Percent, CalendarDays, Settings, LogOut, PanelLeft, X, ArrowLeft } from "lucide-react";
+import { LayoutDashboard, Menu as MenuIcon, Fish, Percent, CalendarDays, Gamepad2, Settings, LogOut, PanelLeft, X, ArrowLeft } from "lucide-react";
 import { logout } from "./login/actions";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -31,6 +31,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { name: "Daily Catch", href: "/admin/daily-catch", icon: Fish },
     { name: "Offers", href: "/admin/offers", icon: Percent },
     { name: "Bookings", href: "/admin/bookings", icon: CalendarDays },
+    { name: "Game Claims", href: "/admin/game-claims", icon: Gamepad2 },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];
 

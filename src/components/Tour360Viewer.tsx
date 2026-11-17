@@ -10,20 +10,27 @@ import "@photo-sphere-viewer/core/index.css";
 // The next and previous photos are loaded ahead.
 // Looking around takes the left mouse button held down while dragging, one finger dragged on a
 // touch screen (two fingers pinch to zoom and turn the view as they move), or two fingers moved
-// on a trackpad (up, down or sideways). The mouse wheel or a trackpad pinch zooms. A plain mouse move
+// sideways on a trackpad. The mouse wheel, a trackpad pinch or two fingers moved up or down on a
+// trackpad zoom. A plain mouse move
 // leaves the view still. A hint says how; it hides while the visitor looks around and comes back.
 // The viewer (three.js) and the photos download only when the tour comes near the screen.
 
 // A spot in a photo, read off a 1400 × 700 preview of it: where each place opens
 const spot = (x: number, y: number) => ({ yaw: (x / 1400 - 0.5) * 2 * Math.PI, pitch: (0.5 - y / 700) * Math.PI });
 
+// The lowest row of the same preview that may be shown: below it is the tripod or the photographer
+const floorAt = (y: number) => (0.5 - y / 700) * Math.PI;
+
+// One walk, in order: the terrace in front of the restaurant, in through the doors to the dining
+// hall, out along the promenade, then the same way at sunset: the terrace, the promenade, the pier.
+// Each place opens facing the way the walk is going.
 const SCENES = [
-  { id: "waterfront", start: spot(700, 340) },
-  { id: "terrace", start: spot(1050, 350) },
-  { id: "terrace-sunset", start: spot(600, 340) },
-  { id: "dining-hall", start: spot(1000, 360) },
-  { id: "dining-hall-evening", start: spot(540, 360) },
-  { id: "kitchen", start: spot(620, 370) },
+  { id: "terrace", start: spot(760, 310), floor: floorAt(650) }, // the front doors
+  { id: "dining-hall", start: spot(600, 340), floor: floorAt(655) }, // just inside, facing the room
+  { id: "promenade", start: spot(720, 320), floor: floorAt(650) }, // outside, looking back at the restaurant
+  { id: "terrace-sunset", start: spot(690, 330), floor: floorAt(590) }, // outside again, evening
+  { id: "promenade-sunset", start: spot(520, 330), floor: floorAt(625) }, // the sun over the creek
+  { id: "pier-sunset", start: spot(560, 350), floor: floorAt(615) }, // at the water's edge
 ];
 
 const ZOOM = 20;
@@ -32,7 +39,7 @@ const TURN_MS = 900; // the cube turn between places
 
 const DRAG_SPEED = 0.005; // radians of view per pixel of a mouse or finger drag
 const TRACKPAD_SPEED = 0.003; // radians of view per unit of sideways two-finger travel on a trackpad
-const WHEEL_ZOOM = 0.05; // zoom levels per unit of scroll: one mouse-wheel notch is about 5 levels
+const WHEEL_ZOOM = 0.08; // zoom levels per unit of scroll: one mouse-wheel notch is about 8 levels
 const PINCH_WHEEL_ZOOM = 0.4; // a trackpad pinch sends small steps, so each counts for more
 const PINCH_SPEED = 0.25; // zoom levels per pixel the two fingers move apart
 const PINCH_START = 20; // pixels the gap between two fingers must change before they zoom
@@ -177,15 +184,24 @@ export default function Tour360Viewer({ className }: { className: string }) {
     };
     goRef.current = go;
 
+    // How far down the view may point: its bottom edge stops at the place's floor line, so the
+    // tripod and the photographer under the camera never show. Zooming in lets it point lower.
+    const minPitch = () => {
+      if (!viewer) return -MAX_PITCH;
+      const halfView = ((viewer.state.vFov / 2) * Math.PI) / 180;
+      return Math.min(0, Math.max(-MAX_PITCH, SCENES[scene].floor + halfView));
+    };
+
     // Turns the view by a move of dx, dy pixels
     const look = (dx: number, dy: number, speed: number) => {
       if (!viewer || busy) return;
       const { yaw, pitch } = viewer.getPosition();
       viewer.rotate({
         yaw: yaw - dx * speed,
-        pitch: Math.max(-MAX_PITCH, Math.min(MAX_PITCH, pitch + dy * speed)),
+        pitch: Math.max(minPitch(), Math.min(MAX_PITCH, pitch + dy * speed)),
       });
     };
+    const onZoom = () => look(0, 0, 0); // zooming out widens the view: lift it off the floor line
 
     // Left button: held down and dragged. The hint hides meanwhile and comes back on release.
     const onPointerDown = (e: PointerEvent) => {
@@ -268,39 +284,14 @@ export default function Tour360Viewer({ className }: { className: string }) {
       setHint(true);
     };
 
-    // A trackpad pinch (sent as a scroll with Ctrl) zooms. Two fingers moved on a trackpad, up,
-    // down or sideways, turn the view. Only a real mouse wheel zooms on a plain scroll: it is told
-    // apart by its notches, which come as whole lines, or as steps of exactly 120 (wheelDelta).
-    // Anything else is taken as a trackpad, so a two-finger swipe never zooms by mistake.
-    // Scroll events that follow each other closely are one gesture. A wheel's notches are all the
-    // same size, while a swipe speeds up and slows down; as soon as a gesture shows a step that
-    // is not a notch it counts as a swipe from then on, and any zoom it made so far is undone.
-    const gesture = { last: -Infinity, pad: false, notch: 0, zoomAtStart: 0 };
-    const isWheelNotch = (e: WheelEvent) => {
-      if (e.deltaMode === 1) return true;
-      if (e.deltaX !== 0 || e.deltaY === 0) return false;
-      const legacy = (e as WheelEvent & { wheelDeltaY?: number }).wheelDeltaY;
-      if (typeof legacy === "number" && legacy !== 0 && legacy % 120 !== 0) return false;
-      return Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= 50;
-    };
+    // Rolling the mouse wheel zooms in and out, and so does a trackpad pinch (sent as a scroll
+    // with Ctrl) or two fingers moved up or down on a trackpad. Two fingers moved sideways on a
+    // trackpad turn the view.
     const onWheel = (e: WheelEvent) => {
-      e.preventDefault(); // or the page (or, on a pinch, the browser) zooms instead
+      e.preventDefault(); // or the page (or, on a pinch, the browser) scrolls or zooms instead
       if (!viewer || busy) return;
+      if (!e.ctrlKey && Math.abs(e.deltaX) > Math.abs(e.deltaY)) return look(-e.deltaX, 0, TRACKPAD_SPEED);
       const lines = e.deltaMode === 1 ? 33 : 1; // some mice report lines, not pixels
-      if (!e.ctrlKey) {
-        const size = Math.abs(e.deltaY);
-        if (e.timeStamp - gesture.last > 300) {
-          Object.assign(gesture, { pad: false, notch: size, zoomAtStart: viewer.getZoomLevel() });
-        }
-        gesture.last = e.timeStamp;
-        // Notches are all one size (a fast spin can send two or three at once)
-        const sameNotch = gesture.notch > 0 && size % gesture.notch === 0;
-        if (!gesture.pad && (!isWheelNotch(e) || !sameNotch)) {
-          gesture.pad = true;
-          viewer.zoom(gesture.zoomAtStart); // a swipe taken for a wheel at first: undo its zoom
-        }
-        if (gesture.pad) return look(-e.deltaX, -e.deltaY, TRACKPAD_SPEED);
-      }
       const step = (e.ctrlKey ? PINCH_WHEEL_ZOOM : WHEEL_ZOOM) * e.deltaY * lines;
       viewer.zoom(Math.max(0, Math.min(100, viewer.getZoomLevel() - step)));
     };
@@ -323,6 +314,7 @@ export default function Tour360Viewer({ className }: { className: string }) {
         rendererParameters: { preserveDrawingBuffer: true }, // lets the cube turn copy the view
       });
       viewer.addEventListener("ready", () => { prepare(1); prepare(-1); }, { once: true });
+      viewer.addEventListener("zoom-updated", onZoom);
       box.addEventListener("pointerdown", onPointerDown);
       box.addEventListener("pointermove", onPointerMove);
       box.addEventListener("pointerup", onPointerUp);
