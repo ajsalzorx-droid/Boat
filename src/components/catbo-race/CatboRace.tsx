@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronsDown, ChevronsUp, Fish, Flag, Gift, Loader2, MessageCircle, Play, RotateCcw, ShieldCheck, Ticket, Trophy, X } from "lucide-react";
+import { ChevronDown, ChevronsDown, ChevronsUp, Fish, Flag, Gift, Loader2, MessageCircle, Play, RotateCcw, ShieldCheck, Ticket, Trophy, X } from "lucide-react";
 import type { Race, RaceState } from "./race";
-import { getClaim, keepClaimScore, sendClaimCode, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
-import { CLAIM_CHANCES, FISH_FOR_MAX, formatPercent, MAX_DISCOUNT_PERCENT, RULES, type ClaimView } from "@/lib/game-claims";
+import { devGameCode, getClaim, keepClaimScore, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
+import { whatsapp, WHATSAPP_DISPLAY } from "@/lib/whatsapp";
+import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, formatPercent, OTP_REQUEST_TEXT, RULES, type ClaimView } from "@/lib/game-claims";
 import { dubaiNow } from "@/lib/bookings";
 
 // The Catbo Racing popup, opened from the peeking cat's "Click to play" (CatFishGrab.tsx). It is
@@ -13,8 +14,8 @@ import { dubaiNow } from "@/lib/bookings";
 // none of it. A tap, a click or Space jumps; Escape or X closes.
 //
 // First the visitor chooses: play free (as often as they like), or play for a discount on their
-// bill (rules: src/lib/game-claims.ts): a short form (name, phone), a code sent to that number on
-// WhatsApp to prove it is theirs, then 2 chances, the latest
+// bill (rules: src/lib/game-claims.ts): a short form (name, phone), then they send "GET OTP" to our
+// WhatsApp and type back the code it replies with (proving the number is theirs), then their race(s) for the day (CLAIM_CHANCES), the latest
 // score counting, and a code to show at the till. The claim is remembered on this device for the
 // day, so closing the game and coming back carries on with it.
 
@@ -34,6 +35,33 @@ const readStoredClaim = () => {
 const ANSWER_MS = 20_000;
 const inTime = <T,>(call: Promise<T>) =>
   Promise.race([call, new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), ANSWER_MS))]);
+// The country code in front of the number, chosen in the form (UAE first). A number typed with
+// its own + code is used as it is. Without one, a number like 9562xx9404 (India) would be read as
+// a +956 number, and the WhatsApp code would go nowhere
+// [code, flag, name]: the box shows the flag and code; the list it opens shows the names too
+const COUNTRIES = [
+  ["971", "🇦🇪", "UAE"],
+  ["91", "🇮🇳", "India"],
+  ["92", "🇵🇰", "Pakistan"],
+  ["880", "🇧🇩", "Bangladesh"],
+  ["63", "🇵🇭", "Philippines"],
+  ["94", "🇱🇰", "Sri Lanka"],
+  ["977", "🇳🇵", "Nepal"],
+  ["966", "🇸🇦", "Saudi Arabia"],
+  ["968", "🇴🇲", "Oman"],
+  ["974", "🇶🇦", "Qatar"],
+  ["965", "🇰🇼", "Kuwait"],
+  ["973", "🇧🇭", "Bahrain"],
+  ["20", "🇪🇬", "Egypt"],
+  ["44", "🇬🇧", "UK"],
+  ["1", "🇺🇸", "USA / Canada"],
+] as const;
+const fullNumber = (country: string, typed: string) => {
+  const t = typed.trim();
+  if (t.startsWith("+") || t.startsWith("00")) return t;
+  return `+${country} ${t.replace(/^0+/, "")}`; // the local 0 (050 ...) goes
+};
+
 const SLOW = "No answer from our server. Please check your internet connection and try again.";
 
 const storeClaim = (id: string) => {
@@ -54,19 +82,13 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
   // the registration form
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState<string>(COUNTRIES[0][0]);
   const [offers, setOffers] = useState(false);
   const [website, setWebsite] = useState(""); // hidden: only bots fill it
   const formOpenedAt = useRef(0);
-  // the WhatsApp code step: where it went (null = not sent yet), what was typed, when "Send again" works
+  // the WhatsApp code step: the number it is for (null = not there yet), and the code typed
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
-  const [resendAt, setResendAt] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!sentTo) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [sentTo]);
   const sentChance = useRef<number | null>(null);
 
   // A claim this device registered earlier today comes back (its chances, or its code)
@@ -84,9 +106,12 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
   // A claim race has ended: its score goes to the server (once)
   useEffect(() => {
     if (state?.phase !== "over" || mode !== "claim" || !claim || pendingChance === null || sentChance.current === pendingChance) return;
+    // the race's record (every jump and cast); the server replays it and decides the score
+    const record = raceRef.current?.replay();
+    if (!record) return;
     sentChance.current = pendingChance;
     setBusy(true);
-    inTime(submitClaimScore(claim.claimId, pendingChance, state.fish, state.metres))
+    inTime(submitClaimScore(claim.claimId, pendingChance, { W: record.W, H: record.H, inputs: record.inputs }))
       .then((res) => {
         if (res.ok) setClaim(res.claim);
         else setError(res.error);
@@ -110,22 +135,20 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     formOpenedAt.current = Date.now();
     setMode("register");
   };
-  // Step 1: name and number; a 6-digit code goes to that number on WhatsApp
-  const sendCode = async (e?: React.FormEvent) => {
+  // Step 1: name and number are checked, then WhatsApp opens with "GET OTP" typed, to send to us.
+  // Our reply in that chat is the code (src/lib/game-otp.ts). Opened during the click, so the
+  // browser doesn't block it as a popup
+  const openWhatsApp = () => window.open(whatsapp(OTP_REQUEST_TEXT), "_blank", "noopener");
+  const getCode = (e?: React.FormEvent) => {
     e?.preventDefault();
-    setBusy(true);
+    const number = fullNumber(country, phone);
+    const problem = checkPlayer({ name, phone: number, offers });
+    if (problem) return setError(problem);
     setError(null);
-    try {
-      const res = await inTime(sendClaimCode({ name, phone, offers }, { hp: website, ms: Date.now() - formOpenedAt.current }));
-      if (!res.ok) return setError(res.error);
-      setSentTo(res.sentTo);
-      setOtp("");
-      setResendAt(Date.now() + res.resendInSeconds * 1000);
-    } catch {
-      setError(SLOW);
-    } finally {
-      setBusy(false);
-    }
+    openWhatsApp();
+    setOtp("");
+    setSentTo(number.replace(/\s+/g, " "));
+    devGameCode(number).catch(() => {}); // on a developer's computer only: the code shows in the terminal
   };
   // Step 2: the code typed back opens the claim
   const verify = async (e: React.FormEvent) => {
@@ -133,7 +156,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await inTime(verifyClaimCode(phone, otp));
+      const res = await inTime(verifyClaimCode({ name, phone: fullNumber(country, phone), offers }, otp, { hp: website, ms: Date.now() - formOpenedAt.current }));
       if (!res.ok) return setError(res.error);
       storeClaim(res.claim.claimId);
       setClaim(res.claim);
@@ -156,18 +179,19 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
       sentChance.current = null;
       setPendingChance(res.claim.chancesUsed);
       raceRef.current?.setAutoStart(false);
-      raceRef.current?.start();
+      raceRef.current?.start(res.seed); // the server's seed: the race it will replay
     } catch {
       setError(SLOW);
     } finally {
       setBusy(false);
     }
   };
-  const keepScore = async () => {
+  // The customer picks one of their races for the discount (one only)
+  const keepScore = async (chance?: number) => {
     if (!claim) return;
     setBusy(true);
     try {
-      const res = await inTime(keepClaimScore(claim.claimId));
+      const res = await inTime(keepClaimScore(claim.claimId, chance));
       if (res.ok) setClaim(res.claim);
       else setError(res.error);
     } catch {
@@ -184,6 +208,8 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
       .then((race) => {
         if (cancelled) return race.destroy();
         raceRef.current = race;
+        // Development only: lets an automated test drive real races and compare them with the server's replay
+        if (process.env.NODE_ENV !== "production") (window as unknown as { __catboRace?: Race }).__catboRace = race;
       })
       .catch(() => !cancelled && setFailed(true));
     return () => {
@@ -362,18 +388,18 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                   <button type="button" className={buttonAlt} onClick={chooseClaim}>
                     <Gift size={16} aria-hidden /> {claim ? "My discount claim" : "Play for a discount"}
                   </button>
-                  <p className="text-[11px] sm:text-[12px] leading-snug text-navy/60">Off your bill: {RULES} · {CLAIM_CHANCES} chances a day</p>
+                  <p className="text-[11px] sm:text-[12px] leading-snug text-navy/60">Off your bill: {RULES} · {chancesText()} · one discount per bill</p>
                 </div>
               </div>
             )}
 
             {mode === "register" && !sentTo && (
-              <form className={`${card} text-left`} onSubmit={sendCode} noValidate>
+              <form className={`${card} text-left`} onSubmit={getCode} noValidate>
                 {closeX}
                 <p className="text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-ocean font-bold mb-2 text-center">Play for a discount</p>
                 <p className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-2 text-center">Register to play</p>
                 <p className="text-navy/70 text-[12px] sm:text-[13px] leading-snug mb-3 sm:mb-4 text-center">
-                  Catch fish for money off your bill: {RULES}. You get {CLAIM_CHANCES} chances today, and your latest score counts.
+                  Catch fish for money off your bill: {RULES}. {CLAIM_CHANCES === 1 ? "You get 1 race today: make it count!" : `You get ${CLAIM_CHANCES} races today, then you choose which score to use (one discount).`}
                 </p>
                 <div aria-hidden className="absolute -left-[9999px] w-px h-px overflow-hidden">
                   <label htmlFor="c-website">Website</label>
@@ -386,17 +412,49 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                 <label htmlFor="c-phone" className="block text-[11px] font-bold uppercase tracking-[2px] text-navy/70 mt-3 mb-1">
                   Phone number <span className="text-offer">*</span>
                 </label>
-                <input id="c-phone" value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="tel" required placeholder="Enter your number" maxLength={20} className={field} />
+                {/* One row on every screen: a compact country box (flag and code; the real list opens on
+                    top of it with the country names) and the number taking the rest of the width */}
+                <div className="flex items-stretch gap-2">
+                  <div className="relative shrink-0 w-[5.75rem] sm:w-[6.75rem]">
+                    <span
+                      aria-hidden
+                      className="pointer-events-none flex h-full items-center justify-between gap-1 rounded-lg border border-navy/20 bg-white pl-2.5 pr-1.5 sm:pl-3 sm:pr-2 text-[15px] sm:text-[16px] text-navy"
+                    >
+                      <span className="whitespace-nowrap">
+                        {COUNTRIES.find(([code]) => code === country)?.[1]} +{country}
+                      </span>
+                      <ChevronDown size={15} className="shrink-0 text-navy/50" />
+                    </span>
+                    <label htmlFor="c-country" className="sr-only">Country code</label>
+                    <select
+                      id="c-country"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    >
+                      {COUNTRIES.map(([code, flag, label]) => (
+                        <option key={code} value={code}>
+                          {flag} {label} (+{code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <input id="c-phone" value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="tel-national" required placeholder="Enter your number" maxLength={20} className={`${field} flex-1 min-w-0 px-3 placeholder:text-[14px] sm:px-3.5 sm:placeholder:text-[16px]`} />
+                </div>
                 <label className="flex items-start gap-2.5 mt-3 text-[13px] text-navy/80 cursor-pointer">
                   <input type="checkbox" checked={offers} onChange={(e) => setOffers(e.target.checked)} className="mt-0.5 w-4 h-4 accent-navy shrink-0" />
                   <span>Send me Boat Seafood offers on WhatsApp (reply STOP any time)</span>
                 </label>
+                {/* What the details are for (UAE data protection: people are told before they give them) */}
+                <p className="mt-2 text-[11px] leading-snug text-navy/55">
+                  We use your name and number only for this game and your discount, and for our offers if you tick the box. We never share them.
+                </p>
                 {error && <p role="alert" className="mt-3 text-[13px] text-offer font-semibold">{error}</p>}
                 <div className="flex flex-col gap-2 mt-5">
                   <button type="submit" disabled={busy} className={`${button} disabled:opacity-60`}>
-                    {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <MessageCircle size={16} aria-hidden />} Send code on WhatsApp
+                    <MessageCircle size={16} aria-hidden /> Get code on WhatsApp
                   </button>
-                  <p className="text-[12px] text-navy/60 text-center">We send a 6-digit code to this number on WhatsApp to check it is yours.</p>
+                  <p className="text-[12px] text-navy/60 text-center leading-snug">WhatsApp opens with &ldquo;{OTP_REQUEST_TEXT}&rdquo; ready: send it to us from this number, and we reply with your code.</p>
                   <button type="button" className="text-[12px] text-navy/60 underline underline-offset-2 hover:text-navy" onClick={() => { setError(null); setMode("choose"); }}>
                     Back
                   </button>
@@ -410,9 +468,12 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                 {closeX}
                 <p className="text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-ocean font-bold mb-2">Play for a discount</p>
                 <p className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-2">Enter your code</p>
-                <p className="text-navy/70 text-[13px] mb-4">
-                  We sent a 6-digit code on WhatsApp to <b className="whitespace-nowrap">{sentTo}</b>.
-                </p>
+                <ol className="text-navy/75 text-[12.5px] sm:text-[13px] leading-snug mb-4 text-left list-decimal pl-5 space-y-1">
+                  <li>
+                    In WhatsApp, send <b>{OTP_REQUEST_TEXT}</b> to Boat Seafood{WHATSAPP_DISPLAY ? <> (<span className="whitespace-nowrap">{WHATSAPP_DISPLAY}</span>)</> : null} from <b className="whitespace-nowrap">{sentTo}</b>.
+                  </li>
+                  <li>We reply with a 6-digit code. Type it here.</li>
+                </ol>
                 <label htmlFor="c-otp" className="sr-only">6-digit code</label>
                 <input
                   id="c-otp"
@@ -432,8 +493,8 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                     {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ShieldCheck size={16} aria-hidden />} Verify and play
                   </button>
                   <div className="flex items-center justify-center gap-4 text-[12px]">
-                    <button type="button" disabled={busy || now < resendAt} onClick={() => sendCode()} className="text-navy/70 underline underline-offset-2 hover:text-navy disabled:no-underline disabled:text-navy/40">
-                      {now < resendAt ? `Send again in ${Math.ceil((resendAt - now) / 1000)} s` : "Send again"}
+                    <button type="button" disabled={busy} onClick={openWhatsApp} className="text-navy/70 underline underline-offset-2 hover:text-navy">
+                      Open WhatsApp again
                     </button>
                     <button type="button" disabled={busy} onClick={() => { setError(null); setSentTo(null); setOtp(""); }} className="text-navy/70 underline underline-offset-2 hover:text-navy">
                       Change number
@@ -480,7 +541,8 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
   );
 }
 
-// The discount claim between races: chances left, the latest score, and when done, the code
+// The discount claim: before the first race, between races (claim this score, or race again), the
+// choice between races when all are played (one discount only), and then the code for the till
 function ClaimCard({
   claim: c,
   busy,
@@ -499,71 +561,131 @@ function ClaimCard({
   error: string | null;
   raceOver: boolean;
   onStart: () => void;
-  onKeep: () => void;
+  onKeep: (chance?: number) => void;
   onFree: () => void;
   card: string;
   button: string;
   buttonAlt: string;
   closeX: React.ReactNode;
 }) {
-  const done = c.status !== "open" || c.chancesLeft === 0;
-  const more = c.fish !== null ? Math.max(0, FISH_FOR_MAX - c.fish) : 0; // fish still to catch for the most
+  const finished = c.status !== "open" || c.locked; // a score is chosen (or the claim is used or expired)
+  const choosing = !finished && c.chancesLeft === 0 && c.scores.length > 1; // every race played: pick one
+  const between = !finished && c.chancesLeft > 0 && c.scores.length > 0; // a race played, one more to go
+  const fresh = !finished && c.scores.length === 0 && c.chancesLeft > 0; // no race yet
+  const nothing = !finished && c.chancesLeft === 0 && c.scores.length <= 1; // all used; one score or none
+  const saving = busy && raceOver && c.scores.length < c.chancesUsed;
+  const best = c.scores.reduce<RaceScore | null>((b, r) => (!b || r.fish > b.fish ? r : b), null);
+  const latest = c.scores[c.scores.length - 1];
   const valid = new Date(c.expiresAt).toLocaleDateString([], { day: "numeric", month: "short" });
+
+  // a race's score, as a line: "Race 1 · 12 fish · 3% off"
+  const scoreLine = (r: RaceScore) => (
+    <>
+      <span className="font-semibold">Race {r.chance}</span>
+      <span className="text-navy/60"> · {r.fish} fish · </span>
+      <span className="font-bold">{formatPercent(r.percent)}% off</span>
+    </>
+  );
+
   return (
     <div className={card} role="status" onClick={(e) => e.stopPropagation()}>
       {closeX}
       <p className="text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-ocean font-bold mb-2">Your discount claim</p>
-      {busy && raceOver && c.fish === null ? (
+      {saving ? (
         <p className="flex items-center justify-center gap-2 text-navy py-6"><Loader2 size={18} className="animate-spin" aria-hidden /> Saving your score…</p>
       ) : (
         <>
-          {c.fish === null ? (
-            <p className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-2">Good luck, {c.name}!</p>
-          ) : (
+          {fresh && (
             <>
-              <p className="flex items-center justify-center gap-2 text-navy/75 text-[14px]">
-                <Fish size={15} aria-hidden /> {done ? "Your score" : `Chance ${c.chancesUsed} of ${CLAIM_CHANCES}`}: {c.fish} fish
+              <p className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-2">Good luck, {c.name}!</p>
+              <p className="text-navy/70 text-[12.5px] sm:text-[13px] leading-snug mb-4">
+                {RULES}. You have {c.chancesLeft} {c.chancesLeft === 1 ? "race" : "races"}: after them, you choose which score to use. One discount only. Stay in the game until each race ends: a paused race doesn&rsquo;t count.
               </p>
-              <p className="font-playfair text-4xl sm:text-5xl font-bold text-navy my-1">{formatPercent(c.percent)}% off</p>
-              {more > 0 && !done && <p className="text-navy/70 text-[13px]">Every fish adds more: {FISH_FOR_MAX} fish give {MAX_DISCOUNT_PERCENT}% off.</p>}
+              <button type="button" autoFocus className={`${button} w-full`} disabled={busy} onClick={onStart}>
+                {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Play size={16} className="fill-current" aria-hidden />}
+                Start race {c.chancesUsed + 1}
+              </button>
             </>
           )}
 
-          {!done && (
+          {between && latest && (
             <>
-              <p className="text-navy/70 text-[13px] mt-2 mb-4">
-                {c.fish === null
-                  ? `${RULES}. You have ${c.chancesLeft} ${c.chancesLeft === 1 ? "chance" : "chances"}; your latest score counts.`
-                  : `You have ${c.chancesLeft} more ${c.chancesLeft === 1 ? "chance" : "chances"}. If you play, your new score replaces this one, even if it is lower.`}
+              <p className="flex items-center justify-center gap-2 text-navy/75 text-[14px]">
+                <Fish size={15} aria-hidden /> Race {latest.chance} of {CLAIM_CHANCES}: {latest.fish} fish
+              </p>
+              <p className="font-playfair text-4xl sm:text-5xl font-bold text-navy my-1">{formatPercent(latest.percent)}% off</p>
+              <p className="text-navy/70 text-[12.5px] sm:text-[13px] leading-snug mt-2 mb-4">
+                Keep this score, or play {c.chancesLeft === 1 ? "your last race" : "again"}: this score stays saved, and you choose the one you want afterwards.
               </p>
               <div className="flex flex-col gap-2.5">
-                {c.fish !== null && c.percent > 0 && (
-                  <button type="button" className={button} disabled={busy} onClick={onKeep}>
+                {latest.percent > 0 && (
+                  <button type="button" className={button} disabled={busy} onClick={() => onKeep(latest.chance)}>
                     <Ticket size={16} aria-hidden /> Claim this score
                   </button>
                 )}
-                <button type="button" autoFocus className={c.fish !== null && c.percent > 0 ? buttonAlt : button} disabled={busy} onClick={onStart}>
+                <button type="button" autoFocus className={latest.percent > 0 ? buttonAlt : button} disabled={busy} onClick={onStart}>
                   {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Play size={16} className="fill-current" aria-hidden />}
-                  {c.fish === null ? `Start chance ${c.chancesUsed + 1}` : c.chancesLeft === 1 ? "Play my last chance" : "Play again"}
+                  Play race {c.chancesUsed + 1}
                 </button>
               </div>
             </>
           )}
 
-          {done && (
-            <div className="mt-3">
+          {choosing && (
+            <>
+              <p className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-1">Choose your discount</p>
+              <p className="text-navy/70 text-[12.5px] sm:text-[13px] leading-snug mb-3">One discount only: pick the race you want to use.</p>
+              <div className="flex flex-col gap-2">
+                {c.scores.map((r) => (
+                  <button
+                    key={r.chance}
+                    type="button"
+                    disabled={busy || r.percent <= 0}
+                    onClick={() => onKeep(r.chance)}
+                    className={`flex items-center justify-between gap-2 rounded-xl border-2 px-4 py-3 text-left text-[14px] text-navy transition-colors disabled:opacity-50 ${
+                      best?.chance === r.chance ? "border-navy bg-white" : "border-navy/20 bg-white/70 hover:border-navy/50"
+                    }`}
+                  >
+                    <span>{scoreLine(r)}</span>
+                    {best?.chance === r.chance && <span className="shrink-0 rounded-full bg-navy text-cream px-2 py-0.5 text-[10px] font-bold uppercase tracking-[1px]">Best</span>}
+                  </button>
+                ))}
+              </div>
+              {best && best.percent <= 0 && <p className="text-navy text-[13px] mt-3">No fish caught: no discount this time. Come back tomorrow!</p>}
+            </>
+          )}
+
+          {nothing && (
+            <div className="mt-1">
+              {best && best.percent > 0 ? (
+                <>
+                  <p className="text-navy/75 text-[14px]">{scoreLine(best)}</p>
+                  <button type="button" className={`${button} w-full mt-3`} disabled={busy} onClick={() => onKeep(best.chance)}>
+                    <Ticket size={16} aria-hidden /> Claim this score
+                  </button>
+                </>
+              ) : (
+                <p className="text-navy text-[14px]">No discount this time. Come back tomorrow for new races!</p>
+              )}
+            </div>
+          )}
+
+          {finished && (
+            <div className="mt-1">
               {c.status === "used" ? (
                 <p className="text-navy text-[14px]">This discount has been used on your bill. Thank you! Play for a new one tomorrow.</p>
               ) : c.status === "expired" ? (
                 <p className="text-navy text-[14px]">This claim has expired. Play for a new one any day.</p>
               ) : c.percent > 0 ? (
                 <>
+                  {c.chosen && <p className="text-navy/70 text-[13px]">Your choice: Race {c.chosen} · {c.fish} fish</p>}
+                  <p className="font-playfair text-4xl sm:text-5xl font-bold text-navy my-1">{formatPercent(c.percent)}% off</p>
                   <p className="text-navy/75 text-[13px] mb-1">Show this code when you pay:</p>
                   <p className="font-mono text-[28px] sm:text-[34px] font-bold tracking-[4px] sm:tracking-[6px] text-navy bg-white rounded-xl py-2 mb-1 select-all">{c.code}</p>
-                  <p className="text-navy/60 text-[12px]">Valid until {valid} · one bill</p>
+                  <p className="text-navy/60 text-[12px]">Valid until {valid} · one discount per bill: in a group, use one person&rsquo;s code</p>
                 </>
               ) : (
-                <p className="text-navy text-[14px]">No discount this time. Come back tomorrow for {CLAIM_CHANCES} new chances!</p>
+                <p className="text-navy text-[14px]">No discount this time. Come back tomorrow for new races!</p>
               )}
             </div>
           )}

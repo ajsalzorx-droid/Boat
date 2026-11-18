@@ -1,11 +1,12 @@
 'use server'
 
-import { createHash, randomInt, timingSafeEqual } from 'node:crypto'
 import { cookies } from 'next/headers'
 import type { Collection } from 'mongodb'
 import { getDb, newId } from '@/lib/mongodb'
 import { clientIp, hit, hits, looksLikeBot, type FormGuard } from '@/lib/rate-limit'
-import { sendOtp, otpReady } from '@/lib/whatsapp-api'
+import { randomInt } from 'node:crypto'
+import { checkOtp, issueOtp, OTP_DIGITS } from '@/lib/game-otp'
+import { MIN_H, MIN_W, replayRace, STEP, type Input } from './sim'
 import { dubaiNow, whatsappDigits } from '@/lib/bookings'
 import {
   checkPlayer,
@@ -13,22 +14,26 @@ import {
   CLAIM_VALID_DAYS,
   CODE_ALPHABET,
   CODE_LENGTH,
+  claimScore,
   discountFor,
+  type RaceScore,
   type ClaimPlayerInput,
   type ClaimView,
 } from '@/lib/game-claims'
 
 // The server side of playing Catbo Racing for a discount (rules: src/lib/game-claims.ts). Each
 // chance is counted here before its race starts, so reloading the page gives no extra tries.
-// The race itself runs in the browser, so a score is checked against the time the race really
-// took: no more fish than could have swum by, no further than Catbo's top speed allows.
+// The race runs in the browser, but its score is never taken from it: the browser sends the race's
+// record (each jump and cast, with the step it came on), and the server replays it with the rules
+// in sim.ts and the seed it gave out when the race started. The replay's fish are the score. A race
+// can't have more steps than the real time since it started, so it can't be fast-forwarded either.
 //
-// The phone number is proved first: a 6-digit code goes to it on WhatsApp (sendClaimCode), and
-// only typing that code back (verifyClaimCode) opens a claim. So nobody can play on a number that
-// isn't theirs, and making up numbers gets no one anywhere. Getting more chances with more SIM
-// cards is held back too: one device (a cookie) and one network (IP) can open only a few new
-// claims a day, and every code sent is limited per number, per network and for the whole site
-// (each WhatsApp message costs money).
+// The phone number is proved first: the customer sends "GET OTP" to the restaurant's WhatsApp and
+// gets a 6-digit code back in that chat (src/lib/game-otp.ts); only typing that code here
+// (verifyClaimCode) opens a claim. So nobody can play on a number that isn't theirs, and made-up
+// numbers get no one anywhere. More chances with more SIM cards are held back too: one device
+// (a cookie) and one network (IP) can open only a few new claims a day, and a bill can take only
+// one game discount however many claims a group brings (Admin -> Game Claims).
 //
 // "game_claims": one document per phone number per Dubai day. The phone number also goes into
 // "bot_contacts", the list the offer broadcast reads (src/lib/offer-broadcast.ts): marked as
@@ -44,7 +49,10 @@ export type ClaimDoc = {
   offers: boolean // ticked "send me offers on WhatsApp"
   chances_used: number
   chance_started_at: Date | null
-  scored_chance: number // the chance the score below is from (0 = none yet)
+  chance_seed?: number // the seed the race was given: its buoys, dolphins and fish (secret until it starts)
+  scored_chance: number // the last race scored (0 = none yet)
+  scores?: RaceScore[] // every race's result (claims from before this list have only fish/metres/percent)
+  chosen_chance?: number | null // the race the customer chose; fish/metres/percent below are its, else the best
   fish: number | null
   metres: number | null
   percent: number
@@ -53,29 +61,26 @@ export type ClaimDoc = {
   status: 'open' | 'used'
   created_at: Date
   verified_at?: Date // the number was proved with a WhatsApp code
+  device_id?: string // the browser (cookie) it is played on: moves with a new WhatsApp code, else stays
   expires_at: Date
   // filled in at the till (Admin -> Game Claims)
   used_at?: Date
   bill_no?: string
+  bill_key?: string // bill_no without spaces, in capitals: for "one game discount per bill"
   bill_amount?: number
   discount_amount?: number
 }
 
-export type ClaimResult = { ok: true; claim: ClaimView } | { ok: false; error: string }
+export type ClaimResult = { ok: true; claim: ClaimView; seed?: number } | { ok: false; error: string }
+// A race's record, from the browser (race.ts): the world's size, and every jump and cast
+export type RaceRecord = { W: number; H: number; inputs: Input[] }
 
 const GENERIC_ERROR = 'Something went wrong. Please try again in a moment.'
 const WINDOW_MS = 10 * 60_000
-const MAX_REGISTER_PER_IP = 8
 const MAX_REGISTER_SITE = 300
-// The WhatsApp code
-const OTP_DIGITS = 6
-const OTP_VALID_MS = 5 * 60_000
-const OTP_MAX_TRIES = 5 // wrong codes before a new one must be sent
-const OTP_RESEND_S = 30 // seconds before "Send again"
-const OTP_PER_NUMBER = 3 // codes per number per OTP_WINDOW_MS
-const OTP_PER_NUMBER_DAY = 6
-const OTP_SITE = 150 // codes for the whole site per OTP_WINDOW_MS
-const OTP_WINDOW_MS = 15 * 60_000
+// Codes typed in the game: tries per network (each code also allows only a few wrong tries)
+const VERIFY_PER_IP = 30
+const VERIFY_WINDOW_MS = 15 * 60_000
 // New claims (different numbers) a day: per device, and per network. The restaurant's Wi-Fi is one
 // network for every guest, so that limit is kept high; the device one does the work
 const DAY_MS = 24 * 60 * 60_000
@@ -83,10 +88,15 @@ const NEW_CLAIMS_PER_DEVICE = 2
 const NEW_CLAIMS_PER_IP = 40
 const DEVICE_COOKIE = 'catbo_device'
 // Limits for checking a score against the race's real time (see submitClaimScore)
-const FISH_AT_START = 4 // fish already in the water when a race starts
-const MIN_SECONDS_PER_FISH = 0.55 // new fish swim in at most this often
-const MAX_METRES_PER_SECOND = 21 // Catbo's top speed is 20 m a second
 const MAX_RACE_MS = 30 * 60_000
+const MAX_WORLD = 6000 // the largest world (units) a screen can give
+const MAX_INPUTS = 40_000
+const STEP_SLACK = 120 // steps (2 s) allowed over the real time, for the network
+// A race can't take much longer in real time than in the game either: a game slowed down on purpose
+// (a throttled computer, a doctored clock) would be easy to play. Pauses (switching apps) count too
+const SLOW_FACTOR = 1.5
+const SLOW_SLACK_S = 20 // seconds: the network, the start, the race-over card
+const OTHER_DEVICE = 'This claim was opened on another phone. Get a new WhatsApp code to carry on here.'
 
 let indexes: Promise<unknown> | null = null
 async function claims(): Promise<Collection<ClaimDoc>> {
@@ -95,6 +105,8 @@ async function claims(): Promise<Collection<ClaimDoc>> {
     col.createIndex({ phone: 1, day: 1 }, { unique: true }),
     col.createIndex({ code: 1 }, { unique: true }),
     col.createIndex({ created_at: -1 }),
+    // one game discount per bill: no two used claims share a bill (Admin -> Game Claims)
+    col.createIndex({ bill_key: 1 }, { unique: true, partialFilterExpression: { status: 'used' } }),
   ]).catch((e) => {
     indexes = null
     console.error('game_claims indexes:', e)
@@ -104,9 +116,15 @@ async function claims(): Promise<Collection<ClaimDoc>> {
 }
 
 // Not exported: in a 'use server' file every exported function can be called from the browser
+// The races a claim has scored (an older claim, from before every race was kept, has one)
+const scoresOf = (d: ClaimDoc): RaceScore[] =>
+  d.scores ?? (d.fish !== null && d.scored_chance ? [{ chance: d.scored_chance, fish: d.fish, metres: d.metres ?? 0, percent: d.percent }] : [])
+
 function toView(d: ClaimDoc): ClaimView {
   const expired = d.status === 'open' && d.expires_at.getTime() < Date.now()
   return {
+    scores: scoresOf(d),
+    chosen: d.chosen_chance ?? null,
     claimId: d._id,
     code: d.code,
     name: d.name,
@@ -126,32 +144,6 @@ const randomCode = () => {
   return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('')
 }
 
-type OtpDoc = {
-  _id: string // the phone number, international digits
-  hash: string
-  tries: number
-  name: string
-  phone_typed: string
-  offers: boolean
-  sent_at: Date
-  expires_at: Date
-}
-
-let otpIndex: Promise<unknown> | null = null
-async function otpCodes(): Promise<Collection<OtpDoc>> {
-  const col = (await getDb()).collection<OtpDoc>('game_otp')
-  otpIndex ??= col.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }).catch((e) => {
-    otpIndex = null
-    console.error('game_otp index:', e)
-  })
-  return col // removed by MongoDB soon after they expire
-}
-
-const otpHash = (phone: string, code: string) => createHash('sha256').update(`${phone}:${code}`).digest('hex')
-
-// "+971 •• ••• 4567": the number the code went to, without showing it all
-const masked = (digits: string) => `+${digits.slice(0, 3)} ••• ${digits.slice(-4)}`
-
 // This browser's id (a cookie kept a year), for the "new claims a day per device" limit
 async function deviceId() {
   const jar = await cookies()
@@ -163,89 +155,53 @@ async function deviceId() {
   return id
 }
 
-export type SendCodeResult = { ok: true; sentTo: string; resendInSeconds: number } | { ok: false; error: string }
+// The claim may be played only from the browser it was opened in (or moved to with a new code)
+async function onThisDevice(doc: ClaimDoc) {
+  return !doc.device_id || doc.device_id === (await cookies()).get(DEVICE_COOKIE)?.value
+}
 
-// Step 1: the customer's name and number; a 6-digit code goes to that number on WhatsApp
-export async function sendClaimCode(input: ClaimPlayerInput, guard?: FormGuard): Promise<SendCodeResult> {
+// The code from WhatsApp, typed in the game with the customer's name and number. Right: today's
+// claim for this number opens (or comes back)
+export async function verifyClaimCode(input: ClaimPlayerInput, code: string, guard?: FormGuard): Promise<ClaimResult> {
   if (looksLikeBot(guard)) return { ok: false, error: GENERIC_ERROR }
   const problem = checkPlayer(input)
   if (problem) return { ok: false, error: problem }
-  const devMode = process.env.NODE_ENV !== 'production'
-  if (!otpReady() && !devMode) return { ok: false, error: 'Playing for a discount is not available right now. You can still play free!' }
-
-  const phone = whatsappDigits(input.phone.trim())
-  try {
-    const col = await otpCodes()
-    const last = await col.findOne({ _id: phone })
-    if (last && Date.now() - last.sent_at.getTime() < OTP_RESEND_S * 1000)
-      return { ok: false, error: 'A code was just sent. Please wait a moment before asking again.' }
-
-    const ip = await clientIp()
-    const over = await Promise.all([
-      hit(`otp-number:${phone}`, OTP_PER_NUMBER, OTP_WINDOW_MS),
-      hit(`otp-number-day:${phone}`, OTP_PER_NUMBER_DAY, DAY_MS),
-      hit(`claim-ip:${ip}`, MAX_REGISTER_PER_IP, WINDOW_MS),
-      hit('claim-site', MAX_REGISTER_SITE, WINDOW_MS),
-      hit('otp-site', OTP_SITE, OTP_WINDOW_MS),
-    ])
-    if (over.some(Boolean)) return { ok: false, error: 'Too many codes asked for. Please wait a while and try again.' }
-
-    const code = String(randomInt(0, 10 ** OTP_DIGITS)).padStart(OTP_DIGITS, '0')
-    const now = new Date()
-    await col.replaceOne(
-      { _id: phone },
-      { hash: otpHash(phone, code), tries: 0, name: input.name.trim(), phone_typed: input.phone.trim(), offers: !!input.offers, sent_at: now, expires_at: new Date(now.getTime() + OTP_VALID_MS) },
-      { upsert: true }
-    )
-    if (otpReady()) {
-      const sent = await sendOtp(phone, code)
-      if (!sent.ok) {
-        await col.deleteOne({ _id: phone })
-        return { ok: false, error: 'We could not send a WhatsApp code to this number. Please check it is your WhatsApp number.' }
-      }
-    } else {
-      // Development without the WhatsApp template: the code is shown in the server's terminal
-      console.log(`[catbo] WhatsApp code for ${phone}: ${code} (WATI_OTP_TEMPLATE is not set, so nothing was sent)`)
-    }
-    return { ok: true, sentTo: masked(phone), resendInSeconds: OTP_RESEND_S }
-  } catch (e) {
-    console.error('sendClaimCode failed:', e)
-    return { ok: false, error: GENERIC_ERROR }
-  }
-}
-
-// Step 2: the code typed back. Right: today's claim for this number opens (or comes back)
-export async function verifyClaimCode(phoneTyped: string, code: string): Promise<ClaimResult> {
-  const phone = whatsappDigits(String(phoneTyped ?? '').trim())
   const typed = String(code ?? '').replace(/\D/g, '')
   if (typed.length !== OTP_DIGITS) return { ok: false, error: `Please enter the ${OTP_DIGITS}-digit code.` }
+  const phone = whatsappDigits(input.phone.trim())
   try {
-    const col = await otpCodes()
-    // each try is counted before the check, so guessing stops after OTP_MAX_TRIES
-    const otp = await col.findOneAndUpdate({ _id: phone, expires_at: { $gt: new Date() } }, { $inc: { tries: 1 } }, { returnDocument: 'after' })
-    if (!otp) return { ok: false, error: 'This code has expired. Please ask for a new one.' }
-    if (otp.tries > OTP_MAX_TRIES) {
-      await col.deleteOne({ _id: phone })
-      return { ok: false, error: 'Too many wrong codes. Please ask for a new one.' }
-    }
-    const right = timingSafeEqual(Buffer.from(otpHash(phone, typed)), Buffer.from(otp.hash))
-    if (!right) return { ok: false, error: `That code is not right. ${OTP_MAX_TRIES - otp.tries} ${OTP_MAX_TRIES - otp.tries === 1 ? 'try' : 'tries'} left.` }
-    await col.deleteOne({ _id: phone }) // a code works once
-    return await claimFor(phone, otp)
+    const ip = await clientIp()
+    const [overIp, overSite] = await Promise.all([hit(`otp-verify-ip:${ip}`, VERIFY_PER_IP, VERIFY_WINDOW_MS), hit('claim-site', MAX_REGISTER_SITE, WINDOW_MS)])
+    if (overIp || overSite) return { ok: false, error: 'Too many tries right now. Please wait a few minutes.' }
+    const check = await checkOtp(phone, typed)
+    if (!check.ok) return check
+    return await claimFor(phone, { name: input.name.trim(), phone_typed: input.phone.trim(), offers: !!input.offers })
   } catch (e) {
     console.error('verifyClaimCode failed:', e)
     return { ok: false, error: GENERIC_ERROR }
   }
 }
 
+// Development only (the WhatsApp webhook can't reach a computer): makes a code as if "GET OTP" had
+// been sent, and prints it in the server's terminal
+export async function devGameCode(phoneTyped: string): Promise<{ ok: boolean }> {
+  if (process.env.NODE_ENV === 'production') return { ok: false }
+  const phone = whatsappDigits(String(phoneTyped ?? '').trim())
+  if (phone.length < 7) return { ok: false }
+  console.log(`[catbo] Game code for ${phone}: ${await issueOtp(phone)} (development: on the live site it comes on WhatsApp)`)
+  return { ok: true }
+}
+
 // Today's claim for a proved number: the one it already has, or a new one (within the limits)
-async function claimFor(phone: string, otp: OtpDoc): Promise<ClaimResult> {
+type Player = { name: string; phone_typed: string; offers: boolean }
+async function claimFor(phone: string, otp: Player): Promise<ClaimResult> {
   const day = dubaiNow().date
   const now = new Date()
   const col = await claims()
   let doc = await col.findOne({ phone, day })
+  const device = await deviceId()
   if (!doc) {
-    const [device, ip] = await Promise.all([deviceId(), clientIp()])
+    const ip = await clientIp()
     const [deviceCount, ipCount] = await Promise.all([hits(`claim-new-device:${device}`, DAY_MS), hits(`claim-new-ip:${ip}`, DAY_MS)])
     if (deviceCount >= NEW_CLAIMS_PER_DEVICE || ipCount >= NEW_CLAIMS_PER_IP)
       return { ok: false, error: 'This phone has already played for a discount with another number today. Come back tomorrow!' }
@@ -270,6 +226,7 @@ async function claimFor(phone: string, otp: OtpDoc): Promise<ClaimResult> {
         created_at: now,
         expires_at: new Date(now.getTime() + CLAIM_VALID_DAYS * 86400000),
         verified_at: now,
+        device_id: device,
       }
       try {
         await col.insertOne(fresh)
@@ -293,8 +250,12 @@ async function claimFor(phone: string, otp: OtpDoc): Promise<ClaimResult> {
       : { $set: { last_seen: now }, $setOnInsert: { first_seen: now, opted_in: false, source: 'game', name: otp.name } },
     { upsert: true }
   )
-  if (otp.offers && !doc.offers) await col.updateOne({ _id: doc._id }, { $set: { offers: true } })
-  return { ok: true, claim: toView(doc) }
+  // A right code is proof of the number: the claim now plays on this browser (a new phone, say)
+  const changes: Partial<ClaimDoc> = {}
+  if (doc.device_id !== device) changes.device_id = device
+  if (otp.offers && !doc.offers) changes.offers = true
+  if (Object.keys(changes).length) await col.updateOne({ _id: doc._id }, { $set: changes })
+  return { ok: true, claim: toView({ ...doc, ...changes }) }
 }
 
 // The claim as it is now (the game reopened later the same day)
@@ -302,6 +263,7 @@ export async function getClaim(claimId: string): Promise<ClaimResult> {
   try {
     const doc = await (await claims()).findOne({ _id: String(claimId) })
     if (!doc) return { ok: false, error: 'This claim was not found.' }
+    if (!(await onThisDevice(doc))) return { ok: false, error: OTHER_DEVICE }
     return { ok: true, claim: toView(doc) }
   } catch (e) {
     console.error('getClaim failed:', e)
@@ -313,16 +275,19 @@ export async function getClaim(claimId: string): Promise<ClaimResult> {
 export async function startClaimChance(claimId: string): Promise<ClaimResult> {
   try {
     const now = new Date()
-    const doc = await (await claims()).findOneAndUpdate(
+    const col = await claims()
+    const before = await col.findOne({ _id: String(claimId) })
+    if (before && !(await onThisDevice(before))) return { ok: false, error: OTHER_DEVICE }
+    const doc = await col.findOneAndUpdate(
       { _id: String(claimId), status: 'open', locked: false, chances_used: { $lt: CLAIM_CHANCES }, expires_at: { $gt: now } },
-      { $inc: { chances_used: 1 }, $set: { chance_started_at: now } },
+      { $inc: { chances_used: 1 }, $set: { chance_started_at: now, chance_seed: randomInt(0, 2 ** 31) } },
       { returnDocument: 'after' }
     )
     if (!doc) {
       const again = await getClaim(claimId)
       return again.ok ? { ok: false, error: 'No chances are left on this claim.' } : again
     }
-    return { ok: true, claim: toView(doc) }
+    return { ok: true, claim: toView(doc), seed: doc.chance_seed }
   } catch (e) {
     console.error('startClaimChance failed:', e)
     return { ok: false, error: GENERIC_ERROR }
@@ -331,35 +296,46 @@ export async function startClaimChance(claimId: string): Promise<ClaimResult> {
 
 // The finished race's score: it replaces any earlier one (the latest counts). After the last chance
 // the score is kept for good.
-export async function submitClaimScore(claimId: string, chance: number, fish: number, metres: number): Promise<ClaimResult> {
+export async function submitClaimScore(claimId: string, chance: number, race: RaceRecord): Promise<ClaimResult> {
   try {
     const col = await claims()
     const doc = await col.findOne({ _id: String(claimId) })
     if (!doc) return { ok: false, error: 'This claim was not found.' }
-    if (doc.status !== 'open' || doc.locked || !doc.chance_started_at || doc.chances_used !== chance || doc.scored_chance === chance)
+    if (!(await onThisDevice(doc))) return { ok: false, error: OTHER_DEVICE }
+    if (doc.status !== 'open' || doc.locked || !doc.chance_started_at || doc.chances_used !== chance || doc.scored_chance === chance || doc.chance_seed === undefined)
       return { ok: false, error: 'This race can no longer be scored.' }
 
+    // The record must look like a real race: a world a screen could give, inputs in order
+    const W = Number(race?.W)
+    const H = Number(race?.H)
+    const inputs = Array.isArray(race?.inputs) ? race.inputs : null
+    const fine =
+      Number.isFinite(W) && Number.isFinite(H) && W >= MIN_W && H >= MIN_H && W <= MAX_WORLD && H <= MAX_WORLD &&
+      inputs !== null && inputs.length <= MAX_INPUTS &&
+      inputs.every((x, i) => Array.isArray(x) && Number.isInteger(x[0]) && x[0] >= 0 && (x[1] === 0 || x[1] === 1) && (i === 0 || x[0] >= inputs[i - 1][0]))
     const elapsedMs = Date.now() - doc.chance_started_at.getTime()
-    const seconds = elapsedMs / 1000
-    const caught = Number(fish)
-    const distance = Number(metres)
-    if (!Number.isInteger(caught) || caught < 0 || !Number.isInteger(distance) || distance < 0 || elapsedMs > MAX_RACE_MS)
-      return { ok: false, error: 'This score could not be checked.' }
-    if (caught > FISH_AT_START + seconds / MIN_SECONDS_PER_FISH || distance > 2 + seconds * MAX_METRES_PER_SECOND)
-      return { ok: false, error: 'This score could not be checked.' }
+    if (!fine || elapsedMs > MAX_RACE_MS) return { ok: false, error: 'This race could not be checked.' }
 
+    // The server plays the race again: no more steps than the real time allows
+    const maxSteps = Math.floor(elapsedMs / 1000 / STEP) + STEP_SLACK
+    const result = replayRace(W, H, doc.chance_seed, inputs as Input[], maxSteps)
+    if (!result.over || !result.usedAllInputs) {
+      console.warn(`Race not confirmed (claim ${doc.code}, race ${chance}): over=${result.over}, inputs used=${result.usedAllInputs}, steps=${result.steps}/${maxSteps}`)
+      return { ok: false, error: 'This race could not be checked.' }
+    }
+    if (elapsedMs / 1000 > result.steps * STEP * SLOW_FACTOR + SLOW_SLACK_S) {
+      console.warn(`Race too slow (claim ${doc.code}, race ${chance}): ${Math.round(elapsedMs / 1000)} s real, ${Math.round(result.steps * STEP)} s in the game`)
+      return { ok: false, error: "This race didn't count: the game was paused or ran too slowly. Stay in the game until your race ends." }
+    }
+    const caught = result.fish
+    const distance = result.metres
+
+    // Every race is kept; the claim's score is the best so far until the customer chooses one
+    const scores = [...scoresOf(doc), { chance, fish: caught, metres: distance, percent: discountFor(caught) }]
+    const best = claimScore(scores, null)!
     const updated = await col.findOneAndUpdate(
       { _id: doc._id, chances_used: chance, scored_chance: { $ne: chance }, locked: false },
-      {
-        $set: {
-          scored_chance: chance,
-          fish: caught,
-          metres: distance,
-          percent: discountFor(caught),
-          scored_at: new Date(),
-          locked: chance >= CLAIM_CHANCES,
-        },
-      },
+      { $set: { scored_chance: chance, scores, fish: best.fish, metres: best.metres, percent: best.percent, scored_at: new Date() } },
       { returnDocument: 'after' }
     )
     if (!updated) return { ok: false, error: 'This race can no longer be scored.' }
@@ -370,12 +346,20 @@ export async function submitClaimScore(claimId: string, chance: number, fish: nu
   }
 }
 
-// "Claim this score": keeps the latest score, giving up the chances left
-export async function keepClaimScore(claimId: string): Promise<ClaimResult> {
+// "Claim this score": the customer chooses one of their races for the discount (one only), giving up
+// any race left. chance = which race; their best if not given
+export async function keepClaimScore(claimId: string, chance?: number): Promise<ClaimResult> {
   try {
-    const doc = await (await claims()).findOneAndUpdate(
-      { _id: String(claimId), status: 'open', scored_chance: { $gt: 0 } },
-      { $set: { locked: true } },
+    const col = await claims()
+    const current = await col.findOne({ _id: String(claimId), status: 'open', locked: false })
+    if (!current) return getClaim(claimId)
+    if (!(await onThisDevice(current))) return { ok: false, error: OTHER_DEVICE }
+    const scores = scoresOf(current)
+    const pick = chance ? scores.find((s) => s.chance === Number(chance)) : claimScore(scores, null)
+    if (!pick) return { ok: false, error: 'Play a race first.' }
+    const doc = await col.findOneAndUpdate(
+      { _id: current._id, status: 'open', locked: false },
+      { $set: { locked: true, chosen_chance: pick.chance, fish: pick.fish, metres: pick.metres, percent: pick.percent } },
       { returnDocument: 'after' }
     )
     if (!doc) return getClaim(claimId)

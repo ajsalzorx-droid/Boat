@@ -13,7 +13,7 @@ import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/
 import { confirmationMessage, whatsappDigits, type BookingStatus, type BookingType, type PreorderItem } from '@/lib/bookings'
 import { broadcastOffer, offerBroadcastReady, subscriberCount } from '@/lib/offer-broadcast'
 import { sendConfirmation, whatsappApiReady } from '@/lib/whatsapp-api'
-import { CODE_LENGTH, normalizeCode, type ClaimStatus } from '@/lib/game-claims'
+import { CODE_LENGTH, normalizeCode, type ClaimStatus, type RaceScore } from '@/lib/game-claims'
 import type { ClaimDoc } from '@/components/catbo-race/claims'
 
 // Every admin write goes through here: verify the token first, then touch the database.
@@ -674,6 +674,8 @@ export type GameClaimRow = {
   offers: boolean // agreed to offers on WhatsApp
   day: string
   chances_used: number
+  scores: RaceScore[] // every race
+  chosen_chance: number | null // the race the customer chose (null = not chosen: the best counts)
   fish: number | null
   metres: number | null
   percent: number
@@ -698,6 +700,8 @@ const claimRow = (d: ClaimDoc): GameClaimRow => ({
   offers: !!d.offers,
   day: d.day,
   chances_used: d.chances_used,
+  scores: d.scores ?? (d.fish !== null && d.scored_chance ? [{ chance: d.scored_chance, fish: d.fish, metres: d.metres ?? 0, percent: d.percent }] : []),
+  chosen_chance: d.chosen_chance ?? null,
   fish: d.fish,
   metres: d.metres,
   percent: d.percent,
@@ -759,13 +763,25 @@ export async function applyGameClaim(id: string, billNo: string, billAmount: num
     if (doc.status === 'used') fail(`This claim was already used on bill ${doc.bill_no ?? ''}.`.trim())
     if (doc.expires_at.getTime() < Date.now()) fail('This claim has expired.')
     if (doc.percent <= 0) fail('This claim has no discount (no fish caught).')
+    // One game discount per bill: a group with several claims uses one person's (bill numbers are
+    // compared without spaces or case, so "B-102" and "b 102" are the same bill)
+    const billKey = bill.toUpperCase().replace(/\s+/g, '')
+    const onBill = await col.findOne({ bill_key: billKey, status: 'used' })
+    if (onBill) fail(`Bill ${onBill.bill_no} already has a game discount (code ${onBill.code}, ${onBill.name}). Only one game discount per bill.`)
     const discount = Math.round(amount * doc.percent) / 100 // AED, to the fil (percent can be 0.25, 7.5, ...)
-    const updated = await col.findOneAndUpdate(
-      { _id: doc._id, status: 'open' },
-      // using it also ends the customer's chances: the score can't change after the bill
-      { $set: { status: 'used', locked: true, used_at: new Date(), bill_no: bill, bill_amount: amount, discount_amount: discount } },
-      { returnDocument: 'after' }
-    )
+    let updated: ClaimDoc | null
+    try {
+      updated = await col.findOneAndUpdate(
+        { _id: doc._id, status: 'open' },
+        // using it also ends the customer's chances: the score can't change after the bill
+        { $set: { status: 'used', locked: true, used_at: new Date(), bill_no: bill, bill_key: billKey, bill_amount: amount, discount_amount: discount } },
+        { returnDocument: 'after' }
+      )
+    } catch (e) {
+      // two claims applied to the same bill at the same moment: the database lets only one through
+      if ((e as { code?: number }).code === 11000) fail(`Bill ${bill} already has a game discount. Only one game discount per bill.`)
+      throw e
+    }
     if (!updated) fail('This claim was just used. Please refresh.')
     return claimRow(updated)
   })
