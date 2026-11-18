@@ -32,27 +32,44 @@ const SPEED_UP = 14 // units a second faster, each second, up to the level's spe
 export const UNITS_PER_METRE = 40
 // leap: its speed up at take-off, high enough to clear Catbo's head (its top swims swimDepth under the water line)
 export const DOLPHIN = { w: 160, h: 62, swimDepth: 60, leap: 900, gravity: 1150 }
+// A diving gull: it comes at Catbo and, from `level` ahead of him, skims the waves (`skim`: its top
+// over the water line). Like a buoy in the air: jump over it, or it hits him. How it gets there
+// differs from gull to gull (GULL_PATHS, and its own speed, height and length of approach), but
+// every one is skimming the waves well before it reaches him, so the jump is always the same
+export const GULL = { w: 84, h: 36, skim: 53, level: 230 }
+// The ways a gull comes in: its height on the way (1 = as high as it starts, 0 = skimming), from
+// k = 1 (where its approach begins) to k = 0 (`level` ahead of Catbo). Only + - * / and
+// floor/abs/min/max, so the server's replay matches every browser
+export const GULL_PATHS = [
+  (k: number) => k * k, // dive: a steep plunge at the end
+  (k: number) => k, // glide: a long, even slope
+  (k: number) => 1 - (1 - k) * (1 - k) * (1 - k), // stoop: hangs high, then drops at the last moment
+  (k: number) => k * (0.45 + 1.1 * Math.abs(k * 2.5 - Math.floor(k * 2.5) - 0.5)), // wave: rises and falls on the way down
+  (k: number) => k * k, // skimmer: comes in low over the waves (a small height)
+]
+export const GULL_KINDS = ['dive', 'glide', 'stoop', 'wave', 'skimmer'] as const
 
 export type Creature = 'octopus' | 'jelly' | 'snake'
 
 // The levels, each starting at a distance (from, in metres). speed: the fastest Catbo goes in it.
 // gap: the room between obstacles, in seconds of travel (the least, and how much more at random;
-// a jump lasts 0.85 s, so the least stays above that). dolphins: the share of obstacles that are
-// dolphins. pairs: how often a buoy has a second one close behind. creatures: the sea creatures
-// in the water (never to be hooked), danger: the share of what swims by that is one of them, and
-// warn: what the new level's sign adds. Then its colours: the sky and the sea (top, bottom), the
-// wave at the back, the far islands, and the sun.
+// a jump lasts 0.85 s, so the least stays above that). dolphins, birds: the share of obstacles that
+// are dolphins, and diving gulls (the rest are buoys). pairs: how often a buoy has a second one close behind. creatures: the sea creatures
+// in the water (never to be hooked), danger: how often one swims by along with the fish (the fish
+// themselves never get fewer). Then its colours: the sky and the sea (top, bottom), the wave at the
+// back, the far islands, and the sun.
 export const LEVELS = [
-  { name: 'Beginner', from: 0, speed: 360, gap: [1.5, 0.8], dolphins: 0.25, pairs: 0, creatures: [] as Creature[], danger: 0, warn: '', sky: ['#f9eadb', '#f4dcc4'], sea: ['#a6dbda', '#5b9fb4'], back: '#78bac0', isles: '#cfe3df', sun: '#ffd678' }, // soft morning
-  { name: 'Medium', from: 100, speed: 500, gap: [1.2, 0.7], dolphins: 0.4, pairs: 0.15, creatures: ['octopus'] as Creature[], danger: 0.2, warn: "Don't hook an octopus! 🐙", sky: ['#bfe6fb', '#e3f4fc'], sea: ['#6fd3d8', '#1f86b3'], back: '#4fb3c9', isles: '#a9d6c4', sun: '#fff3a6' }, // bright blue day
-  { name: 'Hard', from: 200, speed: 640, gap: [1.0, 0.65], dolphins: 0.5, pairs: 0.3, creatures: ['octopus', 'jelly'] as Creature[], danger: 0.35, warn: 'Jellyfish too! 🪼', sky: ['#ff9f6b', '#ffd29a'], sea: ['#c98fb0', '#5a4f9c'], back: '#a877a8', isles: '#c9705f', sun: '#ff7043' }, // sunset
-  { name: 'Extra Hard', from: 300, speed: 800, gap: [0.92, 0.45], dolphins: 0.55, pairs: 0.45, creatures: ['octopus', 'jelly', 'snake'] as Creature[], danger: 0.5, warn: 'And sea snakes! 🐍', sky: ['#101a44', '#3a2f6e'], sea: ['#2c4f96', '#0d1c45'], back: '#213c7c', isles: '#262b5c', sun: '#e6ebff' }, // night
+  { name: 'Beginner', from: 0, speed: 360, gap: [1.5, 0.8], dolphins: 0.25, birds: 0.12, pairs: 0, creatures: [] as Creature[], danger: 0, sky: ['#f9eadb', '#f4dcc4'], sea: ['#a6dbda', '#5b9fb4'], back: '#78bac0', isles: '#cfe3df', sun: '#ffd678' }, // soft morning
+  { name: 'Medium', from: 100, speed: 500, gap: [1.2, 0.7], dolphins: 0.4, birds: 0.15, pairs: 0.15, creatures: ['octopus'] as Creature[], danger: 0.2, sky: ['#bfe6fb', '#e3f4fc'], sea: ['#6fd3d8', '#1f86b3'], back: '#4fb3c9', isles: '#a9d6c4', sun: '#fff3a6' }, // bright blue day
+  { name: 'Hard', from: 200, speed: 640, gap: [1.0, 0.65], dolphins: 0.5, birds: 0.18, pairs: 0.3, creatures: ['octopus', 'jelly'] as Creature[], danger: 0.35, sky: ['#ff9f6b', '#ffd29a'], sea: ['#c98fb0', '#5a4f9c'], back: '#a877a8', isles: '#c9705f', sun: '#ff7043' }, // sunset
+  { name: 'Extra Hard', from: 300, speed: 800, gap: [0.92, 0.45], dolphins: 0.55, birds: 0.2, pairs: 0.45, creatures: ['octopus', 'jelly', 'snake'] as Creature[], danger: 0.5, sky: ['#101a44', '#3a2f6e'], sea: ['#2c4f96', '#0d1c45'], back: '#213c7c', isles: '#262b5c', sun: '#e6ebff' }, // night
 ]
 
 // What hooking each sea creature, or hitting each obstacle, says on the race-over card
 export const CAUSES = {
   buoy: 'You bumped into a buoy!',
   dolphin: 'You jumped into a dolphin!',
+  bird: 'A gull flew into you!',
   octopus: 'You hooked an octopus!',
   jelly: 'You hooked a jellyfish!',
   snake: 'You hooked a sea snake!',
@@ -60,7 +77,7 @@ export const CAUSES = {
 export type Cause = keyof typeof CAUSES
 
 export type Thing = {
-  kind: 'buoy' | 'dolphin'
+  kind: 'buoy' | 'dolphin' | 'bird'
   x: number
   y: number // top
   w: number
@@ -68,7 +85,14 @@ export type Thing = {
   seed: number // for drawing only (how it bobs)
   // a dolphin: swimming toward the boat, leaping (vy: its speed up or down), or gone back under
   leap?: 'swim' | 'up' | 'under'
-  vy?: number
+  vy?: number // a dolphin: its speed up or down; a gull: too, for the eye (its tilt)
+  // a gull: which of GULL_PATHS, its own speed, how high it starts and over how long it comes down,
+  // and how it leaves once past Catbo (climb: how fast it rises, 0 = straight on)
+  path?: number
+  fly?: number
+  high?: number
+  dive?: number
+  climb?: number
   at?: number // how far ahead of the boat it leaps
 }
 export type Swimmer = { kind: 'fish' | Creature; x: number; y: number; w: number; h: number; swim: number; seed: number }
@@ -124,7 +148,7 @@ export class Sim {
     this.rand = seededRandom(seed)
     this.onSplash = onSplash
     this.nextThing = W * 0.9
-    for (let i = 0; i < 4; i++) this.addSwimmer(80 + this.rand() * (W - 120)) // all fish: the first level has no creatures
+    for (let i = 0; i < 4; i++) this.addSwimmer('fish', 80 + this.rand() * (W - 120))
   }
 
   // The race is under way: started by a first jump (until then Catbo waits, and nothing comes along)
@@ -169,11 +193,32 @@ export class Sim {
     return true
   }
 
-  // ---- What comes along: buoys to jump, and dolphins that leap ----
+  // ---- What comes along: buoys to jump, diving gulls to jump, and dolphins that leap ----
   private spawn() {
     const x = this.W + 60
-    const { gap, dolphins, pairs } = LEVELS[this.level]
-    if (this.rand() >= dolphins) {
+    const { gap, dolphins, birds, pairs } = LEVELS[this.level]
+    const pick = this.rand()
+    if (pick >= dolphins && pick < dolphins + birds) {
+      // A gull, each its own way (seed: how its wings beat, for the eye). It flies faster than the
+      // world, so it starts further off: it reaches Catbo when a buoy put here now would, and keeps
+      // the same room around it as a buoy (time to land before it, and after it)
+      const path = Math.floor(this.rand() * GULL_PATHS.length)
+      const r = (a: number, b: number) => a + this.rand() * (b - a)
+      // [its speed, how high it starts, over how long it comes down], each between two values
+      const ways = [
+        [r(120, 170), r(230, 340), r(420, 620)], // dive
+        [r(125, 160), r(160, 260), r(700, 950)], // glide
+        [r(140, 190), r(260, 340), r(380, 520)], // stoop
+        [r(125, 160), r(220, 320), r(650, 900)], // wave
+        [r(150, 200), r(30, 70), r(500, 800)], // skimmer
+      ]
+      const [fly, high, dive] = ways[path]
+      const climb = this.rand() < 0.7 ? r(0.6, 1.4) : 0
+      const over = this.W * BOAT.x + BOAT.w / 2
+      const start = over + ((x - over) * (this.speed + fly)) / this.speed
+      this.things.push({ kind: 'bird', x: start, y: this.SEA - GULL.skim - high, w: GULL.w, h: GULL.h, seed: this.rand(), vy: 0, path, fly, high, dive, climb })
+      this.nextThing = this.speed * (gap[0] + this.rand() * gap[1])
+    } else if (pick >= dolphins) {
       this.things.push({ kind: 'buoy', x, y: this.SEA - 58, w: 40, h: 70, seed: this.rand() })
       // now and then a second buoy close behind: one long, well-timed jump clears both
       if (this.rand() < pairs) this.things.push({ kind: 'buoy', x: x + 58, y: this.SEA - 58, w: 40, h: 70, seed: this.rand() })
@@ -194,11 +239,8 @@ export class Sim {
     }
   }
 
-  // A fish swimming in the water, somewhere below the waves; or, from the second level on and as
-  // often as the level says, one of its sea creatures
-  private addSwimmer(x = this.W + 50) {
-    const { creatures, danger } = LEVELS[this.level]
-    const kind = creatures.length && this.rand() < danger ? creatures[Math.floor(this.rand() * creatures.length)] : 'fish'
+  // A fish, or a sea creature, swimming in the water somewhere below the waves
+  private addSwimmer(kind: Swimmer['kind'], x = this.W + 50) {
     const w = kind === 'fish' ? 46 + this.rand() * 26 : kind === 'snake' ? 110 + this.rand() * 30 : 52 + this.rand() * 14
     const h = kind === 'fish' ? w * 0.57 : kind === 'jelly' ? w * 1.1 : kind === 'snake' ? 40 : w * 0.85
     const y = this.SEA + 50 + this.rand() * (DEPTH - 50 - h - 15)
@@ -222,8 +264,16 @@ export class Sim {
     this.swimmers = this.swimmers.filter((f) => f.x > -f.w * 2)
     this.swimIn -= dt
     if (this.swimIn <= 0) {
-      this.addSwimmer()
-      this.swimIn = 0.6 + this.rand() * 1.1
+      // A fish every time. The level's sea creatures come as well as the fish, never instead of
+      // them, a little behind it
+      this.addSwimmer('fish')
+      const { creatures, danger } = LEVELS[this.level]
+      if (creatures.length && this.rand() < danger)
+        this.addSwimmer(creatures[Math.floor(this.rand() * creatures.length)], this.W + 140 + this.rand() * 120)
+      // The faster Catbo goes, the sooner they pass, so they come more often: the sea holds as
+      // many fish on a hard level as on the first
+      // (a fish passes at 0.8 of Catbo's speed, plus its own swimming: 55 on average)
+      this.swimIn = (0.6 + this.rand() * 1.1) * Math.min(1, (START_SPEED * 0.8 + 55) / (this.speed * 0.8 + 55))
     }
     if (!this.moving()) return // before the first jump, and after the race
 
@@ -281,6 +331,16 @@ export class Sim {
     const ahead = this.speed * (DOLPHIN.leap / DOLPHIN.gravity)
     for (const th of this.things) {
       th.x -= this.speed * dt
+      if (th.kind === 'bird') {
+        // a gull flies at Catbo its own way, skims the waves near him, then leaves (up, or straight on)
+        th.x -= th.fly! * dt
+        const dx = th.x + th.w / 2 - over // how far ahead of Catbo
+        const far = Math.max(0, Math.min(1, (dx - GULL.level) / th.dive!))
+        const past = Math.max(0, Math.min(1, (-dx - 90) / 260)) // only once it is clear of him
+        const was = th.y
+        th.y = this.SEA - GULL.skim - Math.max(th.high! * GULL_PATHS[th.path!](far), 300 * th.climb! * past * past)
+        th.vy = (th.y - was) / dt
+      }
       if (th.kind !== 'dolphin') continue
       // it leaps so that the top of its arc comes right over Catbo: half its time in the air ahead of him
       if (th.leap === 'swim' && th.x + th.w / 2 - over < ahead + th.at! - 120) {
@@ -306,7 +366,10 @@ export class Sim {
       const hit =
         th.kind === 'dolphin'
           ? this.lift > 20 && th.leap === 'up' && th.x + th.w * 0.15 < b.r - 18 && th.x + th.w * 0.85 > b.l + 18 && th.y + th.h * 0.8 > b.top && th.y + th.h * 0.2 < b.b
-          : th.y + th.h * 0.25 < b.b && th.x + th.w * 0.2 < b.r - 20 && th.x + th.w * 0.8 > b.l + 20
+          : th.kind === 'bird'
+            ? // its body and the inner part of its wings, against Catbo and his board
+              th.x + th.w * 0.15 < b.r - 18 && th.x + th.w * 0.85 > b.l + 18 && th.y + th.h * 0.25 < b.b && th.y + th.h * 0.8 > b.top
+            : th.y + th.h * 0.25 < b.b && th.x + th.w * 0.2 < b.r - 20 && th.x + th.w * 0.8 > b.l + 20
       if (hit) {
         this.onSplash(th.x + th.w / 2, th.y, 18)
         return this.end(th.kind)

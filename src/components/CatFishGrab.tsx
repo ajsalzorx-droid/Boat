@@ -209,12 +209,18 @@ export default function CatFishGrab({
             className="absolute pointer-events-auto cursor-pointer bg-transparent group"
             style={{ display: "none" }}
           >
-            {/* A round speech bubble, its tail at the bottom right toward the cat */}
-            <span className="absolute right-full top-[30%] -translate-y-1/2 mr-1 flex flex-col items-center justify-center w-[76px] h-[76px] md:w-[88px] md:h-[88px] rounded-full bg-white text-navy font-[family-name:var(--font-playfair-display)] font-semibold uppercase text-[15px] md:text-[17px] leading-[1.02] tracking-[0.5px] text-center shadow-[0_6px_18px_-6px_rgba(0,48,73,0.55)] motion-safe:animate-[catbo-nudge_1.6s_ease-in-out_infinite] group-hover:bg-navy group-hover:text-cream">
-              <span>Click</span>
-              <span>to</span>
-              <span>play</span>
-              <span aria-hidden className="absolute right-[6%] bottom-[4%] w-3 h-3 rotate-45 bg-inherit" />
+            {/* A round "Click to play" speech bubble (the restaurant's own artwork), its tail at the
+                bottom right toward the cat. The button's aria-label says what it does */}
+            <span className="absolute right-full top-[30%] -translate-y-1/2 mr-1 block w-[76px] h-[76px] md:w-[88px] md:h-[88px] motion-safe:animate-[catbo-nudge_1.6s_ease-in-out_infinite]">
+              <img
+                src="/catbo/click-to-play.webp"
+                loading="lazy"
+                alt=""
+                width={88}
+                height={88}
+                draggable={false}
+                className="w-full h-full drop-shadow-[0_6px_10px_rgba(0,48,73,0.45)] transition-transform duration-200 group-hover:scale-105"
+              />
             </span>
           </button>
         )}

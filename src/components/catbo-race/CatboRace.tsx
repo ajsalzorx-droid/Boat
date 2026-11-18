@@ -332,12 +332,10 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
               raceRef.current?.cast();
             }}
             aria-label="Drop the fishing line"
-            className="md:hidden absolute right-4 bottom-[max(1.25rem,env(safe-area-inset-bottom))] w-16 h-16 rounded-full bg-white/95 text-navy shadow-[0_6px_18px_-6px_rgba(0,48,73,0.6)] border-4 border-white flex flex-col items-center justify-center active:scale-95 touch-none"
+            className="md:hidden absolute right-4 bottom-[max(1.25rem,env(safe-area-inset-bottom))] w-16 h-16 rounded-full shadow-[0_6px_18px_-6px_rgba(0,48,73,0.6)] active:scale-95 transition-transform touch-none"
           >
-            <span className="text-[22px] leading-none" aria-hidden>
-              🎣
-            </span>
-            <ChevronsDown size={16} aria-hidden className="-mt-0.5" />
+            {/* the restaurant's hook-and-fish artwork: a white disc in a navy ring */}
+            <img src="/catbo/fish-hook.webp" alt="" width={64} height={64} draggable={false} className="w-full h-full pointer-events-none select-none" />
           </button>
         )}
 
@@ -379,7 +377,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                 <p className="font-playfair text-[22px] sm:text-[28px] leading-tight font-bold text-navy mb-3">Surf with Catbo!</p>
                 <p className="text-navy/75 text-[12.5px] leading-snug mb-4 sm:text-[14px] sm:leading-normal sm:mb-5">
                   <span className="hidden md:inline">Click or press Space</span>
-                  <span className="md:hidden">Tap the screen</span> to jump over buoys. Dolphins leap over you: don&rsquo;t jump into them! To fish, <span className="hidden md:inline">press ↓</span><span className="md:hidden">tap 🎣</span>. One hit and the race is over. It gets harder every 100 m, and more and more sea creatures swim among the fish: never hook an octopus, a jellyfish or a sea snake!
+                  <span className="md:hidden">Tap the screen</span> to jump over buoys and diving gulls. Dolphins leap over you: don&rsquo;t jump into them! To fish, <span className="hidden md:inline">press ↓</span><span className="md:hidden">tap the hook button</span>. One hit and the race is over. It gets harder every 100 m, and more and more sea creatures swim among the fish: never hook an octopus, a jellyfish or a sea snake!
                 </p>
                 <div className="flex flex-col gap-2.5">
                   <button type="button" autoFocus className={button} onClick={playFree}>
