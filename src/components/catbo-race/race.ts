@@ -1,24 +1,27 @@
 // Catbo Racing: the game, drawn on a canvas. Loaded only when a visitor presses "Click to play" on
 // the peeking cat (see CatboRace.tsx), so none of it weighs on the pages until then.
 //
-// Catbo surfs across the sea on his board, fishing rod in paw, ever faster. A tap, a click or Space makes it jump over buoys,
-// and not into dolphins: a dolphin, unseen underwater, leaps
-// right over Catbo in a high arc and dives back in nose first behind him. Staying on the water is
-// safe (it only hits Catbo in the air); jumping into it, or hitting a buoy, ends the race: there is
-// one life. Fish swim by under the water; the down arrow (or the fish button on a phone) drops
-// Catbo's line, which hooks what it touches. A fish is fine (and counts towards a discount when playing for one: see claims.ts); from
-// the second level on, sea creatures swim mixed in with the fish (octopuses, then jellyfish too,
-// then sea snakes too), more of them each level, and hooking one of them ends the race too. The distance is the score, kept on the
-// device with the best one. The race starts easy and gets harder with the distance, in four levels
-// (see LEVELS), every 100 m, their names never shown. Each is faster, with less room between
-// obstacles, more creatures in the water, and its own colours: the sky and sea change as a level
-// begins. The world fits the screen: at least MIN_W units wide
-// and MIN_H tall; on a tall phone the extra height is sky, the sea staying at the bottom.
+// Catbo surfs across the sea on his board, fishing rod in paw, ever faster. A tap, a click or Space
+// makes him jump over buoys, and not into dolphins: a dolphin, unseen underwater, leaps right over
+// Catbo in a high arc and dives back in nose first behind him. Staying on the water is safe (it only
+// hits Catbo in the air); jumping into it, or hitting a buoy, ends the race: there is one life. Fish
+// swim by under the water; the down arrow (or the fish button on a phone) drops Catbo's line, which
+// hooks what it touches. A fish counts (towards a discount, when playing for one); from the second
+// level on, sea creatures swim among the fish, more of them each level, and hooking one ends the
+// race too. The race gets harder every 100 m (see LEVELS in sim.ts), each level with its own colours.
+//
+// The rules live in sim.ts, shared with the server: this file runs them, draws them, and keeps what
+// is only for the eye (splashes, clouds, the colours fading). The world moves in fixed steps; each
+// jump and cast is noted with its step, so a race played for a discount can be replayed by the
+// server, which works out the score itself (claims.ts). The world fits the screen when a race
+// starts: at least MIN_W units wide and MIN_H tall; on a tall phone the extra height is sky.
+
+import { BOAT, CAST_INPUT, CAUSES, JUMP_INPUT, LEVELS, MIN_H, MIN_W, PIC, Sim, STEP, UNITS_PER_METRE, GRAVITY, type Input, type Swimmer, type Thing } from "./sim";
 
 export type RaceState = {
   phase: "ready" | "racing" | "over";
   metres: number;
-  fish: number; // fish Catbo has caught this race (not part of the score)
+  fish: number; // fish Catbo has caught this race
   cause: string; // how the race ended ("" while it runs)
   hint: boolean; // show "Tap to jump" at the start of a race, until the first jump
   fishHint: boolean; // then "Tap to fish", until the line is first dropped
@@ -26,54 +29,22 @@ export type RaceState = {
   level: string; // the level's name: "Beginner", "Medium", "Hard" or "Extra Hard"
   levelNumber: number; // 1 to 4
 };
-export type Race = { start: () => void; jump: () => void; cast: () => void; setAutoStart: (on: boolean) => void; destroy: () => void };
-
-const MIN_W = 760;
-const MIN_H = 600;
-const DEPTH = 200; // how much sea shows below the water line
-// Catbo on his surfboard: the size of the whole (for what he hits), and where he rides (share of
-// the width from the left). CAT_SIZE sizes him: his picture, and the box for what he hits, together
-const CAT_SIZE = 0.75;
-const BOAT = { w: 220 * CAT_SIZE, h: 200 * CAT_SIZE, x: 0.2 };
-// His picture (public/race/catbo-surf.webp, 720 x 581, its line and hook taken out: the game draws
-// its own when he fishes): drawn PIC.scale world units a pixel, from the middle of the board's
-// bottom (at PIC.x, PIC.y in the picture; the board's tail dips a little lower, into the water).
-// ROD: his rod's tip, from there
-const PIC = { w: 720, h: 581, x: 360, y: 560, scale: 0.36 * CAT_SIZE };
-const ROD = { x: (703 - 360) * PIC.scale, y: (8 - 560) * PIC.scale };
-const GRAVITY = 1700;
-const JUMP = 720; // speed up at take-off
-const START_SPEED = 300; // units a second
-const SPEED_UP = 14; // units a second faster, each second, up to the level's speed
-const UNITS_PER_METRE = 40;
-const BEST_KEY = "catbo-race-best";
-// leap: its speed up at take-off, high enough to clear Catbo's head (its top swims swimDepth under the water line)
-const DOLPHIN = { w: 160, h: 62, swimDepth: 60, leap: 900, gravity: 1150 };
-
-// The levels, each starting at a distance (from, in metres). speed: the fastest Catbo goes in it.
-// gap: the room between obstacles, in seconds of travel (the least, and how much more at random;
-// a jump lasts 0.85 s, so the least stays above that). dolphins: the share of obstacles that are
-// dolphins. pairs: how often a buoy has a second one close behind. creatures: the sea creatures
-// in the water (never to be hooked), danger: the share of what swims by that is one of them, and
-// warn: what the new level's sign adds. Then its colours: the sky and the sea (top, bottom), the
-// wave at the back, the far islands, and the sun.
-const LEVELS = [
-  { name: "Beginner", from: 0, speed: 360, gap: [1.5, 0.8], dolphins: 0.25, pairs: 0, creatures: [] as Creature[], danger: 0, warn: "", sky: ["#f9eadb", "#f4dcc4"], sea: ["#a6dbda", "#5b9fb4"], back: "#78bac0", isles: "#cfe3df", sun: "#ffd678" }, // soft morning
-  { name: "Medium", from: 100, speed: 500, gap: [1.2, 0.7], dolphins: 0.4, pairs: 0.15, creatures: ["octopus"] as Creature[], danger: 0.2, warn: "Don't hook an octopus! 🐙", sky: ["#bfe6fb", "#e3f4fc"], sea: ["#6fd3d8", "#1f86b3"], back: "#4fb3c9", isles: "#a9d6c4", sun: "#fff3a6" }, // bright blue day
-  { name: "Hard", from: 200, speed: 640, gap: [1.0, 0.65], dolphins: 0.5, pairs: 0.3, creatures: ["octopus", "jelly"] as Creature[], danger: 0.35, warn: "Jellyfish too! 🪼", sky: ["#ff9f6b", "#ffd29a"], sea: ["#c98fb0", "#5a4f9c"], back: "#a877a8", isles: "#c9705f", sun: "#ff7043" }, // sunset
-  { name: "Extra Hard", from: 300, speed: 800, gap: [0.92, 0.45], dolphins: 0.55, pairs: 0.45, creatures: ["octopus", "jelly", "snake"] as Creature[], danger: 0.5, warn: "And sea snakes! 🐍", sky: ["#101a44", "#3a2f6e"], sea: ["#2c4f96", "#0d1c45"], back: "#213c7c", isles: "#262b5c", sun: "#e6ebff" }, // night
-];
-// What hooking each sea creature, or hitting each obstacle, says on the race-over card
-const CAUSES = {
-  buoy: "You bumped into a buoy!",
-  dolphin: "You jumped into a dolphin!",
-  octopus: "You hooked an octopus!",
-  jelly: "You hooked a jellyfish!",
-  snake: "You hooked a sea snake!",
+// A race's record for the server: the world's size, the seed it was given, and every jump and cast
+export type RaceReplay = { W: number; H: number; seed: number; inputs: Input[]; steps: number };
+export type Race = {
+  start: (seed?: number) => void;
+  jump: () => void;
+  cast: () => void;
+  setAutoStart: (on: boolean) => void;
+  replay: () => RaceReplay | null;
+  destroy: () => void;
 };
+
+const BEST_KEY = "catbo-race-best";
 const RESTART_PAUSE = 1; // seconds after a race ends before a tap or Space starts the next
 const LEVEL_FADE = 1.5; // seconds for the colours to change to the next level's
 const LEVEL_SIGN = 2.5; // seconds the new level's name shows
+const MAX_STEPS_PER_FRAME = 8; // a slow device runs the game slower, never skips its steps
 
 // A colour between two (k: 0 the first, 1 the second), as rgba()
 const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
@@ -90,20 +61,6 @@ const ART = {
   cloudC: "/race/cloud-c.webp",
 };
 
-type Thing = {
-  kind: "buoy" | "dolphin";
-  x: number;
-  y: number; // top
-  w: number;
-  h: number;
-  seed: number;
-  // a dolphin: swimming toward the boat, leaping (vy: its speed up or down), or gone back under
-  leap?: "swim" | "up" | "under";
-  vy?: number;
-  at?: number; // how far ahead of the boat it leaps
-};
-type Creature = "octopus" | "jelly" | "snake";
-type Swimmer = { kind: "fish" | Creature; x: number; y: number; w: number; h: number; swim: number; seed: number };
 type Cloud = { img: HTMLImageElement; x: number; y: number; w: number; h: number; speed: number };
 type Splash = { x: number; y: number; vx: number; vy: number; age: number };
 
@@ -122,70 +79,92 @@ const readBest = () => {
     return 0;
   }
 };
+const randomSeed = () => Math.floor(Math.random() * 2 ** 31);
 
 export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceState) => void): Promise<Race> {
   const entries = await Promise.all(Object.entries(ART).map(async ([k, src]) => [k, await load(src)] as const));
   const art = Object.fromEntries(entries) as Record<keyof typeof ART, HTMLImageElement>;
   const ctx = canvas.getContext("2d")!;
 
-  // ---- The world, fitted to the canvas ----
-  let W = 1000;
-  let H = MIN_H;
-  let SEA = MIN_H - DEPTH; // the water line
+  // ---- The canvas, and the world's size for a new race ----
   let scale = 1;
-  const fit = () => {
+  let offsetX = 0;
+  let offsetY = 0;
+  const worldSize = () => {
     const r = canvas.getBoundingClientRect();
     const ratio = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = Math.max(1, Math.round(r.width * ratio));
     canvas.height = Math.max(1, Math.round(r.height * ratio));
-    scale = Math.min(canvas.height / MIN_H, canvas.width / MIN_W);
-    W = canvas.width / scale;
-    H = canvas.height / scale;
-    const was = SEA;
-    SEA = H - DEPTH;
-    for (const th of things) th.y += SEA - was; // what is already out there stays on the water
+    const s = Math.min(canvas.height / MIN_H, canvas.width / MIN_W);
+    return { W: canvas.width / s, H: canvas.height / s };
+  };
+  // The world drawn as large as fits the canvas (a race's world keeps its size if the screen turns)
+  const fitView = () => {
+    scale = Math.min(canvas.height / sim.H, canvas.width / sim.W);
+    offsetX = (canvas.width - sim.W * scale) / 2;
+    offsetY = canvas.height - sim.H * scale; // the sea stays at the bottom
     sky = sea = null;
   };
 
   // ---- State ----
-  let phase: RaceState["phase"] = "ready";
-  let t = 0;
-  let speed = START_SPEED;
-  let travelled = 0;
-  let cause = "";
-  let best = readBest();
-  let lift = 0; // how high the boat is above the water
-  let rise = 0; // its speed up (negative: falling)
-  let jumps = 0;
-  let casts = 0;
-  let caught = 0;
-  let overAt = 0; // when the race ended
-  let autoStart = false; // whether a tap, a click or Space may start a race (free play only)
-  let firstJumpAt = 0; // when the race's first jump was
-  let level = 0; // which of LEVELS
-  let levelAt = -99; // when it began (for its name on screen)
-  let shade = 0; // the colours shown: follows level, fading from one to the next
-  let things: Thing[] = [];
   let splashes: Splash[] = [];
-  let nextThing = 0; // distance to the next obstacle
-  // Fish in the water, and Catbo's line: waiting, going down, or reeling in (with a fish, maybe)
-  let swimmers: Swimmer[] = [];
-  let swimIn = 0;
-  const line = { state: "wait" as "wait" | "down" | "reel", depth: 0, target: 0, wait: 2, hold: 0, fish: null as Swimmer | null };
+  const splash = (x: number, y: number, n: number) => {
+    for (let i = 0; i < n; i++) splashes.push({ x, y, vx: (Math.random() - 0.5) * 260, vy: -120 - Math.random() * 260, age: 0 });
+  };
+  const first = worldSize();
+  let sim = new Sim(first.W, first.H, randomSeed(), splash); // before a race: the sea, fish swimming
+  let seed = 0;
+  let inputs: Input[] = [];
+  let queued: (0 | 1)[] = []; // pressed since the last step
+  let phase: RaceState["phase"] = "ready";
+  let best = readBest();
+  let autoStart = false; // whether a tap, a click or Space may start a race (free play only)
+  let overAt = 0; // when the race ended (sim time)
+  let endStep = 0; // the step it ended on (the world keeps moving gently after, for the eye)
+  let shade = 0; // the colours shown: follows the level, fading from one to the next
   let sent = "";
-  // The race is under way: started, and the guide ("Press Space to jump") answered by a first jump.
-  // Until then Catbo waits on the water and nothing comes along
-  const moving = () => phase === "racing" && jumps > 0;
   const clouds: Cloud[] = [
     { img: art.cloudA, x: 120, y: 70, w: 210, h: 64, speed: 0.08 },
     { img: art.cloudB, x: 620, y: 40, w: 180, h: 43, speed: 0.05 },
     { img: art.cloudC, x: 950, y: 140, w: 200, h: 51, speed: 0.11 },
   ];
 
+  // What the drawing reads, taken from the rules each frame
+  let W = sim.W;
+  let H = sim.H;
+  let SEA = sim.SEA;
+  let t = 0;
+  let speed = 0;
+  let travelled = 0;
+  let lift = 0;
+  let rise = 0;
+  let level = 0;
+  let levelAt = -99;
+  let things: Thing[] = [];
+  let swimmers: Swimmer[] = [];
+  let line = sim.line;
+  const fromSim = () => {
+    ({ W, H, SEA, t, speed, travelled, lift, rise, level, levelAt, things, swimmers, line } = sim);
+  };
+  const moving = () => phase === "racing" && sim.moving();
+  const boatBox = () => sim.boatBox();
+  const lineTop = () => sim.lineTop();
+  const hookAt = () => sim.hookAt();
+
   const emit = () => {
-    const hint = phase === "racing" && jumps === 0; // stays until the first jump
-    const fishHint = phase === "racing" && !hint && casts === 0 && t - firstJumpAt < 7; // for a while after it
-    const s: RaceState = { phase, metres: Math.floor(travelled / UNITS_PER_METRE), fish: caught, cause, best, hint, fishHint, level: LEVELS[level].name, levelNumber: level + 1 };
+    const hint = phase === "racing" && sim.jumps === 0; // stays until the first jump
+    const fishHint = phase === "racing" && !hint && sim.casts === 0 && sim.t - sim.firstJumpAt < 7; // for a while after it
+    const s: RaceState = {
+      phase,
+      metres: sim.metres(),
+      fish: sim.caught,
+      cause: sim.cause ? CAUSES[sim.cause] : "",
+      best,
+      hint,
+      fishHint,
+      level: LEVELS[sim.level].name,
+      levelNumber: sim.level + 1,
+    };
     const key = JSON.stringify(s);
     if (key !== sent) {
       sent = key;
@@ -193,239 +172,73 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
     }
   };
 
-  const reset = () => {
-    phase = "ready";
-    speed = START_SPEED;
-    travelled = 0;
-    cause = "";
-    jumps = 0;
-    casts = 0;
-    caught = 0;
-    lift = rise = 0;
-    level = 0;
-    levelAt = -99;
-    shade = 0;
-    things = [];
+  // A new race in a world the size of the screen now. seed: given by the server for a race played
+  // for a discount, else any
+  const start = (raceSeed?: number) => {
+    const { W: w, H: h } = worldSize();
+    seed = raceSeed ?? randomSeed();
+    sim = new Sim(w, h, seed, splash);
+    inputs = [];
+    queued = [];
     splashes = [];
-    nextThing = W * 0.9;
-    swimmers = [];
-    for (let i = 0; i < 4; i++) addSwimmer(80 + Math.random() * (W - 120)); // all fish: the first level has no creatures
-    Object.assign(line, { state: "wait", depth: 0, wait: 2, fish: null });
+    shade = 0;
+    phase = "racing";
+    fitView();
     emit();
   };
-
-  // ---- What comes along: buoys to jump, and dolphins that leap ----
-  const spawn = () => {
-    const x = W + 60;
-    const { gap, dolphins, pairs } = LEVELS[level];
-    if (Math.random() >= dolphins) {
-      things.push({ kind: "buoy", x, y: SEA - 58, w: 40, h: 70, seed: Math.random() });
-      // now and then a second buoy close behind: one long, well-timed jump clears both
-      if (Math.random() < pairs) things.push({ kind: "buoy", x: x + 58, y: SEA - 58, w: 40, h: 70, seed: Math.random() });
-      nextThing = speed * (gap[0] + Math.random() * gap[1]); // always just time to land and jump again
-    } else {
-      things.push({
-        kind: "dolphin",
-        x,
-        y: SEA + DOLPHIN.swimDepth,
-        w: DOLPHIN.w,
-        h: DOLPHIN.h,
-        seed: Math.random(),
-        leap: "swim",
-        vy: 0,
-        at: 120 + (Math.random() - 0.5) * 60, // a little early or late, so it is not always the same
-      });
-      nextThing = speed * (gap[0] + 0.3 + Math.random() * gap[1]); // a dolphin needs room
-    }
-  };
-
-  // A fish swimming in the water, somewhere below the waves; or, from the third level on and as
-  // often as the level says, one of its sea creatures
-  function addSwimmer(x = W + 50) {
-    const { creatures, danger } = LEVELS[level];
-    const kind = creatures.length && Math.random() < danger ? creatures[Math.floor(Math.random() * creatures.length)] : "fish";
-    const w = kind === "fish" ? 46 + Math.random() * 26 : kind === "snake" ? 110 + Math.random() * 30 : 52 + Math.random() * 14;
-    const h = kind === "fish" ? w * 0.57 : kind === "jelly" ? w * 1.1 : kind === "snake" ? 40 : w * 0.85;
-    const y = SEA + 50 + Math.random() * (DEPTH - 50 - h - 15);
-    swimmers.push({ kind, x, y, w, h, swim: (kind === "fish" ? 30 : 10) + Math.random() * 50, seed: Math.random() });
-  }
-
-  // Where Catbo's line leaves his rod's tip, and where its hook is
-  const lineTop = () => {
-    const b = boatBox();
-    return { x: W * BOAT.x + BOAT.w / 2 + ROD.x, y: b.b + ROD.y };
-  };
-  const hookAt = () => {
-    const top = lineTop();
-    return { x: top.x - line.depth * 0.22, y: SEA + 12 + line.depth };
-  };
-
-  const splash = (x: number, y: number, n: number) => {
-    for (let i = 0; i < n; i++) splashes.push({ x, y, vx: (Math.random() - 0.5) * 260, vy: -120 - Math.random() * 260, age: 0 });
-  };
-
   const jump = () => {
     // In free play, before a race a tap, a click or Space starts it; after one, the same starts the
     // next, once the race-over card has been up a moment (so a last jump that just missed does not
     // skip it). A race played for a discount is only started by its own button (setAutoStart(false)):
     // the server counts each chance first
     if (phase === "ready" || phase === "over") {
-      if (autoStart && (phase === "ready" || t - overAt > RESTART_PAUSE)) start();
+      if (autoStart && (phase === "ready" || sim.t - overAt > RESTART_PAUSE)) start();
       return;
     }
-    if (lift > 4) return; // on the water only
-    rise = JUMP;
-    if (jumps === 0) firstJumpAt = t;
-    jumps++;
-    splash(W * BOAT.x + BOAT.w * 0.45, SEA + 14, 10);
+    queued.push(JUMP_INPUT);
   };
-  // The player drops the line (the down arrow, or the fish button): all the way down, a moment
-  // there, then back up; a fish it touches on the way is hooked (and counted)
   const cast = () => {
-    if (!moving() || lift > 0 || line.state !== "wait") return;
-    Object.assign(line, { state: "down", target: DEPTH - 25, hold: 0.35 });
-    casts++;
-  };
-  // The race is over: the reason for the card, and the best distance kept
-  const end = (why: keyof typeof CAUSES) => {
-    phase = "over";
-    overAt = t;
-    cause = CAUSES[why];
-    const m = Math.floor(travelled / UNITS_PER_METRE);
-    if (m > best) {
-      best = m;
-      try {
-        localStorage.setItem(BEST_KEY, String(best));
-      } catch {}
-    }
-  };
-  const start = () => {
-    if (phase === "over") reset();
-    phase = "racing";
-    emit();
+    if (phase === "racing") queued.push(CAST_INPUT);
   };
 
-  // ---- Update ----
-  const boatBox = () => {
-    const x = W * BOAT.x;
-    const bottom = SEA + 20 - lift;
-    return { l: x + BOAT.w * 0.08, r: x + BOAT.w * 0.92, t: bottom - BOAT.h * 0.42, b: bottom, top: bottom - BOAT.h * 0.95 };
+  // One step of the world: what was pressed since the last one first (noted with this step's
+  // number, for the replay), then the rules
+  const step = () => {
+    if (phase === "racing") {
+      for (const k of queued) {
+        const done = k === JUMP_INPUT ? sim.jump() : sim.cast();
+        if (done) inputs.push([sim.steps, k]);
+      }
+      queued = [];
+    }
+    sim.step();
+    if (phase === "racing" && sim.over) {
+      phase = "over";
+      overAt = sim.t;
+      endStep = sim.steps;
+      if (sim.metres() > best) {
+        best = sim.metres();
+        try {
+          localStorage.setItem(BEST_KEY, String(best));
+        } catch {}
+      }
+    }
   };
-  const update = (dt: number) => {
-    t += dt;
+
+  // What is only for the eye, by the real time passed
+  const animate = (dt: number) => {
     for (const c of clouds) {
-      c.x -= c.speed * (moving() ? speed : 60) * dt;
-      if (c.x < -c.w) c.x = W + Math.random() * 200;
+      c.x -= c.speed * (moving() ? sim.speed : 60) * dt;
+      if (c.x < -c.w) c.x = sim.W + Math.random() * 200;
     }
     for (const s of splashes) {
       s.age += dt;
-      s.x += s.vx * dt - (moving() ? speed * dt : 0);
+      s.x += s.vx * dt - (moving() ? sim.speed * dt : 0);
       s.vy += GRAVITY * 0.7 * dt;
       s.y += s.vy * dt;
     }
     splashes = splashes.filter((s) => s.age < 0.8);
-
-    // fish swim by, a little slower than the boat passes them
-    const drift = moving() ? speed * 0.8 : 0;
-    for (const f of swimmers) f.x -= (drift + f.swim) * dt;
-    swimmers = swimmers.filter((f) => f.x > -f.w * 2);
-    swimIn -= dt;
-    if (swimIn <= 0) {
-      addSwimmer();
-      swimIn = 0.6 + Math.random() * 1.1;
-    }
-
-    // Catbo's line: now and then it goes down, and comes up again, sometimes with a fish
-    if (moving()) {
-      if (lift > 0 && line.depth > 0) line.state = "reel"; // pulled in for a jump
-      if (line.state === "down") {
-        if (line.depth < line.target) line.depth = Math.min(line.target, line.depth + 280 * dt);
-        else if ((line.hold -= dt) <= 0) line.state = "reel";
-        const h = hookAt();
-        const bite = swimmers.find((f) => Math.abs(f.x + f.w / 2 - h.x) < f.w * 0.55 && Math.abs(f.y + f.h / 2 - h.y) < f.h * 0.8);
-        if (bite) {
-          line.fish = bite; // a creature stays on the hook, under the race-over card
-          swimmers = swimmers.filter((f) => f !== bite);
-          if (bite.kind !== "fish") {
-            splash(h.x, h.y, 16);
-            end(bite.kind);
-            return emit();
-          }
-          line.state = "reel";
-        }
-      } else if (line.state === "reel") {
-        line.depth = Math.max(0, line.depth - (lift > 0 ? 700 : line.fish ? 260 : 380) * dt);
-        if (line.depth === 0) {
-          if (line.fish) {
-            splash(lineTop().x, SEA + 10, 10); // into the bag it goes
-            caught++;
-          }
-          Object.assign(line, { state: "wait", fish: null, wait: 2 + Math.random() * 3 });
-        }
-      }
-    }
-    if (!moving()) return emit(); // before the race, after it, and while the guide waits for the first jump
-
-    // the next level begins at its distance; the colours follow
-    if (level < LEVELS.length - 1 && travelled / UNITS_PER_METRE >= LEVELS[level + 1].from) {
-      level++;
-      levelAt = t;
-    }
-    shade = Math.max(0, Math.min(level, shade + dt / LEVEL_FADE));
-    speed = Math.min(LEVELS[level].speed, speed + SPEED_UP * dt);
-    travelled += speed * dt;
-
-    // the boat: up, and back down onto the water with a splash
-    if (lift > 0 || rise > 0) {
-      rise -= GRAVITY * dt;
-      lift += rise * dt;
-      if (lift <= 0) {
-        lift = 0;
-        rise = 0;
-        splash(W * BOAT.x + BOAT.w * 0.5, SEA + 14, 14);
-      }
-    }
-
-    // obstacles come along
-    nextThing -= speed * dt;
-    if (nextThing <= 0) spawn();
-    for (const th of things) {
-      th.x -= speed * dt;
-      if (th.kind !== "dolphin") continue;
-      // it leaps so that the top of its arc comes right over Catbo: half its time in the air ahead of him
-      const over = W * BOAT.x + BOAT.w / 2;
-      const ahead = speed * (DOLPHIN.leap / DOLPHIN.gravity);
-      if (th.leap === "swim" && th.x + th.w / 2 - over < ahead + th.at! - 120) {
-        th.leap = "up";
-        th.vy = -DOLPHIN.leap;
-        splash(th.x + th.w * 0.3, SEA + 10, 16);
-      } else if (th.leap === "up") {
-        th.vy! += DOLPHIN.gravity * dt;
-        th.y += th.vy! * dt;
-        if (th.vy! > 0 && th.y >= SEA + DOLPHIN.swimDepth) {
-          th.y = SEA + DOLPHIN.swimDepth;
-          th.leap = "under";
-          splash(th.x + th.w * 0.5, SEA + 10, 18);
-        }
-      }
-    }
-    things = things.filter((th) => th.x + th.w > -40);
-
-    // what the boat touches
-    const b = boatBox();
-    for (const th of things) {
-      if (th.x > b.r || th.x + th.w < b.l) continue;
-      const hit =
-        th.kind === "dolphin"
-          ? lift > 20 && th.leap === "up" && th.x + th.w * 0.15 < b.r - 18 && th.x + th.w * 0.85 > b.l + 18 && th.y + th.h * 0.8 > b.top && th.y + th.h * 0.2 < b.b
-          : th.y + th.h * 0.25 < b.b && th.x + th.w * 0.2 < b.r - 20 && th.x + th.w * 0.8 > b.l + 20;
-      if (hit) {
-        splash(th.x + th.w / 2, th.y, 18);
-        end(th.kind);
-        break;
-      }
-    }
-    emit();
+    if (moving()) shade = Math.max(0, Math.min(sim.level, shade + dt / LEVEL_FADE));
   };
 
   // ---- Draw ----
@@ -677,7 +490,14 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
   };
 
   const draw = () => {
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    // the world drawn as large as fits: anything the world doesn't cover (a screen turned during a
+    // race) in the sea's deepest colour
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (offsetX > 0 || offsetY > 0) {
+      ctx.fillStyle = LEVELS[sim.level].sea[1];
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
     // the colours: the level's, or part way between two while one fades into the next
     const at = Math.max(0, Math.min(LEVELS.length - 1, Number.isFinite(shade) ? shade : level)); // always a real level
     const from = LEVELS[Math.floor(at)];
@@ -845,15 +665,26 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
     }
   };
 
+
   // ---- Loop, paused while out of sight ----
   let frame = 0;
   let last = 0;
+  let pending = 0; // real time not yet turned into steps
   const loop = (now: number) => {
-    // The first frame's time can be a little before the moment run() noted, so its step is never
-    // taken below 0 (time going back would undo the race: the colours fading to a level before the first)
-    const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
+    // The first frame's time can be a little before the moment run() noted, so it is never below 0
+    const dt = Math.max(0, Math.min(0.25, (now - last) / 1000));
     last = now;
-    update(dt);
+    pending += dt;
+    let n = 0;
+    while (pending >= STEP && n < MAX_STEPS_PER_FRAME) {
+      step();
+      pending -= STEP;
+      n++;
+    }
+    if (n === MAX_STEPS_PER_FRAME) pending = 0; // a long stall: carry on from here, slower, not in a rush
+    animate(dt);
+    emit();
+    fromSim();
     draw();
     frame = requestAnimationFrame(loop);
   };
@@ -866,13 +697,21 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
   const onVisibility = () => run();
   document.addEventListener("visibilitychange", onVisibility);
   const resize = new ResizeObserver(() => {
-    fit();
+    // Before a race the sea simply fits the new size; during or after one, its world is kept and
+    // only drawn larger or smaller
+    if (phase === "ready") {
+      const { W: w, H: h } = worldSize();
+      sim = new Sim(w, h, randomSeed(), splash);
+    } else worldSize();
+    fitView();
+    fromSim();
     draw();
   });
   resize.observe(canvas);
 
-  fit();
-  reset();
+  fitView();
+  fromSim();
+  emit();
   draw();
   run();
 
@@ -883,6 +722,7 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
     setAutoStart: (on: boolean) => {
       autoStart = on;
     },
+    replay: () => (phase === "ready" ? null : { W: sim.W, H: sim.H, seed, inputs: inputs.slice(), steps: phase === "over" ? endStep : sim.steps }),
     destroy: () => {
       cancelAnimationFrame(frame);
       resize.disconnect();

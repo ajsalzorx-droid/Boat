@@ -2,12 +2,17 @@
 // (src/components/catbo-race), its server actions, and Admin -> Game Claims.
 //
 // The customer registers first (name, phone: one claim per phone number a day), then has
-// CLAIM_CHANCES races. Only the latest race's score counts, even if it is lower: after a race they
-// either keep that score ("Claim this score") or play the next chance, which replaces it. The
+// CLAIM_CHANCES races a day per number. Every race's score is kept, and the customer chooses which
+// one becomes their discount (one discount only): after a race they claim it, or play the next and
+// then choose between them. Until they choose, the better score counts. The
 // score is the fish caught: every fish counts (discountFor). The claim gets a short code; staff
 // find it in Admin -> Game Claims and apply it to the bill, once, within CLAIM_VALID_DAYS.
 
-export const CLAIM_CHANCES = 2
+export const CLAIM_CHANCES: number = 2 // races a day per phone number
+// "1 race a day" / "2 races a day", for the texts
+export const chancesText = (n = CLAIM_CHANCES) => (n === 1 ? '1 race a day' : `${n} races a day`)
+// What the customer sends to our WhatsApp to get a code (src/lib/game-otp.ts answers it)
+export const OTP_REQUEST_TEXT = 'GET OTP'
 export const CLAIM_VALID_DAYS = 7
 
 // Fish caught -> discount on the bill: RATE.percent for every RATE.fish, bit by bit (each fish
@@ -37,6 +42,15 @@ export const normalizeCode = (code: string) => code.toUpperCase().replace(/[^A-Z
 
 export type ClaimStatus = 'open' | 'used' | 'expired'
 
+// One race's result
+export type RaceScore = { chance: number; fish: number; metres: number; percent: number }
+
+// The score a claim gives: the one the customer chose, else the best so far (null = no race yet)
+export function claimScore(scores: RaceScore[], chosen: number | null): RaceScore | null {
+  if (chosen) return scores.find((s) => s.chance === chosen) ?? null
+  return scores.reduce<RaceScore | null>((best, s) => (!best || s.fish > best.fish ? s : best), null)
+}
+
 // What the customer's game shows about their claim (never anyone else's phone number)
 export type ClaimView = {
   claimId: string // the secret the customer's browser keeps to play its chances
@@ -44,10 +58,12 @@ export type ClaimView = {
   name: string
   chancesUsed: number
   chancesLeft: number
-  fish: number | null // the latest race's fish (null = no race finished yet)
+  scores: RaceScore[] // every race finished, in order
+  chosen: number | null // the race the customer chose for their discount (null = not yet)
+  fish: number | null // the claim's score: the chosen race, else the best (null = no race finished yet)
   metres: number | null
   percent: number
-  locked: boolean // the score is kept: no more chances
+  locked: boolean // a score is chosen: no more races
   status: ClaimStatus
   expiresAt: string
 }

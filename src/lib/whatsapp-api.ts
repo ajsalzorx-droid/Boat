@@ -164,14 +164,3 @@ export function sendConfirmation(to: string, message: { parts: string[]; preorde
     : sendTemplate(to, process.env.WATI_CONFIRM_TEMPLATE ?? '', named(CONFIRM_PARAMS, message.parts))
 }
 
-// The code that proves a phone number for Catbo Racing discounts (src/components/catbo-race/claims.ts).
-// Set in .env.local:
-//   WATI_OTP_TEMPLATE  an approved Authentication template in Wati, e.g. "{{1}} is your Boat
-//                      Seafood code." with a Copy code button. Empty = codes are not sent (in
-//                      development they are printed in the server's terminal instead).
-//   WATI_OTP_PARAM     the template variable that holds the code (default "1")
-export const otpReady = () => whatsappChatReady() && !!process.env.WATI_OTP_TEMPLATE
-
-export function sendOtp(to: string, code: string) {
-  return sendTemplate(to, process.env.WATI_OTP_TEMPLATE ?? '', { [process.env.WATI_OTP_PARAM || '1']: code })
-}

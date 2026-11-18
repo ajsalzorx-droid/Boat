@@ -7,7 +7,7 @@ import { applyGameClaim, listGameClaims, type GameClaimFilter, type GameClaimRow
 import { actionFailed } from "../client-helpers";
 import Pagination from "../Pagination";
 import { formatPrice } from "@/lib/offers";
-import { formatPercent, RULES } from "@/lib/game-claims";
+import { CLAIM_CHANCES, formatPercent, RULES } from "@/lib/game-claims";
 
 // Catbo Racing played for a discount (src/lib/game-claims.ts). At the till: search the customer's
 // code (or phone number), enter the bill number and amount, and apply the discount: once per claim.
@@ -94,7 +94,7 @@ export default function AdminGameClaimsPage() {
         <div className="min-w-0 w-full md:w-auto">
           <h1 className="text-2xl md:text-3xl font-playfair font-bold text-navy mb-1 md:mb-2 leading-tight md:leading-normal">Game Claims</h1>
           <p className="text-sm md:text-base text-gray-500">
-            Catbo Racing discounts: {RULES}. Search the customer&rsquo;s code and apply it to their bill.
+            Catbo Racing discounts: {RULES}. Search the customer&rsquo;s code and apply it to their bill. One game discount per bill: a group uses one person&rsquo;s code.
           </p>
         </div>
         <button onClick={load} className="flex items-center justify-center gap-2 whitespace-nowrap bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 px-4 py-2 rounded-lg transition-all shrink-0">
@@ -213,10 +213,27 @@ function ClaimCard({ claim: c, onApplied }: { claim: GameClaimRow; onApplied: (r
       </div>
 
       <div className="p-4 md:p-5 flex flex-col gap-2 text-sm flex-grow">
+        {/* The discount to give: the race the customer chose (or, not chosen yet, their best) */}
         <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-ocean/10 text-navy">
-          <span className="flex items-center gap-2 font-semibold"><Fish size={15} className="shrink-0" /> {c.fish ?? 0} fish</span>
+          <span className="flex flex-col">
+            <span className="flex items-center gap-2 font-semibold"><Fish size={15} className="shrink-0" /> {c.fish ?? 0} fish</span>
+            <span className="text-[11px] text-navy/60">
+              {c.chosen_chance ? `Customer chose race ${c.chosen_chance}` : c.scores.length > 1 ? "Not chosen yet: best race" : c.scores.length ? "Race 1" : "No race yet"}
+            </span>
+          </span>
           <span className="font-playfair text-2xl font-bold">{formatPercent(c.percent)}% off</span>
         </div>
+        {/* Every race played, the chosen one marked */}
+        {c.scores.length > 1 && (
+          <ul className="flex flex-col gap-1 text-[12px]">
+            {c.scores.map((r) => (
+              <li key={r.chance} className={`flex justify-between rounded-md px-2.5 py-1.5 ${c.chosen_chance === r.chance ? "bg-green-50 text-green-800 font-semibold" : "bg-gray-50 text-gray-600"}`}>
+                <span>Race {r.chance}: {r.fish} fish{c.chosen_chance === r.chance ? " ✓ chosen" : ""}</span>
+                <span>{formatPercent(r.percent)}%</span>
+              </li>
+            ))}
+          </ul>
+        )}
         <p className="text-navy font-semibold">{c.name}</p>
         <div className="flex flex-wrap gap-x-4 gap-y-1">
           <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-2 text-ocean font-medium hover:text-navy w-fit">
@@ -227,7 +244,7 @@ function ClaimCard({ claim: c, onApplied }: { claim: GameClaimRow; onApplied: (r
           </a>
         </div>
         <p className="text-[12px] text-gray-500">
-          {c.offers ? "Agreed to offers on WhatsApp" : "Did not ask for offers"} · {c.chances_used} of 2 chances played{c.locked ? ", score kept" : ""}
+          {c.offers ? "Agreed to offers on WhatsApp" : "Did not ask for offers"} · {c.chances_used} of {CLAIM_CHANCES} {CLAIM_CHANCES === 1 ? "race" : "races"} played{c.chosen_chance ? ", score chosen" : c.locked ? ", score kept" : ""}
         </p>
         {c.status === "used" && (
           <p className="flex items-start gap-2 text-navy bg-gray-50 rounded-lg p-3 mt-1">

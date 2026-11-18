@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { after, NextResponse, type NextRequest } from 'next/server'
 import { handleWatiEvent, type WatiEvent } from '@/lib/chatbot'
+import { handleOtpRequest } from '@/lib/game-otp'
 
 // Wati posts WhatsApp events here. Wati documents no signature for webhooks, so the address itself
 // carries the secret: https://boatseafood.com/api/wati/webhook?key=WATI_WEBHOOK_SECRET
@@ -31,7 +32,18 @@ export async function POST(request: NextRequest) {
   }
 
   if (event && typeof event === 'object') {
-    after(() => handleWatiEvent(event).catch((e) => console.error('Chatbot failed:', e)))
+    // A "GET OTP" for the game is answered with a code (src/lib/game-otp.ts), for every number;
+    // anything else goes to the chatbot
+    const message = event
+    after(() =>
+      handleOtpRequest(message)
+        .catch((e) => {
+          console.error('Game code failed:', e)
+          return true // never left to the chatbot to answer instead
+        })
+        .then((handled) => (handled ? undefined : handleWatiEvent(message)))
+        .catch((e) => console.error('Chatbot failed:', e))
+    )
   }
   return NextResponse.json({ ok: true })
 }
