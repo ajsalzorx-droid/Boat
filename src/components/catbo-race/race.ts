@@ -16,7 +16,7 @@
 // server, which works out the score itself (claims.ts). The world fits the screen when a race
 // starts: at least MIN_W units wide and MIN_H tall; on a tall phone the extra height is sky.
 
-import { BOAT, CAST_INPUT, CAUSES, JUMP_INPUT, LEVELS, MIN_H, MIN_W, PIC, Sim, STEP, UNITS_PER_METRE, GRAVITY, type Input, type Swimmer, type Thing } from "./sim";
+import { BOAT, CAST_INPUT, CAUSES, JUMP_INPUT, LEVELS, MIN_H, MIN_W, PIC, GULL, Sim, STEP, UNITS_PER_METRE, GRAVITY, type Input, type Swimmer, type Thing } from "./sim";
 
 export type RaceState = {
   phase: "ready" | "racing" | "over";
@@ -63,6 +63,9 @@ const ART = {
 
 type Cloud = { img: HTMLImageElement; x: number; y: number; w: number; h: number; speed: number };
 type Splash = { x: number; y: number; vx: number; vy: number; age: number };
+// Only for the eye, never in the rules: bubbles a fish breathes out. Bird: how a gull is drawn
+type Bubble = { x: number; y: number; r: number; age: number; wob: number };
+type Bird = { x: number; y: number; s: number; v: number; dir: 1 | -1; flap: number; beat: number; glide: number; flapFor: number };
 
 function load(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -111,6 +114,7 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
   const splash = (x: number, y: number, n: number) => {
     for (let i = 0; i < n; i++) splashes.push({ x, y, vx: (Math.random() - 0.5) * 260, vy: -120 - Math.random() * 260, age: 0 });
   };
+  let bubbles: Bubble[] = [];
   const first = worldSize();
   let sim = new Sim(first.W, first.H, randomSeed(), splash); // before a race: the sea, fish swimming
   let seed = 0;
@@ -181,6 +185,7 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
     inputs = [];
     queued = [];
     splashes = [];
+    bubbles = [];
     shade = 0;
     phase = "racing";
     fitView();
@@ -238,6 +243,21 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
       s.y += s.vy * dt;
     }
     splashes = splashes.filter((s) => s.age < 0.8);
+
+    // the world passing by
+    const pass = moving() ? sim.speed : 0;
+    // now and then a fish breathes out a bubble, which wobbles up and pops below the waves
+    for (const f of sim.swimmers) {
+      if (f.kind === "fish" && f.x > 0 && f.x < sim.W && Math.random() < dt * 0.45)
+        bubbles.push({ x: f.x + f.w * 0.06, y: f.y + f.h * 0.55, r: 1.6 + Math.random() * 2.4, age: 0, wob: Math.random() * 6 });
+    }
+    for (const b of bubbles) {
+      b.age += dt;
+      b.y -= (26 + b.r * 7) * dt;
+      b.x += Math.sin(b.age * 5 + b.wob) * 12 * dt - pass * 0.8 * dt;
+    }
+    bubbles = bubbles.filter((b) => b.age < 3 && b.y > sim.SEA + 24 && b.x > -10);
+
     if (moving()) shade = Math.max(0, Math.min(sim.level, shade + dt / LEVEL_FADE));
   };
 
@@ -349,6 +369,68 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
     ctx.translate(0, bob);
     ctx.drawImage(art.cat, -PIC.x * PIC.scale, -PIC.y * PIC.scale, PIC.w * PIC.scale, PIC.h * PIC.scale);
     ctx.restore();
+  };
+
+  // A gull, drawn in a few strokes: wings that beat (or are held out in a glide), a white body, a
+  // small head with an orange beak. Facing the way it flies
+  const gull = (b: Bird, night: number, tilt = 0) => {
+    const s = b.s;
+    const a = b.glide > 0 ? 0.22 : Math.sin(b.flap); // the wings' lift: -1 down to 1 up
+    const tipY = -a * s * 0.8;
+    const bend = -s * 0.28 - a * s * 0.25; // the wrist, a little above the line to the tip
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    if (b.dir > 0) ctx.scale(-1, 1); // drawn facing left
+    ctx.rotate(tilt); // below 0: nose down
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.fillStyle = mix("#f4f7fa", "#b9c3e6", night);
+    ctx.strokeStyle = mix("#44576a", "#1b2350", night);
+    ctx.lineWidth = Math.max(1.2, s * 0.09);
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * s * 0.1, -s * 0.04);
+      ctx.quadraticCurveTo(side * s * 0.45, bend, side * s, tipY);
+      ctx.quadraticCurveTo(side * s * 0.5, bend + s * 0.3, side * s * 0.1, s * 0.08);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // dark wingtip
+      ctx.beginPath();
+      ctx.moveTo(side * s, tipY);
+      ctx.lineTo(side * s * 0.8, tipY + (bend - tipY) * 0.2 + s * 0.05);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.ellipse(0, s * 0.04, s * 0.34, s * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(-s * 0.32, -s * 0.03, s * 0.11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#f0a13a";
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.41, -s * 0.05);
+    ctx.lineTo(-s * 0.56, -s * 0.01);
+    ctx.lineTo(-s * 0.41, s * 0.02);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  // A fish that swims: its picture cut into thin upright strips, each moved up or down a little on
+  // a wave that runs from the head to the tail, so the head stays steady and the tail beats. Faster
+  // when it is hooked. Drawn round its middle, facing left (the picture's way)
+  const FISH_STRIPS = 12;
+  const swimFish = (f: Swimmer, beat: number, amp: number) => {
+    const img = art.fish;
+    const sw = img.naturalWidth / FISH_STRIPS;
+    const dw = f.w / FISH_STRIPS;
+    for (let i = 0; i < FISH_STRIPS; i++) {
+      const k = i / (FISH_STRIPS - 1); // 0 the nose, 1 the tail's end
+      const bendK = Math.max(0, (k - 0.3) / 0.7); // only behind the head
+      const dy = Math.sin(beat - k * 2.6) * amp * f.h * bendK * bendK;
+      const sx = Math.min(i * sw, img.naturalWidth - sw);
+      ctx.drawImage(img, sx, 0, sw, img.naturalHeight, -f.w / 2 + i * dw, -f.h / 2 + dy, dw + 0.7, f.h);
+    }
   };
 
   // A sea creature, drawn round its middle (the canvas already moved there): an octopus, a jellyfish
@@ -530,6 +612,7 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
     ctx.fillStyle = sun;
     ctx.fillRect(W * 0.82 - 130, 0, 260, 230);
     for (const c of clouds) ctx.drawImage(c.img, c.x, c.y, c.w, c.h);
+    const night = Math.max(0, Math.min(1, at - 2)); // gulls are moonlit at night
 
     // far-off islands, drifting slowly
     const far = (travelled * 0.08) % 900;
@@ -562,6 +645,26 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
     }
     // dolphins in the air, over Catbo (the sea in front, drawn next, hides what is still under)
     for (const th of things) if (th.kind === "dolphin" && th.leap === "up") dolphin(th, false);
+    // diving gulls, in front of everything, each coming its own way (sim.ts, GULL_PATHS): pointed
+    // the way it is flying, wings tucked in a steep drop and beating as it levels out, skims the
+    // waves at Catbo or climbs away. Its shadow on the water darkens as it comes down, so it is
+    // plain when it is low enough to hit
+    for (const th of things) {
+      if (th.kind !== "bird") continue;
+      const cx = th.x + th.w / 2;
+      const height = SEA - GULL.skim - th.y; // 0: skimming the waves
+      const low = Math.max(0, Math.min(1, 1 - height / 300));
+      ctx.fillStyle = `rgba(0,40,60,${0.05 + low * 0.2})`;
+      ctx.beginPath();
+      ctx.ellipse(cx, SEA + 8, th.w * (0.18 + low * 0.16), 3 + low * 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      const vy = th.vy ?? 0; // + going down
+      const tilt = Math.max(-0.8, Math.min(0.6, -Math.atan2(vy, speed + (th.fly ?? 0))));
+      const dropping = vy > 140; // a steep drop: wings held back
+      const flap = t * (dropping ? 5 : height < 4 ? 15 : 10) + th.seed * 6;
+      const bob = height < 4 ? Math.sin(flap * 0.5) * 2 : 0;
+      gull({ x: cx, y: th.y + th.h / 2 + bob, s: th.w / 2, v: 0, dir: -1, flap, beat: 0, glide: dropping ? 1 : 0, flapFor: 1 }, night, tilt);
+    }
 
     // a wake behind it
     if (moving() && lift <= 0) {
@@ -586,10 +689,26 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
       ctx.save();
       ctx.translate(f.x + f.w / 2, y + f.h / 2);
       if (f.kind === "fish") {
-        ctx.rotate(Math.sin(t * 6 + f.seed * 4) * 0.06);
-        ctx.drawImage(art.fish, -f.w / 2, -f.h / 2, f.w, f.h);
+        // its nose follows its rise and fall, and its tail beats, each fish at its own pace
+        ctx.rotate(-Math.cos(t * 3 + f.seed * 8) * 0.09);
+        swimFish(f, t * (7 + f.seed * 5) + f.seed * 10, 0.09);
       } else creature(f);
       ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+
+    // bubbles rising from the fish
+    ctx.lineWidth = 1.1;
+    for (const b of bubbles) {
+      ctx.globalAlpha = Math.min(1, b.age * 4) * (1 - b.age / 3) * 0.75;
+      ctx.strokeStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.beginPath();
+      ctx.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, b.r * 0.3, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
 
@@ -609,7 +728,7 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
         if (f.kind === "fish") {
           ctx.translate(h.x, h.y + f.w * 0.42);
           ctx.rotate(Math.PI / 2 + Math.sin(t * 14) * 0.25); // head up on the hook, wriggling
-          ctx.drawImage(art.fish, -f.w / 2, -f.h / 2, f.w, f.h);
+          swimFish(f, t * 24, 0.18);
         } else if (f.kind === "snake") {
           ctx.translate(h.x, h.y + f.w * 0.45); // head up on the hook, wriggling
           ctx.rotate(Math.PI / 2 + Math.sin(t * 8) * 0.12);
@@ -657,12 +776,7 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
       ctx.font = "800 38px system-ui, sans-serif";
       write(`🏁 ${m - (m % 250)} m!`, SEA - 260);
     }
-    // a new level shows no name (only its colours change), but one that brings sea creatures warns
-    // of them for a moment
-    if (phase === "racing" && t - levelAt < LEVEL_SIGN && LEVELS[level].warn) {
-      ctx.font = "800 30px system-ui, sans-serif";
-      write(LEVELS[level].warn, SEA - 260);
-    }
+    // a new level shows no sign: only its colours change (its sea creatures simply start to swim by)
   };
 
 
