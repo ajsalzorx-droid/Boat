@@ -18,7 +18,7 @@ const NOT_LOGGED = /^\/(_next\/|favicon\.ico)|\.(?:webp|png|jpe?g|gif|svg|ico|mp
 
 // The Wati webhook's address carries its secret, so that part never reaches the log
 const safeUrl = (url) => url.replace(/^(\/api\/wati\/webhook)\?.*/, "$1");
-
+console.log("hekl")
 const httpLogger = pinoHttp({
   logger,
   autoLogging: { ignore: (req) => NOT_LOGGED.test(req.url) },
