@@ -21,6 +21,7 @@ export interface MenuItem {
   price: string;
   category: string;
   dietary?: string[];
+  ingredients?: string[];
   tall?: boolean;
   wide?: boolean;
   // Set on the server from the live offers (src/lib/menu-data.ts): % off and the offer's name

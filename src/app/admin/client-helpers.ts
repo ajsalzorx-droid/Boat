@@ -7,6 +7,35 @@ const MAX_IMAGE_MB_BY_FOLDER: Partial<Record<UploadFolder, number>> = { offers: 
 
 // Shows the error from an admin action. Returns true if the action failed.
 // 401 = token missing/expired -> back to login.
+// SweetAlert2 confirmation in the site colours. Resolves true only when the button is clicked.
+// The library is loaded on first use, so admin pages that never ask don't download it.
+export async function confirmDialog({
+  title,
+  text,
+  confirmText = "Yes",
+  danger = false,
+}: {
+  title: string;
+  text?: string;
+  confirmText?: string;
+  danger?: boolean;
+}): Promise<boolean> {
+  const { default: Swal } = await import("sweetalert2");
+  const result = await Swal.fire({
+    title,
+    text,
+    icon: danger ? "warning" : "question",
+    showCancelButton: true,
+    confirmButtonText: confirmText,
+    cancelButtonText: "Cancel",
+    confirmButtonColor: danger ? "#dc2626" : "#003049",
+    cancelButtonColor: "#9ca3af",
+    reverseButtons: true,
+    focusCancel: danger,
+  });
+  return result.isConfirmed;
+}
+
 export function actionFailed(res: ActionResult<unknown>): boolean {
   if (res.ok) return false;
   alert(res.error);

@@ -78,6 +78,7 @@ export type MenuItemInput = {
   tag: string
   image_url: string
   dietary: string[]
+  ingredients: string[]
   is_tall: boolean
   is_wide: boolean
 }
@@ -95,6 +96,10 @@ export async function saveMenuItem(id: string | null, input: MenuItemInput) {
         .map((d) => text(d, 'Dietary tag', 40))
         .filter(Boolean)
         .slice(0, 10),
+      ingredients: (Array.isArray(input?.ingredients) ? input.ingredients : [])
+        .map((d) => text(d, 'Ingredient', 60))
+        .filter(Boolean)
+        .slice(0, 30),
       is_tall: !!input?.is_tall,
       is_wide: !!input?.is_wide,
     }
@@ -562,6 +567,7 @@ export type MenuItemRow = Plain<{
   tag: string
   image_url: string
   dietary: string[] | null
+  ingredients: string[] | null
   is_tall: boolean | null
   is_wide: boolean | null
   is_active: boolean

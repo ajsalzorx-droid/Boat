@@ -16,7 +16,8 @@ function dishLine(item: MenuItem) {
     ? `AED ${formatPrice(discounted(price, item.discount))} (was AED ${formatPrice(price)}, ${item.discount}% off)`
     : `AED ${formatPrice(price)}`
   const dietary = item.dietary?.length ? ` [${item.dietary.join(', ')}]` : ''
-  return `- ${item.name}: ${cost}${dietary}. ${item.description ?? ''}`.trim()
+  const ingredients = item.ingredients?.length ? ` Ingredients: ${item.ingredients.join(', ')}.` : ''
+  return `- ${item.name}: ${cost}${dietary}. ${item.description ?? ''}${ingredients}`.trim()
 }
 
 function offerLine(offer: Offer, items: MenuItem[]) {

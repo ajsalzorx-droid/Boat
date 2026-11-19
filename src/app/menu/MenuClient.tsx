@@ -222,9 +222,15 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
                     <Tag size={11} /> {item.offer_title}
                   </p>
                 )}
-                <p className="text-[13px] text-navy/70 leading-relaxed font-light mb-6 flex-grow">
+                <p className={`text-[13px] text-navy/70 leading-relaxed font-light ${item.ingredients?.length ? "mb-3" : "mb-6 flex-grow"}`}>
                   {item.description}
                 </p>
+                {item.ingredients?.length ? (
+                  <p className="text-[11px] text-navy/50 leading-relaxed mb-6 flex-grow">
+                    <span className="tracking-[2px] uppercase font-bold text-navy/60">Ingredients: </span>
+                    {item.ingredients.join(", ")}
+                  </p>
+                ) : null}
                 <div className="h-[1px] w-12 bg-ocean/30"></div>
               </motion.article>
             ))}

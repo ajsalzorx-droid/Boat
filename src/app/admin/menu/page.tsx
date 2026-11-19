@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { saveMenuItem, deleteMenuItem, listMenuItems } from "../actions";
-import { actionFailed, uploadAdminImage } from "../client-helpers";
+import { actionFailed, confirmDialog, uploadAdminImage } from "../client-helpers";
 import { Plus, Edit, Trash2, X, Upload } from "lucide-react";
 import Pagination from "../Pagination";
+import { toast } from "../Toaster";
 
 const PAGE_SIZE = 8;
 
@@ -25,6 +26,7 @@ export default function AdminMenuPage() {
     tag: "",
     image_url: "",
     dietary: "",
+    ingredients: "",
     is_tall: false,
     is_wide: false
   });
@@ -87,13 +89,14 @@ export default function AdminMenuPage() {
         tag: item.tag || "",
         image_url: item.image_url || "",
         dietary: item.dietary ? item.dietary.join(", ") : "",
+        ingredients: item.ingredients ? item.ingredients.join(", ") : "",
         is_tall: item.is_tall || false,
         is_wide: item.is_wide || false
       });
     } else {
       setEditingId(null);
       setFormData({
-        name: "", category: "Main Courses", price: "", description: "", tag: "", image_url: "", dietary: "", is_tall: false, is_wide: false
+        name: "", category: "Main Courses", price: "", description: "", tag: "", image_url: "", dietary: "", ingredients: "", is_tall: false, is_wide: false
       });
     }
     setIsModalOpen(true);
@@ -126,6 +129,7 @@ export default function AdminMenuPage() {
       tag: formData.tag,
       image_url: formData.image_url,
       dietary: formData.dietary.split(",").map(d => d.trim()).filter(d => d),
+      ingredients: formData.ingredients.split(",").map(d => d.trim()).filter(d => d),
       is_tall: formData.is_tall,
       is_wide: formData.is_wide
     };
@@ -134,6 +138,7 @@ export default function AdminMenuPage() {
     const res = await saveMenuItem(editingId, payload);
     if (actionFailed(res)) return;
 
+    toast(editingId ? `"${payload.name}" updated` : `"${payload.name}" added to the menu`);
     if (editingId) {
       setIsModalOpen(false);
       reload();
@@ -146,8 +151,16 @@ export default function AdminMenuPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this menu item?")) {
+    const item = items.find((i) => i.id === id);
+    const ok = await confirmDialog({
+      title: "Delete this item?",
+      text: `${item?.name ? `"${item.name}"` : "This item"} will be removed from the menu. This can't be undone.`,
+      confirmText: "Yes, delete",
+      danger: true,
+    });
+    if (ok) {
       if (actionFailed(await deleteMenuItem(id))) return;
+      toast("Menu item deleted");
       // Deleting the last item on a page: step back a page
       if (items.length === 1 && page > 0) goToPage(page - 1);
       else reload();
@@ -290,6 +303,11 @@ export default function AdminMenuPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Dietary Tags (comma separated)</label>
                 <input type="text" value={formData.dietary} onChange={e => setFormData({...formData, dietary: e.target.value})} placeholder="Gluten-Free, Vegan, Spicy" className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-ocean outline-none" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ingredients (comma separated)</label>
+                <input type="text" value={formData.ingredients} onChange={e => setFormData({...formData, ingredients: e.target.value})} placeholder="Hammour, Lemon, Garlic, Olive Oil" className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-ocean outline-none" />
               </div>
 
               <div className="flex gap-6 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
