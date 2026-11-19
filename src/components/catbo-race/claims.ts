@@ -10,6 +10,8 @@ import { MIN_H, MIN_W, replayRace, STEP, type Input } from './sim'
 import { dubaiNow, whatsappDigits } from '@/lib/bookings'
 import {
   checkPlayer,
+  checkSpot,
+  type PlayerSpot,
   CLAIM_CHANCES,
   CLAIM_VALID_HOURS,
   CODE_ALPHABET,
@@ -162,8 +164,11 @@ async function onThisDevice(doc: ClaimDoc) {
 
 // The code from WhatsApp, typed in the game with the customer's name and number. Right: today's
 // claim for this number opens (or comes back)
-export async function verifyClaimCode(input: ClaimPlayerInput, code: string, guard?: FormGuard): Promise<ClaimResult> {
+// spot: where the phone is (the browser's location): only at the restaurant (PLAY_AREA)
+export async function verifyClaimCode(input: ClaimPlayerInput, code: string, guard?: FormGuard, spot?: PlayerSpot): Promise<ClaimResult> {
   if (looksLikeBot(guard)) return { ok: false, error: GENERIC_ERROR }
+  const away = checkSpot(spot)
+  if (away) return { ok: false, error: away }
   const problem = checkPlayer(input)
   if (problem) return { ok: false, error: problem }
   const typed = String(code ?? '').replace(/\D/g, '')
@@ -271,8 +276,11 @@ export async function getClaim(claimId: string): Promise<ClaimResult> {
   }
 }
 
-// Counts one chance, before its race starts: from now it is used, even if the race is never finished
-export async function startClaimChance(claimId: string): Promise<ClaimResult> {
+// Counts one chance, before its race starts: from now it is used, even if the race is never finished.
+// Every race is played at the restaurant too (spot: the phone's location, PLAY_AREA)
+export async function startClaimChance(claimId: string, spot?: PlayerSpot): Promise<ClaimResult> {
+  const away = checkSpot(spot)
+  if (away) return { ok: false, error: away }
   try {
     const now = new Date()
     const col = await claims()

@@ -83,6 +83,42 @@ export type ClaimView = {
   expiresAt: string
 }
 
+// ---- Where a discount can be played: only at the restaurant ----
+// Playing for a discount (registering, and every race) needs the player's phone to be within
+// PLAY_AREA.radiusM of the restaurant: 25°17'32.2"N 55°19'21.8"E. Free play works anywhere.
+// The browser's location reading has an accuracy (metres); a reading counts as inside when it
+// is within the radius plus a little GPS drift (up to DRIFT_M), and a reading too rough to tell
+// (worse than MAX_ACCURACY_M) is refused, so "somewhere in Dubai" never passes.
+export const PLAY_AREA = { lat: 25 + 17 / 60 + 32.2 / 3600, lng: 55 + 19 / 60 + 21.8 / 3600, radiusM: 100 }
+const DRIFT_M = 30
+const MAX_ACCURACY_M = 150
+
+export type PlayerSpot = { lat: number; lng: number; accuracy: number }
+
+// Metres between two points on the earth (haversine)
+export function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const R = 6371000
+  const rad = (d: number) => (d * Math.PI) / 180
+  const dLat = rad(b.lat - a.lat)
+  const dLng = rad(b.lng - a.lng)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
+// A message for the player, or null when they are at the restaurant
+export function checkSpot(spot: PlayerSpot | null | undefined): string | null {
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN)
+  const [lat, lng, accuracy] = [n(spot?.lat), n(spot?.lng), n(spot?.accuracy)]
+  if (Number.isNaN(lat) || Number.isNaN(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180)
+    return 'Please allow your location: the discount game can only be played at Boat Seafood.'
+  if (Number.isNaN(accuracy) || accuracy < 0 || accuracy > MAX_ACCURACY_M)
+    return 'Your location is not precise enough. Turn on GPS (precise location) and try again.'
+  const away = distanceM({ lat, lng }, PLAY_AREA)
+  if (away > PLAY_AREA.radiusM + Math.min(accuracy, DRIFT_M))
+    return `The discount game can only be played at Boat Seafood (you are about ${away < 1000 ? `${Math.round(away / 10) * 10} m` : `${(away / 1000).toFixed(1)} km`} away). You can still play free!`
+  return null
+}
+
 export type ClaimPlayerInput = { name: string; phone: string; offers: boolean }
 
 // Returns a message for the customer, or null when the details are fine

@@ -7,7 +7,7 @@ import type { Race, RaceState } from "./race";
 import { CAUSES } from "./sim";
 import { devGameCode, getClaim, keepClaimScore, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
 import { whatsapp, WHATSAPP_DISPLAY } from "@/lib/whatsapp";
-import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, CLAIM_VALID_HOURS, DISCOUNT_TIERS, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, RULES, type ClaimView } from "@/lib/game-claims";
+import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, CLAIM_VALID_HOURS, checkSpot, DISCOUNT_TIERS, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, PLAY_AREA, RULES, type ClaimView, type PlayerSpot } from "@/lib/game-claims";
 import { dubaiNow } from "@/lib/bookings";
 import { Buoy, Dolphin, ElectricEel, Gull, Jelly, Octopus } from "./GuideArt";
 
@@ -68,6 +68,30 @@ const fullNumber = (country: string, typed: string) => {
 };
 
 const SLOW = "No answer from our server. Please check your internet connection and try again.";
+
+// The phone's location, for playing for a discount (only at the restaurant: checkSpot). Fails
+// with a LocationError whose message tells the player what to do
+class LocationError extends Error {}
+const NO_LOCATION = "Your location could not be found. Turn on location (GPS) and try again. You can still play free!";
+const locate = () =>
+  new Promise<PlayerSpot>((resolve, reject) => {
+    if (!("geolocation" in navigator)) return reject(new LocationError("This browser can't share its location, so it can't play for a discount. You can still play free!"));
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
+      (err) =>
+        reject(
+          new LocationError(
+            err.code === err.PERMISSION_DENIED
+              ? "Please allow location for this site: the discount game can only be played at Boat Seafood. You can still play free!"
+              : err.code === err.TIMEOUT
+                ? "Finding your location took too long. Please try again (outdoors or near a window helps)."
+                : NO_LOCATION
+          )
+        ),
+      // a reading from the last minute is fine: no new GPS fix for each race
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 }
+    );
+  });
 
 const storeClaim = (id: string) => {
   try {
@@ -146,11 +170,24 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     raceRef.current?.setAutoStart(true);
     raceRef.current?.start();
   };
-  const chooseClaim = () => {
+  // Playing for a discount: only at the restaurant (PLAY_AREA in src/lib/game-claims.ts). The
+  // phone's location is asked for here, and the server checks it again when the claim opens and
+  // before every race. A claim already open shows its code anywhere (to show at the till)
+  const [locating, setLocating] = useState(false);
+  const chooseClaim = async () => {
     setError(null);
     if (claim) return setMode("claim");
-    formOpenedAt.current = Date.now();
-    setMode("register");
+    setLocating(true);
+    try {
+      const away = checkSpot(await locate());
+      if (away) return setError(away);
+      formOpenedAt.current = Date.now();
+      setMode("register");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : NO_LOCATION);
+    } finally {
+      setLocating(false);
+    }
   };
   // Step 1: name and number are checked, then WhatsApp opens with "GET OTP" typed, to send to us.
   // Our reply in that chat is the code (src/lib/game-otp.ts). Opened during the click, so the
@@ -173,14 +210,15 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await inTime(verifyClaimCode({ name, phone: fullNumber(country, phone), offers }, otp, { hp: website, ms: Date.now() - formOpenedAt.current }));
+      const spot = await locate();
+      const res = await inTime(verifyClaimCode({ name, phone: fullNumber(country, phone), offers }, otp, { hp: website, ms: Date.now() - formOpenedAt.current }, spot));
       if (!res.ok) return setError(res.error);
       storeClaim(res.claim.claimId);
       setClaim(res.claim);
       setSentTo(null);
       setMode("claim");
-    } catch {
-      setError(SLOW);
+    } catch (e) {
+      setError(e instanceof LocationError ? e.message : SLOW);
     } finally {
       setBusy(false);
     }
@@ -190,15 +228,15 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await inTime(startClaimChance(claim.claimId));
+      const res = await inTime(startClaimChance(claim.claimId, await locate()));
       if (!res.ok) return setError(res.error);
       setClaim(res.claim);
       sentChance.current = null;
       setPendingChance(res.claim.chancesUsed);
       raceRef.current?.setAutoStart(false);
       raceRef.current?.start(res.seed); // the server's seed: the race it will replay
-    } catch {
-      setError(SLOW);
+    } catch (e) {
+      setError(e instanceof LocationError ? e.message : SLOW);
     } finally {
       setBusy(false);
     }
@@ -487,6 +525,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                   <section>
                     <p className="font-bold text-navy text-[11px] uppercase tracking-[2px] mb-1">Terms</p>
                     <ul className="list-disc pl-4 space-y-1">
+                      <li className="font-semibold text-navy">The discount game can only be played at Boat Seafood: your phone must be within {PLAY_AREA.radiusM} m of the restaurant, so the game asks for your location (only to check this; it isn&rsquo;t saved).</li>
                       <li>Playing for a discount needs your name and a phone number checked by a WhatsApp code.</li>
                       <li>Show your claim code at the till. Staff apply it to one bill, once, within {CLAIM_VALID_HOURS} hours.</li>
                       <li>One game discount per bill (a group uses one person&rsquo;s code). It can&rsquo;t be combined with other offers and has no cash value.</li>
@@ -524,10 +563,14 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                   <button type="button" autoFocus className={button} onClick={playFree}>
                     <Play size={16} className="fill-current" aria-hidden /> Play free
                   </button>
-                  <button type="button" className={buttonAlt} onClick={chooseClaim}>
-                    <Gift size={16} aria-hidden /> {claim ? "My discount claim" : "Play for a discount"}
+                  <button type="button" className={buttonAlt} onClick={chooseClaim} disabled={locating}>
+                    {locating ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Gift size={16} aria-hidden />}
+                    {locating ? "Checking your location…" : claim ? "My discount claim" : "Play for a discount"}
                   </button>
-                  <p className="text-[11px] sm:text-[12px] leading-snug text-navy/60">Off your bill: {RULES} · {chancesText()} · one discount per bill</p>
+                  {error && <p role="alert" className="text-[12.5px] leading-snug text-offer font-semibold">{error}</p>}
+                  <p className="text-[11px] sm:text-[12px] leading-snug text-navy/60">
+                    Off your bill: {RULES} · {chancesText()} · one discount per bill · at Boat Seafood only
+                  </p>
                 </div>
               </div>
             )}
