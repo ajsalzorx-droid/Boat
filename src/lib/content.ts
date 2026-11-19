@@ -41,6 +41,7 @@ export const STUDIO_PAGES = [
   { slug: 'your-fish', name: 'Your Fish', href: '/your-fish', seoPath: '/your-fish' },
   { slug: 'links', name: 'Links (QR page)', href: '/links', seoPath: '/links' },
   { slug: 'menu-book', name: 'Menu Book', href: '/profile', seoPath: '/profile' },
+  { slug: 'blog', name: 'Blog', href: '/blog', seoPath: '/blog' },
   { slug: 'site', name: 'Header & Footer', href: '/', seoPath: null },
 ] as const
 
@@ -131,6 +132,7 @@ export const CONTENT_SECTIONS = [
       text('nav_offer', 'Link – Offer', 'Offer'),
       text('nav_prebook', 'Link – Pre-Book (booking form)', 'Pre-Book'),
       text('nav_tour', 'Link – 360 View', '360 View'),
+      text('nav_blog', 'Link – Blog', 'Blog'),
       text('nav_fresh', 'Link – Fresh Catch', 'Fresh Catch'),
       text('delivery', 'Delivery button', 'Delivery'),
       text('order', 'Order button', 'Order Online'),
@@ -713,6 +715,22 @@ export const CONTENT_SECTIONS = [
       text('btn_share', 'Button – Share', 'Share'),
       text('share_text', 'Text used when sharing', 'Welcome to Boat Seafood Restaurant. View our menu, leave a review, or follow us on social media.'),
       text('footer', 'Bottom text', 'Boat Seafood · Dubai'),
+    ],
+  },
+
+  // ================= Blog (/blog; the posts themselves are under SEO Studio -> Blog) =================
+  {
+    id: 'blog_hero',
+    page: 'blog',
+    label: 'Top section',
+    fields: [
+      eyebrow('Stories from the market'),
+      ...heading('The Boat', 'Journal'),
+      body(
+        'Stories, recipes and tips from Boat Seafood, Waterfront Market, Dubai: fresh fish, seasonal catch, cooking styles and what is new at the restaurant.'
+      ),
+      text('empty', 'Text shown when no post is published yet', 'New stories are on their way. Check back soon.'),
+      text('read_time', 'Reading time label ({n} = minutes)', '{n} min read'),
     ],
   },
 ] as const satisfies readonly SectionDef[]

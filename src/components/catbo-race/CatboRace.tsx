@@ -377,7 +377,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                 <p className="font-playfair text-[22px] sm:text-[28px] leading-tight font-bold text-navy mb-3">Surf with Catbo!</p>
                 <p className="text-navy/75 text-[12.5px] leading-snug mb-4 sm:text-[14px] sm:leading-normal sm:mb-5">
                   <span className="hidden md:inline">Click or press Space</span>
-                  <span className="md:hidden">Tap the screen</span> to jump over buoys and diving gulls. Dolphins leap over you: don&rsquo;t jump into them! To fish, <span className="hidden md:inline">press ↓</span><span className="md:hidden">tap the hook button</span>. One hit and the race is over. It gets harder every 100 m, and more and more sea creatures swim among the fish: never hook an octopus, a jellyfish or a sea snake!
+                  <span className="md:hidden">Tap the screen</span> to jump over buoys and gulls diving at you. Dolphins, and gulls coming from behind, pass over you: don&rsquo;t jump into them! To fish, <span className="hidden md:inline">press ↓</span><span className="md:hidden">tap the hook button</span>. One hit and the race is over. It gets harder every 100 m, and more and more sea creatures swim among the fish: never hook an octopus, a jellyfish or a sea snake!
                 </p>
                 <div className="flex flex-col gap-2.5">
                   <button type="button" autoFocus className={button} onClick={playFree}>

@@ -111,8 +111,8 @@ function playRace(W, H, seed, skill) {
     const b = sim.boatBox()
     const near = sim.things.find((th) => th.x + th.w > b.l && th.x - b.r < sim.speed * 0.22)
     if (waitJump < 0 && near && sim.lift === 0) {
-      // a buoy or a diving gull: jump; a dolphin: stay down (it leaps over); now and then misjudge
-      if (near.kind !== 'dolphin' || Math.random() > skill) waitJump = sim.steps + reaction()
+      // a buoy or a gull from ahead: jump; a dolphin or a gull from behind: stay down; now and then misjudge
+      if (!(near.kind === 'dolphin' || (near.kind === 'bird' && near.dir === 1)) || Math.random() > skill) waitJump = sim.steps + reaction()
     }
     if (waitJump >= 0 && sim.steps >= waitJump) {
       if (Math.random() < skill) press(JUMP_INPUT)
