@@ -36,7 +36,11 @@ export const DOLPHIN = { w: 160, h: 62, swimDepth: 60, leap: 900, gravity: 1150 
 // over the water line). Like a buoy in the air: jump over it, or it hits him. How it gets there
 // differs from gull to gull (GULL_PATHS, and its own speed, height and length of approach), but
 // every one is skimming the waves well before it reaches him, so the jump is always the same
-export const GULL = { w: 84, h: 36, skim: 53, level: 230 }
+export const GULL = { w: 84, h: 36, skim: 53, level: 230, head: 170, behind: 0.3 }
+// Some gulls (`behind`: the share of them) come from behind instead: they overtake Catbo and fly
+// just over his head (`head`: their top over the water line), then on ahead. Coming from behind
+// they are seen only a moment before, so these are not to be jumped: like a dolphin, stay down and
+// it passes over; jump into it and the race is over. They get a dolphin's room around them
 // The ways a gull comes in: its height on the way (1 = as high as it starts, 0 = skimming), from
 // k = 1 (where its approach begins) to k = 0 (`level` ahead of Catbo). Only + - * / and
 // floor/abs/min/max, so the server's replay matches every browser
@@ -93,6 +97,7 @@ export type Thing = {
   high?: number
   dive?: number
   climb?: number
+  dir?: 1 | -1 // a gull: -1 coming from ahead, 1 from behind (fly: then its speed across the screen)
   at?: number // how far ahead of the boat it leaps
 }
 export type Swimmer = { kind: 'fish' | Creature; x: number; y: number; w: number; h: number; swim: number; seed: number }
@@ -198,7 +203,24 @@ export class Sim {
     const x = this.W + 60
     const { gap, dolphins, birds, pairs } = LEVELS[this.level]
     const pick = this.rand()
-    if (pick >= dolphins && pick < dolphins + birds) {
+    if (pick >= dolphins && pick < dolphins + birds && this.rand() < GULL.behind) {
+      // A gull from behind: off the screen to the left for now, so that it reaches Catbo when a
+      // buoy put here now would (fly: how fast it crosses the screen). Its way down: one of the
+      // first four of GULL_PATHS, to just over his head
+      const r = (a: number, b: number) => a + this.rand() * (b - a)
+      const path = Math.floor(this.rand() * 4)
+      const fly = r(330, 430)
+      const high = r(120, 230)
+      const dive = r(300, 480)
+      const climb = this.rand() < 0.7 ? r(0.6, 1.4) : 0
+      // It reaches him LATE seconds after a buoy put here now would: unseen until it is close, it
+      // must never catch him still in the air from an early jump over the obstacle before it
+      const LATE = 0.3
+      const over = this.W * BOAT.x + BOAT.w / 2
+      const start = over - fly * ((x - over) / this.speed + LATE) - GULL.w / 2
+      this.things.push({ kind: 'bird', dir: 1, x: start, y: this.SEA - GULL.head - high, w: GULL.w, h: GULL.h, seed: this.rand(), vy: 0, path, fly, high, dive, climb })
+      this.nextThing = this.speed * (gap[0] + LATE + 0.3 + this.rand() * gap[1]) // then a dolphin's room
+    } else if (pick >= dolphins && pick < dolphins + birds) {
       // A gull, each its own way (seed: how its wings beat, for the eye). It flies faster than the
       // world, so it starts further off: it reaches Catbo when a buoy put here now would, and keeps
       // the same room around it as a buoy (time to land before it, and after it)
@@ -216,7 +238,7 @@ export class Sim {
       const climb = this.rand() < 0.7 ? r(0.6, 1.4) : 0
       const over = this.W * BOAT.x + BOAT.w / 2
       const start = over + ((x - over) * (this.speed + fly)) / this.speed
-      this.things.push({ kind: 'bird', x: start, y: this.SEA - GULL.skim - high, w: GULL.w, h: GULL.h, seed: this.rand(), vy: 0, path, fly, high, dive, climb })
+      this.things.push({ kind: 'bird', dir: -1, x: start, y: this.SEA - GULL.skim - high, w: GULL.w, h: GULL.h, seed: this.rand(), vy: 0, path, fly, high, dive, climb })
       this.nextThing = this.speed * (gap[0] + this.rand() * gap[1])
     } else if (pick >= dolphins) {
       this.things.push({ kind: 'buoy', x, y: this.SEA - 58, w: 40, h: 70, seed: this.rand() })
@@ -332,13 +354,17 @@ export class Sim {
     for (const th of this.things) {
       th.x -= this.speed * dt
       if (th.kind === 'bird') {
-        // a gull flies at Catbo its own way, skims the waves near him, then leaves (up, or straight on)
-        th.x -= th.fly! * dt
-        const dx = th.x + th.w / 2 - over // how far ahead of Catbo
-        const far = Math.max(0, Math.min(1, (dx - GULL.level) / th.dive!))
-        const past = Math.max(0, Math.min(1, (-dx - 90) / 260)) // only once it is clear of him
+        // a gull flies at Catbo its own way: from ahead it skims the waves near him, from behind it
+        // flies just over his head; then it leaves (up, or straight on)
+        const behind = th.dir === 1
+        if (behind) th.x += (this.speed + th.fly!) * dt
+        else th.x -= th.fly! * dt
+        const dx = th.x + th.w / 2 - over
+        const toGo = behind ? -dx : dx // how far it still has to fly to reach him
+        const far = Math.max(0, Math.min(1, (toGo - GULL.level) / th.dive!))
+        const past = Math.max(0, Math.min(1, (-toGo - 90) / 260)) // only once it is clear of him
         const was = th.y
-        th.y = this.SEA - GULL.skim - Math.max(th.high! * GULL_PATHS[th.path!](far), 300 * th.climb! * past * past)
+        th.y = this.SEA - (behind ? GULL.head : GULL.skim) - Math.max(th.high! * GULL_PATHS[th.path!](far), 300 * th.climb! * past * past)
         th.vy = (th.y - was) / dt
       }
       if (th.kind !== 'dolphin') continue
@@ -357,7 +383,8 @@ export class Sim {
         }
       }
     }
-    this.things = this.things.filter((th) => th.x + th.w > -40)
+    // gone off the screen: to the left, or (a gull from behind) to the right
+    this.things = this.things.filter((th) => (th.dir === 1 ? th.x < this.W + 100 : th.x + th.w > -40))
 
     // what the boat touches
     const b = this.boatBox()

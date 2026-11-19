@@ -67,6 +67,13 @@ export const SEO_PAGES = [
       'Flip through the BOAT Seafood Restaurant book: authentic Arabic and Indian seafood, your fish our preparation, and waterfront hospitality at Waterfront Market, Dubai.',
   },
   {
+    path: '/blog',
+    label: 'Blog',
+    title: 'Seafood Blog | Boat Seafood Dubai',
+    description:
+      'Stories, recipes and tips from Boat Seafood, Waterfront Market, Dubai: fresh fish, seasonal catch, cooking styles and what is new at the restaurant.',
+  },
+  {
     path: '/links',
     label: 'Links',
     title: 'Links | Boat Seafood Restaurant',

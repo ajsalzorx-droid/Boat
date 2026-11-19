@@ -7,6 +7,8 @@ import { AuthError, verifyAdmin } from '@/lib/auth'
 import { newId, toPlain, type IdDoc, type Plain } from '@/lib/mongodb'
 import { DEFAULT_BUSINESS, SEO_PAGES, SEO_TAG, type BusinessInfo } from '@/lib/seo'
 import { CONTENT_TAG, getSectionDef, type FieldType, type SectionData } from '@/lib/content'
+import { BLOG_LIMITS, BLOG_TAG, publishProblems, SLUG_RE, type BlogBlock, type BlogPostInput, type BlogStatus } from '@/lib/blog'
+import { toPost } from '@/lib/blog-data'
 import { MENU_TAG } from '@/lib/menu-data'
 import { MENU_CATEGORIES } from '@/data/menu'
 import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/offers'
@@ -379,11 +381,124 @@ export async function resetContentSection(sectionId: string) {
   }, 'seo')
 }
 
+// ---------- Blog posts (SEO Studio -> Blog, public at /blog) ----------
+// A post is live as soon as it is saved with status "published" (no Confirm & Publish needed);
+// drafts never reach the site. Changing a published post's address keeps the old one as a redirect.
+
+function blogLink(value: unknown, field: string) {
+  const s = text(value, field, BLOG_LIMITS.url)
+  if (s && !/^(https?:\/\/|\/|mailto:|tel:)/.test(s)) fail(`${field} must start with https://, / , mailto: or tel:`)
+  return s
+}
+
+function blogBlocks(value: unknown): BlogBlock[] {
+  const raw = Array.isArray(value) ? value : []
+  if (raw.length > BLOG_LIMITS.blocks) fail(`A post can have at most ${BLOG_LIMITS.blocks} blocks.`)
+  return raw.map((b, i): BlogBlock => {
+    const n = `Block ${i + 1}`
+    switch (b?.type) {
+      case 'heading':
+        return { type: 'heading', text: text(b.text, `${n} heading`, BLOG_LIMITS.heading) }
+      case 'paragraph': {
+        const s = typeof b.text === 'string' ? b.text.replace(/\r\n/g, '\n').trim() : ''
+        if (s.length > BLOG_LIMITS.paragraph) fail(`${n} text is too long (max ${BLOG_LIMITS.paragraph} characters).`)
+        return { type: 'paragraph', text: s }
+      }
+      case 'image':
+        return {
+          type: 'image',
+          src: imageUrl(b.src),
+          alt: text(b.alt, `${n} alt text`, BLOG_LIMITS.alt).replace(/\s*\n\s*/g, ' '),
+          caption: text(b.caption, `${n} caption`, BLOG_LIMITS.caption),
+        }
+      case 'link':
+        return { type: 'link', label: text(b.label, `${n} link text`, BLOG_LIMITS.label), url: blogLink(b.url, `${n} link`), nofollow: !!b.nofollow }
+      default:
+        fail(`${n} has an unknown type.`)
+    }
+  })
+}
+
+export async function listBlogPosts() {
+  return withAdmin(async (db) => {
+    const docs = await db.collection('blog_posts').find().sort({ updated_at: -1, _id: 1 }).toArray()
+    return docs.map(toPost)
+  }, 'seo')
+}
+
+export async function getBlogPost(id: string) {
+  return withAdmin(async (db) => {
+    const doc = await db.collection<IdDoc>('blog_posts').findOne({ _id: String(id) })
+    if (!doc) fail('This post no longer exists. Please refresh.')
+    return toPost(doc)
+  }, 'seo')
+}
+
+export async function saveBlogPost(id: string | null, input: BlogPostInput) {
+  return withAdmin(async (db) => {
+    const row = {
+      title: text(input?.title, 'Title', BLOG_LIMITS.title, true),
+      slug: text(input?.slug, 'Web address', BLOG_LIMITS.slug, true).toLowerCase(),
+      seo_title: text(input?.seo_title, 'Google title', BLOG_LIMITS.seo_title),
+      description: text(input?.description, 'Google description', BLOG_LIMITS.description),
+      cover_image: imageUrl(input?.cover_image),
+      cover_alt: text(input?.cover_alt, 'Cover alt text', BLOG_LIMITS.alt).replace(/\s*\n\s*/g, ' '),
+      blocks: blogBlocks(input?.blocks),
+      status: (input?.status === 'published' ? 'published' : 'draft') as BlogStatus,
+      noindex: !!input?.noindex,
+    }
+    if (!SLUG_RE.test(row.slug)) fail('Web address: use lowercase letters, numbers and dashes only (e.g. fresh-hammour-guide).')
+    if (row.status === 'published') {
+      const problems = publishProblems(row)
+      if (problems.length) fail(`Can't publish yet:\n• ${problems.join('\n• ')}`)
+    }
+
+    const posts = db.collection<IdDoc>('blog_posts')
+    await posts.createIndex({ slug: 1 }, { unique: true })
+    const clash = await posts.findOne({ $or: [{ slug: row.slug }, { old_slugs: row.slug }], _id: { $ne: String(id ?? '') } })
+    if (clash) fail('Another post already uses this web address. Choose a different one.')
+
+    const now = new Date()
+    const postId = id ? String(id) : newId()
+    if (id) {
+      const before = await posts.findOne({ _id: postId })
+      if (!before) fail('This post no longer exists. Please refresh.')
+      const wasLive = before.status === 'published' || !!before.published_at
+      // The old address of a post Google may know keeps working (redirects to the new one)
+      const oldSlugs = new Set<string>((before.old_slugs as string[] | undefined) ?? [])
+      if (wasLive && before.slug !== row.slug) oldSlugs.add(String(before.slug))
+      oldSlugs.delete(row.slug)
+      await posts.updateOne(
+        { _id: postId },
+        {
+          $set: {
+            ...row,
+            old_slugs: [...oldSlugs],
+            updated_at: now,
+            published_at: row.status === 'published' ? (before.published_at ?? now) : (before.published_at ?? null),
+          },
+        }
+      )
+    } else {
+      await posts.insertOne({ _id: postId, ...row, old_slugs: [], created_at: now, updated_at: now, published_at: row.status === 'published' ? now : null })
+    }
+    updateTag(BLOG_TAG)
+    return { id: postId }
+  }, 'seo')
+}
+
+export async function deleteBlogPost(id: string) {
+  return withAdmin(async (db) => {
+    found(await db.collection<IdDoc>('blog_posts').deleteOne({ _id: String(id) }))
+    updateTag(BLOG_TAG)
+  }, 'seo')
+}
+
 // ---------- Image upload (Cloudinary) ----------
 
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif']
 
-export type UploadFolder = 'menu' | 'daily-catch' | 'offers' | 'seo' | 'content'
+export type UploadFolder = 'menu' | 'daily-catch' | 'offers' | 'seo' | 'content' | 'blog'
 
 export type ImageUploadAuth = {
   uploadUrl: string
@@ -405,7 +520,7 @@ const UPLOAD_TRANSFORMATION = 'c_limit,w_1600'
 // leaves the server. The uploaded file's Cloudinary URL is what gets saved in the database.
 export async function createImageUpload(folder: UploadFolder, fileName: string) {
   return withAdmin<ImageUploadAuth>(async () => {
-    if (!['menu', 'daily-catch', 'offers', 'seo', 'content'].includes(folder)) fail('Invalid upload folder.')
+    if (!['menu', 'daily-catch', 'offers', 'seo', 'content', 'blog'].includes(folder)) fail('Invalid upload folder.')
     const ext = String(fileName).split('.').pop()?.toLowerCase() ?? ''
     if (!IMAGE_EXTENSIONS.includes(ext)) fail(`Only ${IMAGE_EXTENSIONS.join(', ')} images are allowed.`)
 
@@ -434,7 +549,7 @@ export async function createImageUpload(folder: UploadFolder, fileName: string) 
       format: params.format,
       transformation: params.transformation,
     }
-  }, folder === 'seo' || folder === 'content' ? 'seo' : 'admin')
+  }, folder === 'seo' || folder === 'content' || folder === 'blog' ? 'seo' : 'admin')
 }
 
 // ---------- Reads for the admin screens (straight from the database, never cached) ----------

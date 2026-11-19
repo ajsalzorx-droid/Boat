@@ -648,22 +648,24 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
     // diving gulls, in front of everything, each coming its own way (sim.ts, GULL_PATHS): pointed
     // the way it is flying, wings tucked in a steep drop and beating as it levels out, skims the
     // waves at Catbo or climbs away. Its shadow on the water darkens as it comes down, so it is
-    // plain when it is low enough to hit
+    // plain when it is low enough to hit. A gull from behind faces right, the way it flies
     for (const th of things) {
       if (th.kind !== "bird") continue;
+      const behind = th.dir === 1;
       const cx = th.x + th.w / 2;
-      const height = SEA - GULL.skim - th.y; // 0: skimming the waves
-      const low = Math.max(0, Math.min(1, 1 - height / 300));
+      const height = SEA - (behind ? GULL.head : GULL.skim) - th.y; // 0: as low as it comes
+      const low = Math.max(0, Math.min(1, 1 - (SEA - GULL.skim - th.y) / 300));
       ctx.fillStyle = `rgba(0,40,60,${0.05 + low * 0.2})`;
       ctx.beginPath();
       ctx.ellipse(cx, SEA + 8, th.w * (0.18 + low * 0.16), 3 + low * 3, 0, 0, Math.PI * 2);
       ctx.fill();
       const vy = th.vy ?? 0; // + going down
-      const tilt = Math.max(-0.8, Math.min(0.6, -Math.atan2(vy, speed + (th.fly ?? 0))));
+      const across = behind ? th.fly ?? 0 : speed + (th.fly ?? 0); // its speed across the screen
+      const tilt = Math.max(-0.8, Math.min(0.6, -Math.atan2(vy, across)));
       const dropping = vy > 140; // a steep drop: wings held back
       const flap = t * (dropping ? 5 : height < 4 ? 15 : 10) + th.seed * 6;
       const bob = height < 4 ? Math.sin(flap * 0.5) * 2 : 0;
-      gull({ x: cx, y: th.y + th.h / 2 + bob, s: th.w / 2, v: 0, dir: -1, flap, beat: 0, glide: dropping ? 1 : 0, flapFor: 1 }, night, tilt);
+      gull({ x: cx, y: th.y + th.h / 2 + bob, s: th.w / 2, v: 0, dir: behind ? 1 : -1, flap, beat: 0, glide: dropping ? 1 : 0, flapFor: 1 }, night, tilt);
     }
 
     // a wake behind it

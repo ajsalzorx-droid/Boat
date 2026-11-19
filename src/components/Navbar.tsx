@@ -45,6 +45,7 @@ export default function Navbar() {
     // Falls back while the site text cache is older than this label
     { href: "/book", label: nav.nav_prebook || "Pre-Book" },
     ...(TOUR_PUBLISHED ? [{ href: "/360-view", label: nav.nav_tour || "360 View" }] : []),
+    { href: "/blog", label: nav.nav_blog || "Blog" },
     { href: "/your-fish", label: nav.nav_fresh, accent: true },
   ];
   const [isScrolled, setIsScrolled] = useState(false);
@@ -174,6 +175,15 @@ export default function Navbar() {
               </Link>
             </li>
             )}
+            <li>
+              <Link
+                href="/blog"
+                className="text-white/65 hover:text-white text-[11.5px] min-[1280px]:text-[13px] min-[1440px]:text-[14px] font-medium tracking-[0.8px] min-[1280px]:tracking-[1.2px] min-[1440px]:tracking-[1.5px] uppercase transition-colors relative group whitespace-nowrap"
+              >
+                {nav.nav_blog || "Blog"}
+                <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></span>
+              </Link>
+            </li>
             <li>
               <Link
                 href="/your-fish"

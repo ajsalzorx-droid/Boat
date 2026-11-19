@@ -114,7 +114,8 @@ export async function sitemapEntries(): Promise<MetadataRoute.Sitemap> {
   const [pages, business] = await Promise.all([getSeoPages(), getBusinessInfo()])
   const base = siteUrl(business).origin
 
-  return SEO_PAGES.filter((p) => !pages[p.path]?.noindex && (TOUR_PUBLISHED || p.path !== '/360-view')).map((p) => ({
+  // /blog is added by src/app/sitemap.ts, and only once a post is published
+  return SEO_PAGES.filter((p) => p.path !== '/blog' && !pages[p.path]?.noindex && (TOUR_PUBLISHED || p.path !== '/360-view')).map((p) => ({
     url: `${base}${p.path === '/' ? '' : p.path}`,
     lastModified: pages[p.path]?.updated_at ? new Date(pages[p.path].updated_at!) : undefined,
     changeFrequency: p.path === '/' || p.path === '/menu' ? 'weekly' : 'monthly',

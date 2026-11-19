@@ -3,7 +3,7 @@
 import { ReactNode, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Gauge, FileText, Image as ImageIcon, Store, LogOut, PanelLeft, X, ExternalLink } from "lucide-react";
+import { Gauge, FileText, Image as ImageIcon, Store, LogOut, PanelLeft, X, ExternalLink, Newspaper } from "lucide-react";
 import { logout } from "@/app/admin/login/actions";
 import { STUDIO_PAGES } from "@/lib/content";
 import { StudioProvider } from "./studio-context";
@@ -76,6 +76,9 @@ function StudioShell({ children }: { children: ReactNode }) {
           </Link>
           <Link href="/seo/business" onClick={closeSidebar} className={linkClass(pathname === "/seo/business")}>
             <Store size={18} /> Business Info
+          </Link>
+          <Link href="/seo/blog" onClick={closeSidebar} className={linkClass(pathname.startsWith("/seo/blog"))}>
+            <Newspaper size={18} /> Blog
           </Link>
         </nav>
 
