@@ -12,7 +12,8 @@ import { toPost } from '@/lib/blog-data'
 import { MENU_TAG } from '@/lib/menu-data'
 import { MENU_CATEGORIES } from '@/data/menu'
 import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/offers'
-import { confirmationMessage, whatsappDigits, type BookingStatus, type BookingType, type PreorderItem } from '@/lib/bookings'
+import { markPlayed } from '@/lib/game-played'
+import { confirmationMessage, dubaiNow, whatsappDigits, type BookingStatus, type BookingType, type PreorderItem } from '@/lib/bookings'
 import { broadcastOffer, offerBroadcastReady, subscriberCount } from '@/lib/offer-broadcast'
 import { sendConfirmation, whatsappApiReady } from '@/lib/whatsapp-api'
 import type { ClaimStatus, RaceScore } from '@/lib/game-claims'
@@ -850,6 +851,9 @@ export async function applyGameClaim(id: string, billNo: string, billAmount: num
 // Removes a claim (any state). The page warns first when it is still a usable discount.
 export async function deleteGameClaim(id: string) {
   return withAdmin(async (db) => {
-    found(await db.collection<ClaimDoc>('game_claims').deleteOne({ _id: String(id) }))
+    const gone = await db.collection<ClaimDoc>('game_claims').findOneAndDelete({ _id: String(id) })
+    if (!gone) fail('This item no longer exists. Please refresh.')
+    // The number still played today: it can't register for 3 new races until tomorrow
+    if (gone.day === dubaiNow().date) await markPlayed(gone.phone, gone.day, db)
   })
 }

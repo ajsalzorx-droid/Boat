@@ -48,7 +48,8 @@ const nextConfig = {
           // HTTPS only for a year once a visitor has been to the site over HTTPS
           { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
           // Features the site never uses are switched off
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
+          // Location: this site only (the discount game checks the player is at the restaurant)
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self), payment=(), usb=()" },
         ],
       },
     ];

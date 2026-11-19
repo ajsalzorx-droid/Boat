@@ -6,10 +6,13 @@ import { getDb, newId } from '@/lib/mongodb'
 import { clientIp, hit, hits, looksLikeBot, type FormGuard } from '@/lib/rate-limit'
 import { randomInt } from 'node:crypto'
 import { checkOtp, issueOtp, OTP_DIGITS } from '@/lib/game-otp'
+import { dropIfNoDiscount, playedToday } from '@/lib/game-played'
 import { MIN_H, MIN_W, replayRace, STEP, type Input } from './sim'
 import { dubaiNow, whatsappDigits } from '@/lib/bookings'
 import {
   checkPlayer,
+  checkSpot,
+  type PlayerSpot,
   CLAIM_CHANCES,
   CLAIM_VALID_HOURS,
   CODE_ALPHABET,
@@ -162,8 +165,11 @@ async function onThisDevice(doc: ClaimDoc) {
 
 // The code from WhatsApp, typed in the game with the customer's name and number. Right: today's
 // claim for this number opens (or comes back)
-export async function verifyClaimCode(input: ClaimPlayerInput, code: string, guard?: FormGuard): Promise<ClaimResult> {
+// spot: where the phone is (the browser's location): only at the restaurant (PLAY_AREA)
+export async function verifyClaimCode(input: ClaimPlayerInput, code: string, guard?: FormGuard, spot?: PlayerSpot): Promise<ClaimResult> {
   if (looksLikeBot(guard)) return { ok: false, error: GENERIC_ERROR }
+  const away = checkSpot(spot)
+  if (away) return { ok: false, error: away }
   const problem = checkPlayer(input)
   if (problem) return { ok: false, error: problem }
   const typed = String(code ?? '').replace(/\D/g, '')
@@ -200,6 +206,9 @@ async function claimFor(phone: string, otp: Player): Promise<ClaimResult> {
   const col = await claims()
   let doc = await col.findOne({ phone, day })
   const device = await deviceId()
+  // Played today already, with no discount (that claim is not kept): no new races today
+  if (!doc && (await playedToday(phone, day)))
+    return { ok: false, error: `This number has already played its ${CLAIM_CHANCES} races today. Come back tomorrow!` }
   if (!doc) {
     const ip = await clientIp()
     const [deviceCount, ipCount] = await Promise.all([hits(`claim-new-device:${device}`, DAY_MS), hits(`claim-new-ip:${ip}`, DAY_MS)])
@@ -271,8 +280,11 @@ export async function getClaim(claimId: string): Promise<ClaimResult> {
   }
 }
 
-// Counts one chance, before its race starts: from now it is used, even if the race is never finished
-export async function startClaimChance(claimId: string): Promise<ClaimResult> {
+// Counts one chance, before its race starts: from now it is used, even if the race is never finished.
+// Every race is played at the restaurant too (spot: the phone's location, PLAY_AREA)
+export async function startClaimChance(claimId: string, spot?: PlayerSpot): Promise<ClaimResult> {
+  const away = checkSpot(spot)
+  if (away) return { ok: false, error: away }
   try {
     const now = new Date()
     const col = await claims()
@@ -339,6 +351,8 @@ export async function submitClaimScore(claimId: string, chance: number, race: Ra
       { returnDocument: 'after' }
     )
     if (!updated) return { ok: false, error: 'This race can no longer be scored.' }
+    // The last race, and still no discount: the claim is not kept (only "played today")
+    await dropIfNoDiscount(updated)
     return { ok: true, claim: toView(updated) }
   } catch (e) {
     console.error('submitClaimScore failed:', e)
@@ -363,6 +377,7 @@ export async function keepClaimScore(claimId: string, chance?: number): Promise<
       { returnDocument: 'after' }
     )
     if (!doc) return getClaim(claimId)
+    await dropIfNoDiscount(doc) // a race with no discount chosen: nothing to keep
     return { ok: true, claim: toView(doc) }
   } catch (e) {
     console.error('keepClaimScore failed:', e)

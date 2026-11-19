@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronsDown, ChevronsUp, Fish, Flag, Gift, Loader2, MessageCircle, Play, RotateCcw, ShieldCheck, Ticket, Trophy, X } from "lucide-react";
+import { ChevronDown, ChevronsDown, ChevronsUp, Fish, Flag, Gift, Loader2, LocateFixed, MapPin, MessageCircle, Play, RotateCcw, ShieldCheck, Ticket, Trophy, X } from "lucide-react";
 import type { Race, RaceState } from "./race";
 import { CAUSES } from "./sim";
 import { devGameCode, getClaim, keepClaimScore, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
 import { whatsapp, WHATSAPP_DISPLAY } from "@/lib/whatsapp";
-import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, CLAIM_VALID_HOURS, DISCOUNT_TIERS, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, RULES, type ClaimView } from "@/lib/game-claims";
+import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, CLAIM_VALID_HOURS, checkSpot, DISCOUNT_TIERS, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, PLAY_AREA, RULES, type ClaimView, type PlayerSpot } from "@/lib/game-claims";
 import { dubaiNow } from "@/lib/bookings";
 import { Buoy, Dolphin, ElectricEel, Gull, Jelly, Octopus } from "./GuideArt";
 
@@ -68,6 +68,30 @@ const fullNumber = (country: string, typed: string) => {
 };
 
 const SLOW = "No answer from our server. Please check your internet connection and try again.";
+
+// The phone's location, for playing for a discount (only at the restaurant: checkSpot). Fails
+// with a LocationError whose message tells the player what to do
+class LocationError extends Error {}
+const NO_LOCATION = "Your location could not be found. Turn on location (GPS) and try again. You can still play free!";
+const locate = () =>
+  new Promise<PlayerSpot>((resolve, reject) => {
+    if (!("geolocation" in navigator)) return reject(new LocationError("This browser can't share its location, so it can't play for a discount. You can still play free!"));
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
+      (err) =>
+        reject(
+          new LocationError(
+            err.code === err.PERMISSION_DENIED
+              ? "Please allow location for this site: the discount game can only be played at Boat Seafood. You can still play free!"
+              : err.code === err.TIMEOUT
+                ? "Finding your location took too long. Please try again (outdoors or near a window helps)."
+                : NO_LOCATION
+          )
+        ),
+      // a reading from the last minute is fine: no new GPS fix for each race
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 }
+    );
+  });
 
 const storeClaim = (id: string) => {
   try {
@@ -146,8 +170,40 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     raceRef.current?.setAutoStart(true);
     raceRef.current?.start();
   };
+  // Playing for a discount: only at the restaurant (PLAY_AREA in src/lib/game-claims.ts). The
+  // phone's location is asked for here, and the server checks it again when the claim opens and
+  // before every race. A claim already open shows its code anywhere (to show at the till)
+  const [locating, setLocating] = useState(false);
+  // Where the player is, for the discount game: asked for on the first screen ("Turn on
+  // location"). inside = at the restaurant: the discount button opens. Free play never needs it
+  type Where = { state: "idle" } | { state: "checking" } | { state: "inside" } | { state: "outside"; message: string };
+  const [where, setWhere] = useState<Where>({ state: "idle" });
+  const checkWhere = async () => {
+    setLocating(true);
+    setWhere({ state: "checking" });
+    try {
+      const away = checkSpot(await locate());
+      setWhere(away ? { state: "outside", message: away } : { state: "inside" });
+    } catch (e) {
+      setWhere({ state: "outside", message: e instanceof Error ? e.message : NO_LOCATION });
+    } finally {
+      setLocating(false);
+    }
+  };
+  // Location already allowed for this site (an earlier visit): checked straight away, no tap needed
+  useEffect(() => {
+    if (mode !== "choose" || where.state !== "idle" || !navigator.permissions) return;
+    navigator.permissions
+      .query({ name: "geolocation" })
+      .then((p) => {
+        if (p.state === "granted") checkWhere();
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the first screen shows
+  }, [mode]);
   const chooseClaim = () => {
     setError(null);
+    if (where.state !== "inside") return; // the button is locked until the location is checked
     if (claim) return setMode("claim");
     formOpenedAt.current = Date.now();
     setMode("register");
@@ -173,14 +229,15 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await inTime(verifyClaimCode({ name, phone: fullNumber(country, phone), offers }, otp, { hp: website, ms: Date.now() - formOpenedAt.current }));
+      const spot = await locate();
+      const res = await inTime(verifyClaimCode({ name, phone: fullNumber(country, phone), offers }, otp, { hp: website, ms: Date.now() - formOpenedAt.current }, spot));
       if (!res.ok) return setError(res.error);
       storeClaim(res.claim.claimId);
       setClaim(res.claim);
       setSentTo(null);
       setMode("claim");
-    } catch {
-      setError(SLOW);
+    } catch (e) {
+      setError(e instanceof LocationError ? e.message : SLOW);
     } finally {
       setBusy(false);
     }
@@ -190,15 +247,15 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await inTime(startClaimChance(claim.claimId));
+      const res = await inTime(startClaimChance(claim.claimId, await locate()));
       if (!res.ok) return setError(res.error);
       setClaim(res.claim);
       sentChance.current = null;
       setPendingChance(res.claim.chancesUsed);
       raceRef.current?.setAutoStart(false);
       raceRef.current?.start(res.seed); // the server's seed: the race it will replay
-    } catch {
-      setError(SLOW);
+    } catch (e) {
+      setError(e instanceof LocationError ? e.message : SLOW);
     } finally {
       setBusy(false);
     }
@@ -487,6 +544,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                   <section>
                     <p className="font-bold text-navy text-[11px] uppercase tracking-[2px] mb-1">Terms</p>
                     <ul className="list-disc pl-4 space-y-1">
+                      <li className="font-semibold text-navy">The discount game can only be played at Boat Seafood: your phone must be within {PLAY_AREA.radiusM} m of the restaurant, so the game asks for your location (only to check this; it isn&rsquo;t saved).</li>
                       <li>Playing for a discount needs your name and a phone number checked by a WhatsApp code.</li>
                       <li>Show your claim code at the till. Staff apply it to one bill, once, within {CLAIM_VALID_HOURS} hours.</li>
                       <li>One game discount per bill (a group uses one person&rsquo;s code). It can&rsquo;t be combined with other offers and has no cash value.</li>
@@ -511,7 +569,8 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
-            {mode === "choose" && state.phase === "ready" && (
+            {/* also after a free race, when "Play for a discount" brings the player here to check their location */}
+            {mode === "choose" && (state.phase === "ready" || state.phase === "over") && (
               <div className={card} role="status">
                 {closeX}
                 <p className="text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-ocean font-bold mb-2">Catbo Racing</p>
@@ -524,10 +583,48 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                   <button type="button" autoFocus className={button} onClick={playFree}>
                     <Play size={16} className="fill-current" aria-hidden /> Play free
                   </button>
-                  <button type="button" className={buttonAlt} onClick={chooseClaim}>
-                    <Gift size={16} aria-hidden /> {claim ? "My discount claim" : "Play for a discount"}
-                  </button>
-                  <p className="text-[11px] sm:text-[12px] leading-snug text-navy/60">Off your bill: {RULES} · {chancesText()} · one discount per bill</p>
+                  {/* The discount game: only at the restaurant. Locked until the location is checked */}
+                  <div className="rounded-2xl border border-navy/15 bg-white/70 p-3 text-left">
+                    <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[2px] text-navy/70 mb-1.5">
+                      <MapPin size={13} aria-hidden /> Discount game · at Boat Seafood only
+                    </p>
+                    {where.state === "idle" && (
+                      <>
+                        <p className="text-[12px] leading-snug text-navy/70 mb-2.5">
+                          Turn on your location to play for a discount. It works within {PLAY_AREA.radiusM} m of the restaurant.
+                        </p>
+                        <button type="button" className={`${button} w-full`} onClick={checkWhere}>
+                          <LocateFixed size={16} aria-hidden /> Turn on location
+                        </button>
+                      </>
+                    )}
+                    {where.state === "checking" && (
+                      <p className="flex items-center gap-2 text-[12.5px] text-navy py-2" role="status">
+                        <Loader2 size={16} className="animate-spin" aria-hidden /> Checking your location…
+                      </p>
+                    )}
+                    {where.state === "outside" && (
+                      <>
+                        <p role="alert" className="text-[12.5px] leading-snug text-offer font-semibold mb-2">{where.message}</p>
+                        <button type="button" className={`${buttonAlt} w-full`} onClick={checkWhere} disabled={locating}>
+                          <RotateCcw size={15} aria-hidden /> Check again
+                        </button>
+                      </>
+                    )}
+                    {where.state === "inside" && (
+                      <>
+                        <p className="flex items-center gap-1.5 text-[12.5px] font-semibold text-green-700 mb-2.5">
+                          <ShieldCheck size={15} aria-hidden /> You&rsquo;re at Boat Seafood: the discount game is open!
+                        </p>
+                        <button type="button" className={`${button} w-full`} onClick={chooseClaim}>
+                          <Gift size={16} aria-hidden /> {claim ? "My discount claim" : "Play for a discount"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-[11px] sm:text-[12px] leading-snug text-navy/60">
+                    Off your bill: {RULES} · {chancesText()} · one discount per bill. Play free from anywhere!
+                  </p>
                 </div>
               </div>
             )}
@@ -661,7 +758,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                   <button type="button" autoFocus className={button}>
                     <RotateCcw size={16} aria-hidden /> Race again
                   </button>
-                  <button type="button" className={buttonAlt} onClick={(e) => { e.stopPropagation(); chooseClaim(); }}>
+                  <button type="button" className={buttonAlt} onClick={(e) => { e.stopPropagation(); if (where.state === "inside") chooseClaim(); else { setError(null); setMode("choose"); } }}>
                     <Gift size={16} aria-hidden /> {claim ? "My discount claim" : "Play for a discount"}
                   </button>
                 </div>
