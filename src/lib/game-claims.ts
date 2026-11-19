@@ -5,35 +5,50 @@
 // CLAIM_CHANCES races a day per number. Every race's score is kept, and the customer chooses which
 // one becomes their discount (one discount only): after a race they claim it, or play the next and
 // then choose between them. Until they choose, the better score counts. The
-// score is the fish caught: every fish counts (discountFor). The claim gets a short code; staff
-// find it in Admin -> Game Claims and apply it to the bill, once, within CLAIM_VALID_DAYS.
+// score is the fish caught, in steps (DISCOUNT_TIERS, discountFor). The claim gets a short code; staff
+// find it in Admin -> Game Claims and apply it to the bill, once, within CLAIM_VALID_HOURS.
 
-export const CLAIM_CHANCES: number = 2 // races a day per phone number
+export const CLAIM_CHANCES: number = 3 // races a day per phone number
 // "1 race a day" / "2 races a day", for the texts
 export const chancesText = (n = CLAIM_CHANCES) => (n === 1 ? '1 race a day' : `${n} races a day`)
 // What the customer sends to our WhatsApp to get a code (src/lib/game-otp.ts answers it)
 export const OTP_REQUEST_TEXT = 'GET OTP'
-export const CLAIM_VALID_DAYS = 7
+export const CLAIM_VALID_HOURS = 24 // a claim must be used at the till within this many hours of registering
 
-// Fish caught -> discount on the bill: RATE.percent for every RATE.fish, bit by bit (each fish
-// counts: 20 fish = 5 %, so 1 fish = 0.25 %, 2 fish = 0.5 %), up to MAX_DISCOUNT_PERCENT
-export const RATE = { fish: 20, percent: 5 }
-export const MAX_DISCOUNT_PERCENT = 10
-export const PERCENT_PER_FISH = RATE.percent / RATE.fish
+// Fish caught -> discount on the bill. At least MIN_FISH (25) in one race for any discount:
+// 25 fish = 5 %. From there every fish counts, up to 15 % at 50 fish (0.4 % a fish: 30 fish =
+// 7 %, 40 fish = 11 %). 50 fish or more: 15 %, the most. Fewer than 25: no discount.
+// Highest first.
+export const DISCOUNT_TIERS = [
+  { fish: 50, percent: 15 },
+  { fish: 25, percent: 5 },
+] as const
+export const MAX_DISCOUNT_PERCENT = DISCOUNT_TIERS[0].percent
+export const MIN_FISH = DISCOUNT_TIERS[DISCOUNT_TIERS.length - 1].fish
 
 export function discountFor(fish: number) {
-  const percent = Math.max(0, Math.floor(fish)) * PERCENT_PER_FISH
-  return Math.min(MAX_DISCOUNT_PERCENT, Math.round(percent * 100) / 100)
+  const n = Math.max(0, Math.floor(fish))
+  if (n < MIN_FISH) return 0
+  const steps = [...DISCOUNT_TIERS].reverse()
+  for (let i = 1; i < steps.length; i++) {
+    const [a, b] = [steps[i - 1], steps[i]]
+    if (n < b.fish) return Math.round((a.percent + ((n - a.fish) * (b.percent - a.percent)) / (b.fish - a.fish)) * 100) / 100
+  }
+  return MAX_DISCOUNT_PERCENT
 }
 
-// The fish that give the most discount (40 at 0.25 % a fish, up to 10 %)
-export const FISH_FOR_MAX = Math.ceil(MAX_DISCOUNT_PERCENT / PERCENT_PER_FISH)
+// The next step up from this many fish (null = the top one is reached), for "N more fish for X%"
+export function nextTier(fish: number) {
+  const n = Math.max(0, Math.floor(fish))
+  return [...DISCOUNT_TIERS].reverse().find((t) => n < t.fish) ?? null
+}
 
 // "0.25", "5", "7.5": a discount written without needless zeros
 export const formatPercent = (p: number) => String(Math.round(p * 100) / 100)
 
-// The rule in one line, for the game and the admin page
-export const RULES = `${RATE.fish} fish = ${RATE.percent}% off, every fish counts (1 fish = ${formatPercent(PERCENT_PER_FISH)}%), up to ${MAX_DISCOUNT_PERCENT}%`
+// The rule in one line, for the game and the admin page:
+// "25 fish minimum = 5% off, every extra fish counts, up to 15% at 50 fish"
+export const RULES = `${MIN_FISH} fish minimum = ${DISCOUNT_TIERS[DISCOUNT_TIERS.length - 1].percent}% off, every extra fish counts, up to ${MAX_DISCOUNT_PERCENT}% at ${DISCOUNT_TIERS[0].fish} fish`
 
 // Claim codes: no 0/O, 1/I/L, so they are easy to read out at the till
 export const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'

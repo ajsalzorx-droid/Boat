@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { saveOffer, deleteOffer, setOfferActive, listOffers, type OfferInput } from "../actions";
-import { actionFailed, uploadAdminImage } from "../client-helpers";
+import { actionFailed, confirmDialog, messageDialog, uploadAdminImage } from "../client-helpers";
+import { toast } from "../Toaster";
 import { Plus, Edit, Trash2, X, AlertCircle, Search, Upload, Monitor, Smartphone } from "lucide-react";
 import { MENU_CATEGORIES } from "@/data/menu";
 import { MAX_OFFER_PERCENT, offerStatus, toDubaiDay, type Offer, type OfferScope } from "@/lib/offers";
@@ -117,11 +118,19 @@ export default function AdminOffersPage() {
     // The site picks the banner by screen shape, so each slot needs its own shape (square fits both)
     const size = await imageSize(file);
     if (size && field === "banner_url" && size.height > size.width) {
-      alert(`This image is tall (${size.width} × ${size.height}), a phone banner.\n\nUpload it in the Phone slot. The Desktop & tablet banner must be wide, like 1920 × 1080.`);
+      await messageDialog({
+        title: "Wrong banner shape",
+        text: `This image is tall (${size.width} × ${size.height}), a phone banner.\n\nUpload it in the Phone slot. The Desktop & tablet banner must be wide, like 1920 × 1080.`,
+        icon: "warning",
+      });
       return;
     }
     if (size && field === "banner_mobile_url" && size.width > size.height) {
-      alert(`This image is wide (${size.width} × ${size.height}), a desktop banner.\n\nUpload it in the Desktop & tablet slot. The Phone banner must be tall, like 1080 × 1920.`);
+      await messageDialog({
+        title: "Wrong banner shape",
+        text: `This image is wide (${size.width} × ${size.height}), a desktop banner.\n\nUpload it in the Desktop & tablet slot. The Phone banner must be tall, like 1080 × 1920.`,
+        icon: "warning",
+      });
       return;
     }
 
@@ -141,23 +150,34 @@ export default function AdminOffersPage() {
     if (actionFailed(res)) return;
 
     const sent = res.ok ? res.data?.whatsapp : null;
-    if (sent?.status === "sent") alert(`Offer saved. WhatsApp banner accepted for ${sent.accepted} customers${sent.rejected ? ` (${sent.rejected} rejected)` : ""}.`);
-    if (sent?.status === "skipped") alert(`Offer saved. WhatsApp banner not sent: ${sent.reason}`);
-    if (sent?.status === "failed") alert(`Offer saved, but the WhatsApp banner failed: ${sent.error}`);
+    const saved = editingId ? `"${payload.title}" updated` : `"${payload.title}" added`;
+    if (sent?.status === "sent") toast(`${saved}. WhatsApp banner accepted for ${sent.accepted} customers${sent.rejected ? ` (${sent.rejected} rejected)` : ""}.`);
+    else if (sent?.status === "skipped") toast(`${saved}. WhatsApp banner not sent: ${sent.reason}`);
+    else if (sent?.status === "failed") toast(`${saved}, but the WhatsApp banner failed: ${sent.error}`, "error");
+    else toast(saved);
 
     setIsModalOpen(false);
     fetchOffers();
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this offer?")) {
+    const offer = offers.find((o) => o.id === id);
+    const ok = await confirmDialog({
+      title: "Delete this offer?",
+      text: `${offer?.title ? `"${offer.title}"` : "This offer"} will be removed from the website. This can't be undone.`,
+      confirmText: "Yes, delete",
+      danger: true,
+    });
+    if (ok) {
       if (actionFailed(await deleteOffer(id))) return;
+      toast("Offer deleted");
       fetchOffers();
     }
   };
 
   const toggleActive = async (id: string, isActive: boolean) => {
     if (actionFailed(await setOfferActive(id, !isActive))) return;
+    toast(isActive ? "Offer turned off" : "Offer turned on");
     fetchOffers();
   };
 

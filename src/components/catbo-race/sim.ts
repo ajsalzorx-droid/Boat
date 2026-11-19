@@ -53,7 +53,7 @@ export const GULL_PATHS = [
 ]
 export const GULL_KINDS = ['dive', 'glide', 'stoop', 'wave', 'skimmer'] as const
 
-export type Creature = 'octopus' | 'jelly' | 'snake'
+export type Creature = 'octopus' | 'jelly' | 'eel'
 
 // The levels, each starting at a distance (from, in metres). speed: the fastest Catbo goes in it.
 // gap: the room between obstacles, in seconds of travel (the least, and how much more at random;
@@ -66,8 +66,36 @@ export const LEVELS = [
   { name: 'Beginner', from: 0, speed: 360, gap: [1.5, 0.8], dolphins: 0.25, birds: 0.12, pairs: 0, creatures: [] as Creature[], danger: 0, sky: ['#f9eadb', '#f4dcc4'], sea: ['#a6dbda', '#5b9fb4'], back: '#78bac0', isles: '#cfe3df', sun: '#ffd678' }, // soft morning
   { name: 'Medium', from: 100, speed: 500, gap: [1.2, 0.7], dolphins: 0.4, birds: 0.15, pairs: 0.15, creatures: ['octopus'] as Creature[], danger: 0.2, sky: ['#bfe6fb', '#e3f4fc'], sea: ['#6fd3d8', '#1f86b3'], back: '#4fb3c9', isles: '#a9d6c4', sun: '#fff3a6' }, // bright blue day
   { name: 'Hard', from: 200, speed: 640, gap: [1.0, 0.65], dolphins: 0.5, birds: 0.18, pairs: 0.3, creatures: ['octopus', 'jelly'] as Creature[], danger: 0.35, sky: ['#ff9f6b', '#ffd29a'], sea: ['#c98fb0', '#5a4f9c'], back: '#a877a8', isles: '#c9705f', sun: '#ff7043' }, // sunset
-  { name: 'Extra Hard', from: 300, speed: 800, gap: [0.92, 0.45], dolphins: 0.55, birds: 0.2, pairs: 0.45, creatures: ['octopus', 'jelly', 'snake'] as Creature[], danger: 0.5, sky: ['#101a44', '#3a2f6e'], sea: ['#2c4f96', '#0d1c45'], back: '#213c7c', isles: '#262b5c', sun: '#e6ebff' }, // night
+  { name: 'Extra Hard', from: 300, speed: 800, gap: [0.92, 0.45], dolphins: 0.55, birds: 0.2, pairs: 0.45, creatures: ['octopus', 'jelly', 'eel'] as Creature[], danger: 0.5, sky: ['#101a44', '#3a2f6e'], sea: ['#2c4f96', '#0d1c45'], back: '#213c7c', isles: '#262b5c', sun: '#e6ebff' }, // night
 ]
+
+// Hidden difficulty by fish caught, whatever the level: from HARD_AFTER_FISH the race quietly
+// plays like HARD_PLAY, and from HARDEST_AFTER_FISH like HARDEST_PLAY, the hardest there is
+// (fastest, obstacles as close as a jump allows: a jump lasts 0.85 s, the least gap stays above
+// it; the most creatures among the fish). Nothing on screen says so: the level name and colours
+// still follow the distance. The server's replay runs this same code, so the score it works out
+// matches. HARD_SPEED_UP: how fast Catbo then speeds up to it.
+export const HARD_AFTER_FISH = 10
+export const HARDEST_AFTER_FISH = 15
+const HARD_PLAY = {
+  speed: 820,
+  gap: [0.9, 0.4],
+  dolphins: 0.55,
+  birds: 0.22,
+  pairs: 0.5,
+  creatures: ['octopus', 'jelly', 'eel'] as Creature[],
+  danger: 0.6,
+}
+const HARDEST_PLAY = {
+  speed: 940,
+  gap: [0.88, 0.25],
+  dolphins: 0.55,
+  birds: 0.25,
+  pairs: 0.65,
+  creatures: ['octopus', 'jelly', 'eel'] as Creature[],
+  danger: 0.85,
+}
+const HARD_SPEED_UP = 45
 
 // What hooking each sea creature, or hitting each obstacle, says on the race-over card
 export const CAUSES = {
@@ -76,7 +104,7 @@ export const CAUSES = {
   bird: 'A gull flew into you!',
   octopus: 'You hooked an octopus!',
   jelly: 'You hooked a jellyfish!',
-  snake: 'You hooked a sea snake!',
+  eel: 'Zap! You hooked an electric eel!',
 }
 export type Cause = keyof typeof CAUSES
 
@@ -198,10 +226,17 @@ export class Sim {
     return true
   }
 
+  // How the race plays now: the level's, or the hidden hard / hardest one (by fish caught)
+  private play() {
+    if (this.caught >= HARDEST_AFTER_FISH) return HARDEST_PLAY
+    if (this.caught >= HARD_AFTER_FISH) return HARD_PLAY
+    return LEVELS[this.level]
+  }
+
   // ---- What comes along: buoys to jump, diving gulls to jump, and dolphins that leap ----
   private spawn() {
     const x = this.W + 60
-    const { gap, dolphins, birds, pairs } = LEVELS[this.level]
+    const { gap, dolphins, birds, pairs } = this.play()
     const pick = this.rand()
     if (pick >= dolphins && pick < dolphins + birds && this.rand() < GULL.behind) {
       // A gull from behind: off the screen to the left for now, so that it reaches Catbo when a
@@ -263,8 +298,8 @@ export class Sim {
 
   // A fish, or a sea creature, swimming in the water somewhere below the waves
   private addSwimmer(kind: Swimmer['kind'], x = this.W + 50) {
-    const w = kind === 'fish' ? 46 + this.rand() * 26 : kind === 'snake' ? 110 + this.rand() * 30 : 52 + this.rand() * 14
-    const h = kind === 'fish' ? w * 0.57 : kind === 'jelly' ? w * 1.1 : kind === 'snake' ? 40 : w * 0.85
+    const w = kind === 'fish' ? 46 + this.rand() * 26 : kind === 'eel' ? 110 + this.rand() * 30 : 52 + this.rand() * 14
+    const h = kind === 'fish' ? w * 0.57 : kind === 'jelly' ? w * 1.1 : kind === 'eel' ? 40 : w * 0.85
     const y = this.SEA + 50 + this.rand() * (DEPTH - 50 - h - 15)
     this.swimmers.push({ kind, x, y, w, h, swim: (kind === 'fish' ? 30 : 10) + this.rand() * 50, seed: this.rand() })
   }
@@ -289,7 +324,7 @@ export class Sim {
       // A fish every time. The level's sea creatures come as well as the fish, never instead of
       // them, a little behind it
       this.addSwimmer('fish')
-      const { creatures, danger } = LEVELS[this.level]
+      const { creatures, danger } = this.play()
       if (creatures.length && this.rand() < danger)
         this.addSwimmer(creatures[Math.floor(this.rand() * creatures.length)], this.W + 140 + this.rand() * 120)
       // The faster Catbo goes, the sooner they pass, so they come more often: the sea holds as
@@ -332,7 +367,8 @@ export class Sim {
       this.level++
       this.levelAt = this.t
     }
-    this.speed = Math.min(LEVELS[this.level].speed, this.speed + SPEED_UP * dt)
+    const hard = this.caught >= HARD_AFTER_FISH
+    this.speed = Math.min(this.play().speed, this.speed + (hard ? HARD_SPEED_UP : SPEED_UP) * dt)
     this.travelled += this.speed * dt
 
     // the boat: up, and back down onto the water with a splash

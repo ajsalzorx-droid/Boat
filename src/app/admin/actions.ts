@@ -15,8 +15,9 @@ import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/
 import { confirmationMessage, whatsappDigits, type BookingStatus, type BookingType, type PreorderItem } from '@/lib/bookings'
 import { broadcastOffer, offerBroadcastReady, subscriberCount } from '@/lib/offer-broadcast'
 import { sendConfirmation, whatsappApiReady } from '@/lib/whatsapp-api'
-import { CODE_LENGTH, normalizeCode, type ClaimStatus, type RaceScore } from '@/lib/game-claims'
+import type { ClaimStatus, RaceScore } from '@/lib/game-claims'
 import type { ClaimDoc } from '@/components/catbo-race/claims'
+import { claimRow, queryDailyCatch, queryGameClaims, queryMenuItems } from '@/lib/admin-lists'
 
 // Every admin write goes through here: verify the token first, then touch the database.
 // Server Actions are reachable by direct POST, so the check must live inside each action.
@@ -575,17 +576,9 @@ export type MenuItemRow = Plain<{
 }>
 
 // One page of dishes, newest first (skip/limit pagination)
-export async function listMenuItems(page: number, pageSize: number) {
-  return withAdmin(async (db) => {
-    const size = Math.min(Math.max(Math.floor(pageSize) || 10, 1), 100)
-    const skip = Math.max(Math.floor(page) || 0, 0) * size
-    const items = db.collection('menu_items')
-    const [docs, total] = await Promise.all([
-      items.find().sort({ created_at: -1, _id: 1 }).skip(skip).limit(size).toArray(),
-      items.countDocuments(),
-    ])
-    return { items: docs.map((d) => toPlain(d) as unknown as MenuItemRow), total }
-  })
+// The admin page reads it through GET /api/admin/menu-items (abortable); same query.
+export async function listMenuItems(page: number, pageSize: number, search = '') {
+  return withAdmin((db) => queryMenuItems(db, { page, pageSize, search }))
 }
 
 export type DailyCatchRow = Plain<{
@@ -598,11 +591,10 @@ export type DailyCatchRow = Plain<{
   updated_at: string
 }>
 
-export async function listDailyCatch() {
-  return withAdmin(async (db) => {
-    const docs = await db.collection('daily_catch').find().sort({ updated_at: -1 }).toArray()
-    return docs.map((d) => toPlain(d) as unknown as DailyCatchRow)
-  })
+// One page of the daily catch, last edited first (skip/limit pagination, optional search).
+// The admin page reads it through GET /api/admin/daily-catch (abortable); same query.
+export async function listDailyCatch(page: number, pageSize: number, search = '') {
+  return withAdmin((db) => queryDailyCatch(db, { page, pageSize, search }))
 }
 
 // All offers, newest first, plus every dish (name and category) for the "applies to" picker
@@ -812,64 +804,11 @@ export type GameClaimRow = {
 
 export type GameClaimFilter = 'ready' | 'used' | 'all'
 
-const claimRow = (d: ClaimDoc): GameClaimRow => ({
-  id: d._id,
-  code: d.code,
-  name: d.name,
-  phone: d.phone_typed,
-  phone_digits: d.phone,
-  offers: !!d.offers,
-  day: d.day,
-  chances_used: d.chances_used,
-  scores: d.scores ?? (d.fish !== null && d.scored_chance ? [{ chance: d.scored_chance, fish: d.fish, metres: d.metres ?? 0, percent: d.percent }] : []),
-  chosen_chance: d.chosen_chance ?? null,
-  fish: d.fish,
-  metres: d.metres,
-  percent: d.percent,
-  locked: d.locked,
-  status: d.status === 'open' && d.expires_at.getTime() < Date.now() ? 'expired' : d.status,
-  created_at: d.created_at.toISOString(),
-  expires_at: d.expires_at.toISOString(),
-  used_at: d.used_at ? d.used_at.toISOString() : null,
-  bill_no: d.bill_no ?? null,
-  bill_amount: d.bill_amount ?? null,
-  discount_amount: d.discount_amount ?? null,
-})
-
 // One page of claims, newest first. search = a claim code or (part of) a phone number.
 // ready = a discount waiting to be used at the till; used = applied to a bill.
+// The admin page reads it through GET /api/admin/game-claims (abortable); same query.
 export async function listGameClaims(search: string, filter: GameClaimFilter, page: number, pageSize: number) {
-  return withAdmin(async (db) => {
-    if (!['ready', 'used', 'all'].includes(filter)) fail('Invalid filter.')
-    const size = Math.min(Math.max(Math.floor(pageSize) || 12, 1), 100)
-    const skip = Math.max(Math.floor(page) || 0, 0) * size
-    const now = new Date()
-    const q = text(search, 'Search', 40)
-    const code = normalizeCode(q)
-    const digits = q.replace(/\D/g, '')
-    const find: Record<string, unknown> = {}
-    if (q) {
-      const or: Record<string, unknown>[] = []
-      if (code.length === CODE_LENGTH) or.push({ code })
-      // a local number typed at the till ("050 123 4567") matches the saved international digits
-      // (digits only, so safe inside a regex)
-      if (digits.length >= 4) or.push({ phone: { $regex: digits.startsWith('0') ? digits.slice(1) : digits } })
-      if (!or.length) return { claims: [], total: 0, counts: { ready: 0, used: 0, all: 0 }, offersCount: 0 }
-      find.$or = or
-    }
-    const ready = { status: 'open' as const, percent: { $gt: 0 }, expires_at: { $gt: now } }
-    const query = { ...find, ...(filter === 'ready' ? ready : filter === 'used' ? { status: 'used' } : {}) }
-    const col = db.collection<ClaimDoc>('game_claims')
-    const [docs, total, readyCount, usedCount, allCount, offersCount] = await Promise.all([
-      col.find(query).sort({ created_at: -1, _id: 1 }).skip(skip).limit(size).toArray(),
-      col.countDocuments(query),
-      col.countDocuments({ ...find, ...ready }),
-      col.countDocuments({ ...find, status: 'used' }),
-      col.countDocuments(find),
-      db.collection('bot_contacts').countDocuments({ source: 'game', opted_in: true }),
-    ])
-    return { claims: docs.map(claimRow), total, counts: { ready: readyCount, used: usedCount, all: allCount }, offersCount }
-  })
+  return withAdmin((db) => queryGameClaims(db, { search, filter, page, pageSize }))
 }
 
 // Applies a claim's discount to a bill, once: the bill number and amount are kept with it
@@ -883,7 +822,7 @@ export async function applyGameClaim(id: string, billNo: string, billAmount: num
     if (!doc) fail('This claim no longer exists. Please refresh.')
     if (doc.status === 'used') fail(`This claim was already used on bill ${doc.bill_no ?? ''}.`.trim())
     if (doc.expires_at.getTime() < Date.now()) fail('This claim has expired.')
-    if (doc.percent <= 0) fail('This claim has no discount (no fish caught).')
+    if (doc.percent <= 0) fail('This claim has no discount (not enough fish caught).')
     // One game discount per bill: a group with several claims uses one person's (bill numbers are
     // compared without spaces or case, so "B-102" and "b 102" are the same bill)
     const billKey = bill.toUpperCase().replace(/\s+/g, '')
@@ -905,5 +844,12 @@ export async function applyGameClaim(id: string, billNo: string, billAmount: num
     }
     if (!updated) fail('This claim was just used. Please refresh.')
     return claimRow(updated)
+  })
+}
+
+// Removes a claim (any state). The page warns first when it is still a usable discount.
+export async function deleteGameClaim(id: string) {
+  return withAdmin(async (db) => {
+    found(await db.collection<ClaimDoc>('game_claims').deleteOne({ _id: String(id) }))
   })
 }

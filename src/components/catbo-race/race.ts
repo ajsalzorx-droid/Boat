@@ -364,10 +364,40 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
 
   // Catbo on his surfboard, with his rod: one picture, drawn from the middle of
   // the board's bottom, rocking a little as he balances
-  const surfer = (bob: number) => {
+  // zap: seconds since an electric eel shocked him (null: not shocked). He shakes, flashes bright
+  // with a yellow glow and lightning crackles round him: hard for a second and a half, then in
+  // short bursts (with a soft glow between them) while the race-over card shows
+  const surfer = (bob: number, zap: number | null = null) => {
+    const [x, y, w, h] = [-PIC.x * PIC.scale, -PIC.y * PIC.scale, PIC.w * PIC.scale, PIC.h * PIC.scale];
+    const strong = zap !== null && zap < 1.5;
+    const live = zap !== null && (strong || zap % 0.9 < 0.4);
     ctx.save();
-    ctx.translate(0, bob);
-    ctx.drawImage(art.cat, -PIC.x * PIC.scale, -PIC.y * PIC.scale, PIC.w * PIC.scale, PIC.h * PIC.scale);
+    ctx.translate(live ? (Math.random() - 0.5) * (strong ? 9 : 5) : 0, bob + (live ? (Math.random() - 0.5) * (strong ? 7 : 4) : 0));
+    if (zap !== null) {
+      // still charged between the bursts: a soft yellow glow round him
+      ctx.shadowColor = "rgba(255,225,60,0.95)";
+      ctx.shadowBlur = live ? 26 : 12;
+    }
+    ctx.drawImage(art.cat, x, y, w, h);
+    ctx.shadowBlur = 0;
+    // the flash: the picture again, added on top so it glows almost white, on and off fast
+    if (live && Math.floor(zap! * 16) % 2 === 0) {
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = strong ? 0.75 : 0.5;
+      ctx.drawImage(art.cat, x, y, w, h);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+    }
+    // lightning round his body, from points on him outward
+    if (live) {
+      const bolts = strong ? 6 : 3;
+      for (let i = 0; i < bolts; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const [cx, cy] = [x + w * (0.3 + Math.random() * 0.45), y + h * (0.15 + Math.random() * 0.55)];
+        const reach = 30 + Math.random() * 40;
+        bolt(cx, cy, cx + Math.cos(a) * reach, cy + Math.sin(a) * reach, 4, i % 2 ? "#ffffff" : "#ffe14d", 2 + Math.random() * 1.5);
+      }
+    }
     ctx.restore();
   };
 
@@ -434,7 +464,7 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
   };
 
   // A sea creature, drawn round its middle (the canvas already moved there): an octopus, a jellyfish
-  // or a sea snake. Each moves a little: tentacles wave, a bell pulses, the snake wriggles
+  // or an electric eel. Each moves a little: tentacles wave, a bell pulses, the eel glows and sparks
   const creature = (f: Swimmer) => {
     const { w, h, seed } = f;
     const eyes = (y: number, gap: number, r: number) => {
@@ -495,54 +525,100 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
       ctx.fill();
       eyes(-h * 0.14, w * 0.12, w * 0.07);
     } else {
-      // a sea snake, banded black and yellow, swimming left: its head in front, a wave running down its
-      // body to the flat, paddle-shaped tail
+      // an electric eel, swimming left: a long dark-teal body in a gentle wave, glowing yellow
+      // lightning marks down its side, a fin along its belly, and now and then a spark around it
       const n = 22;
       const at = (i: number) => {
         const k = i / n; // 0 at the head, 1 at the tail
-        return { x: -w / 2 + k * w, y: Math.sin(k * Math.PI * 2.2 - t * 7 - seed * 6) * h * 0.32 * (0.35 + k * 0.65) };
+        return { x: -w / 2 + k * w, y: Math.sin(k * Math.PI * 1.8 - t * 6 - seed * 6) * h * 0.26 * (0.3 + k * 0.7) };
       };
+      const charge = 0.55 + 0.45 * Math.sin(t * 9 + seed * 7); // its glow pulses
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
+      // the glow round the body
+      ctx.save();
+      ctx.shadowColor = "rgba(255,230,80,0.9)";
+      ctx.shadowBlur = 8 + charge * 14;
       for (let i = 0; i < n; i++) {
         const [p0, p1] = [at(i), at(i + 1)];
-        ctx.strokeStyle = Math.floor(i / 2) % 2 === 0 ? "#2b2b2b" : "#f2c94c";
-        ctx.lineWidth = h * (0.42 - (i / n) * 0.12);
+        const k = i / n;
+        ctx.strokeStyle = k < 0.5 ? "#1f4e5f" : "#256a74";
+        ctx.lineWidth = h * (0.5 - k * 0.32);
         ctx.beginPath();
         ctx.moveTo(p0.x, p0.y);
         ctx.lineTo(p1.x, p1.y);
         ctx.stroke();
       }
-      const tail = at(n);
-      ctx.fillStyle = "#2b2b2b";
+      ctx.restore();
+      // the belly fin, a thin lighter ribbon under the back half
+      ctx.strokeStyle = "rgba(120,200,190,0.75)";
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.ellipse(tail.x + h * 0.15, tail.y, h * 0.3, h * 0.2, 0, 0, Math.PI * 2);
-      ctx.fill();
-      const head = at(0);
-      ctx.fillStyle = "#2b2b2b";
-      ctx.beginPath();
-      ctx.ellipse(head.x - h * 0.08, head.y, h * 0.34, h * 0.25, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // a flicking forked tongue
-      ctx.strokeStyle = "#d9363e";
-      ctx.lineWidth = 1.6;
-      const lick = (Math.sin(t * 10 + seed * 7) + 1) * h * 0.12;
-      ctx.beginPath();
-      ctx.moveTo(head.x - h * 0.4, head.y + h * 0.04);
-      ctx.lineTo(head.x - h * 0.55 - lick, head.y + h * 0.04);
-      ctx.lineTo(head.x - h * 0.65 - lick, head.y - h * 0.06);
-      ctx.moveTo(head.x - h * 0.55 - lick, head.y + h * 0.04);
-      ctx.lineTo(head.x - h * 0.65 - lick, head.y + h * 0.14);
+      for (let i = 6; i <= n; i++) {
+        const p = at(i);
+        const y = p.y + h * (0.24 - (i / n) * 0.12);
+        if (i === 6) ctx.moveTo(p.x, y);
+        else ctx.lineTo(p.x, y);
+      }
       ctx.stroke();
+      // lightning marks along the side
+      ctx.strokeStyle = `rgba(255,${200 + Math.round(charge * 55)},60,${0.65 + charge * 0.35})`;
+      ctx.lineWidth = 2.2;
+      for (let i = 3; i < n - 3; i += 4) {
+        const p = at(i);
+        const s = h * 0.13;
+        ctx.beginPath();
+        ctx.moveTo(p.x - s, p.y - s);
+        ctx.lineTo(p.x + s * 0.2, p.y - s * 0.1);
+        ctx.lineTo(p.x - s * 0.3, p.y + s * 0.1);
+        ctx.lineTo(p.x + s, p.y + s);
+        ctx.stroke();
+      }
+      // head, with a yellow eye
+      const head = at(0);
+      ctx.fillStyle = "#1a4352";
+      ctx.beginPath();
+      ctx.ellipse(head.x - h * 0.06, head.y, h * 0.32, h * 0.24, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = "#ffd23f";
       ctx.beginPath();
-      ctx.arc(head.x - h * 0.16, head.y - h * 0.08, h * 0.08, 0, Math.PI * 2);
+      ctx.arc(head.x - h * 0.16, head.y - h * 0.07, h * 0.075, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = "#14223a";
       ctx.beginPath();
-      ctx.arc(head.x - h * 0.17, head.y - h * 0.08, h * 0.04, 0, Math.PI * 2);
+      ctx.arc(head.x - h * 0.18, head.y - h * 0.07, h * 0.035, 0, Math.PI * 2);
       ctx.fill();
+      // a spark crackling off it now and then
+      if (charge > 0.85) {
+        const p = at(4 + Math.floor((t * 7 + seed * 10) % (n - 8)));
+        bolt(p.x, p.y - h * 0.3, p.x + h * 0.4, p.y - h * 0.9, 3, "rgba(255,240,120,0.95)", 1.6);
+      }
     }
+  };
+
+  // A zigzag of lightning from (x0, y0) to (x1, y1), in `kinks` steps: for the eel's sparks and
+  // Catbo's shock. Random each frame, so it crackles (drawing only, never in the rules)
+  const bolt = (x0: number, y0: number, x1: number, y1: number, kinks: number, color: string, width: number) => {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const len = Math.hypot(dx, dy) || 1;
+    const [nx, ny] = [-dy / len, dx / len]; // across the bolt
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineJoin = "miter";
+    ctx.shadowColor = "rgba(255,240,140,0.95)";
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    for (let i = 1; i < kinks; i++) {
+      const k = i / kinks;
+      const off = (Math.random() - 0.5) * len * 0.35;
+      ctx.lineTo(x0 + dx * k + nx * off, y0 + dy * k + ny * off);
+    }
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+    ctx.restore();
   };
 
   const buoy = (th: Thing) => {
@@ -640,7 +716,7 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
       const tilt = moving() ? (lift > 0 ? Math.max(-0.25, Math.min(0.2, -rise / 2600)) : Math.sin(t * 6) * 0.02) : Math.sin(t * 2) * 0.03;
       ctx.translate(W * BOAT.x + BOAT.w / 2, b.b);
       ctx.rotate(tilt);
-      surfer(lift > 0 ? 0 : Math.sin(t * 5) * 2);
+      surfer(lift > 0 ? 0 : Math.sin(t * 5) * 2, sim.over && sim.cause === "eel" ? Math.max(0, t - overAt) : null);
       ctx.restore();
     }
     // dolphins in the air, over Catbo (the sea in front, drawn next, hides what is still under)
@@ -724,6 +800,8 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
       ctx.moveTo(top.x, top.y);
       ctx.quadraticCurveTo(top.x - line.depth * 0.05, (top.y + h.y) / 2, h.x, h.y - 8);
       ctx.stroke();
+      // an electric eel on the hook: the current runs up the line to Catbo
+      if (line.fish?.kind === "eel" && Math.random() < 0.7) bolt(h.x, h.y - 8, top.x, top.y, 7, "#fff27a", 2.2);
       if (line.fish) {
         const f = line.fish;
         ctx.save();
@@ -731,7 +809,7 @@ export async function startRace(canvas: HTMLCanvasElement, onState: (s: RaceStat
           ctx.translate(h.x, h.y + f.w * 0.42);
           ctx.rotate(Math.PI / 2 + Math.sin(t * 14) * 0.25); // head up on the hook, wriggling
           swimFish(f, t * 24, 0.18);
-        } else if (f.kind === "snake") {
+        } else if (f.kind === "eel") {
           ctx.translate(h.x, h.y + f.w * 0.45); // head up on the hook, wriggling
           ctx.rotate(Math.PI / 2 + Math.sin(t * 8) * 0.12);
           creature(f);

@@ -1,19 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { saveMenuItem, deleteMenuItem, listMenuItems } from "../actions";
+import { useState } from "react";
+import { saveMenuItem, deleteMenuItem, type MenuItemRow } from "../actions";
 import { actionFailed, confirmDialog, uploadAdminImage } from "../client-helpers";
 import { Plus, Edit, Trash2, X, Upload } from "lucide-react";
 import Pagination from "../Pagination";
+import SearchBox from "../SearchBox";
 import { toast } from "../Toaster";
+import { useAdminList } from "../use-admin-list";
 
 const PAGE_SIZE = 8;
 
 export default function AdminMenuPage() {
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -37,46 +35,9 @@ export default function AdminMenuPage() {
     "Desserts", "Beverages"
   ];
 
-  // Bumped to refetch the current page after add/edit/delete
-  const [reloadKey, setReloadKey] = useState(0);
-
-  // Server-side pagination: the server skips page * PAGE_SIZE rows and returns PAGE_SIZE
-  useEffect(() => {
-    let cancelled = false;
-
-    listMenuItems(page, PAGE_SIZE).then((res) => {
-      if (cancelled) return; // a newer page was requested meanwhile
-      if (!res.ok) {
-        actionFailed(res);
-        setLoading(false);
-        return;
-      }
-      const { items: rows, total } = res.data!;
-      // The page no longer exists (e.g. items were deleted) - go back to the first page
-      if (rows.length === 0 && total > 0 && page > 0) {
-        setPage(0);
-        return;
-      }
-      setItems(rows);
-      setTotalCount(total);
-      setLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [page, reloadKey]);
-
-  // Loading is set here (not inside the effect) so page changes show the loading row
-  const goToPage = (p: number) => {
-    setLoading(true);
-    setPage(p);
-  };
-
-  const reload = () => {
-    setLoading(true);
-    setReloadKey((k) => k + 1);
-  };
+  // Server-side pages + debounced, abortable search (GET /api/admin/menu-items)
+  const list = useAdminList<MenuItemRow>("/api/admin/menu-items", PAGE_SIZE);
+  const { items, total: totalCount, page, loading, busy, goToPage, reload } = list;
 
   const handleOpenModal = (item: any = null) => {
     if (item) {
@@ -112,7 +73,7 @@ export default function AdminMenuPage() {
       const publicUrl = await uploadAdminImage("menu", e.target.files[0]);
       if (publicUrl) setFormData({ ...formData, image_url: publicUrl });
     } catch (error: any) {
-      alert(error.message);
+      toast(error.message, "error");
     } finally {
       setUploadingImage(false);
     }
@@ -168,8 +129,9 @@ export default function AdminMenuPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col items-end md:flex-row md:justify-between md:items-center gap-3">
+    // Fills the admin area: only the table box scrolls, the heading stays put
+    <div className="h-full min-h-0 flex flex-col gap-6">
+      <div className="shrink-0 flex flex-col items-end md:flex-row md:justify-between md:items-center gap-3">
         <div className="min-w-0 w-full md:w-auto">
           <h1 className="text-2xl md:text-3xl font-playfair font-bold text-navy mb-1 md:mb-2 leading-tight md:leading-normal">Menu Management</h1>
           <p className="text-sm md:text-base text-gray-500">Add, edit, or remove items from your restaurant menu.</p>
@@ -182,10 +144,31 @@ export default function AdminMenuPage() {
         </button>
       </div>
 
-      {/* Items Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden max-md:overflow-x-auto admin-scroll">
+      <div className="shrink-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+        <SearchBox
+          value={list.search}
+          onChange={list.setSearch}
+          onEnter={list.searchNow}
+          onClear={list.clearSearch}
+          busy={busy && !loading}
+          placeholder="Search by name, category, tag or ingredient"
+          label="Search menu items"
+        />
+        {list.query && !loading && (
+          <p className="text-sm text-gray-500">
+            {totalCount} {totalCount === 1 ? "item" : "items"} found
+          </p>
+        )}
+      </div>
+
+      {/* Items Table (dimmed while new results are on their way; the old rows stay until then) */}
+      <div
+        data-lenis-prevent
+        aria-busy={busy}
+        className={`flex-1 min-h-[240px] overflow-auto overscroll-contain bg-white rounded-xl shadow-sm border border-gray-100 admin-scroll transition-opacity duration-150 ${busy && !loading ? "opacity-60" : ""}`}
+      >
         <table className="w-full max-md:min-w-[640px] text-left border-collapse">
-          <thead>
+          <thead className="sticky top-0 z-[1] bg-gray-50 shadow-[0_1px_0_#f3f4f6]">
             <tr className="bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-500">
               <th className="p-4 w-16">Image</th>
               <th className="p-4">Name</th>
@@ -198,7 +181,11 @@ export default function AdminMenuPage() {
             {loading ? (
               <tr><td colSpan={5} className="p-8 text-center text-gray-400">Loading menu items...</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={5} className="p-8 text-center text-gray-400">No menu items found. Add one to get started.</td></tr>
+              <tr>
+                <td colSpan={5} className="p-8 text-center text-gray-400">
+                  {list.query ? `No menu items match "${list.query}".` : "No menu items found. Add one to get started."}
+                </td>
+              </tr>
             ) : (
               items.map((item) => (
                 <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
@@ -228,7 +215,9 @@ export default function AdminMenuPage() {
       </div>
 
       {/* Pagination */}
-      <Pagination page={page} pageSize={PAGE_SIZE} total={totalCount} onPage={goToPage} disabled={loading} label="Menu items pages" />
+      <div className="shrink-0">
+        <Pagination page={page} pageSize={PAGE_SIZE} total={totalCount} onPage={goToPage} disabled={loading} label="Menu items pages" />
+      </div>
 
       {/* Add/Edit Modal */}
       {isModalOpen && (

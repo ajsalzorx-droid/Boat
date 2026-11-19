@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { listBookings, setBookingStatus, deleteBooking, type BookingRow, type BookingStatusFilter, type BookingTypeFilter } from "../actions";
-import { actionFailed } from "../client-helpers";
+import { actionFailed, confirmDialog } from "../client-helpers";
+import { toast } from "../Toaster";
 import Pagination from "../Pagination";
 import { CalendarDays, Fish, Users, Phone, Mail, MessageCircle, Check, X, Trash2, RefreshCw, Clock, StickyNote, UtensilsCrossed } from "lucide-react";
 import { formatPrice } from "@/lib/offers";
@@ -84,7 +85,11 @@ export default function AdminBookingsPage() {
   }, []);
 
   const changeStatus = async (b: BookingRow, status: BookingStatus) => {
-    if (status === "cancelled" && !confirm(`Cancel the booking for ${b.name}?`)) return;
+    if (
+      status === "cancelled" &&
+      !(await confirmDialog({ title: "Cancel this booking?", text: `The booking for ${b.name} will be marked as cancelled.`, confirmText: "Yes, cancel it", cancelText: "Keep it", danger: true }))
+    )
+      return;
     // Without the WhatsApp API, Confirm opens WhatsApp with the message ready (staff tap Send).
     // The tab is opened right away, during the click, so the browser doesn't block it as a popup;
     // it gets the WhatsApp address once the booking is saved as confirmed.
@@ -96,15 +101,31 @@ export default function AdminBookingsPage() {
     }
     if (tab) tab.location.href = whatsappLink(b);
     const wa = res.ok ? res.data : undefined;
+    toast(status === "confirmed" ? `Booking for ${b.name} confirmed` : status === "cancelled" ? `Booking for ${b.name} cancelled` : `Booking for ${b.name} updated`);
     if (wa?.whatsapp === "sent") setNotice(`Confirmed. WhatsApp message sent to ${b.name} (${b.phone}).`);
-    if (wa?.whatsapp === "failed" && confirm(`Confirmed, but the WhatsApp message could not be sent:\n${wa.error}\n\nOpen WhatsApp to send it yourself?`))
-      window.open(whatsappLink(b), "_blank");
     load();
+    if (
+      wa?.whatsapp === "failed" &&
+      (await confirmDialog({
+        title: "WhatsApp message not sent",
+        text: `The booking is confirmed, but the WhatsApp message could not be sent:\n${wa.error}\n\nOpen WhatsApp to send it yourself?`,
+        confirmText: "Open WhatsApp",
+        cancelText: "Not now",
+      }))
+    )
+      window.open(whatsappLink(b), "_blank");
   };
 
   const remove = async (b: BookingRow) => {
-    if (!confirm(`Delete the booking for ${b.name}? This cannot be undone.`)) return;
+    const ok = await confirmDialog({
+      title: "Delete this booking?",
+      text: `The booking for ${b.name} will be deleted. This cannot be undone.`,
+      confirmText: "Yes, delete",
+      danger: true,
+    });
+    if (!ok) return;
     if (actionFailed(await deleteBooking(b.id))) return;
+    toast("Booking deleted");
     load();
   };
 

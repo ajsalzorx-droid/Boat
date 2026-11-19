@@ -5,6 +5,7 @@ import { CheckCircle2, X, XCircle } from "lucide-react";
 
 // Small admin notifications: call toast("Item added") anywhere on the admin side.
 // <Toaster /> is mounted once in the admin layout and shows them bottom-right.
+// Pages without a Toaster (SEO Studio, kitchen) get a plain alert instead, so no message is lost.
 
 type ToastKind = "success" | "error";
 type ToastItem = { id: number; message: string; kind: ToastKind };
@@ -13,11 +14,16 @@ let nextId = 1;
 const listeners = new Set<(t: ToastItem) => void>();
 
 export function toast(message: string, kind: ToastKind = "success") {
+  if (listeners.size === 0) {
+    if (typeof window !== "undefined") alert(message);
+    return;
+  }
   const t = { id: nextId++, message, kind };
   listeners.forEach((fn) => fn(t));
 }
 
-const DURATION_MS = 3000;
+// Errors stay up longer: they usually say what to fix
+const DURATION_MS: Record<ToastKind, number> = { success: 3000, error: 6000 };
 
 export default function Toaster() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -25,7 +31,7 @@ export default function Toaster() {
   useEffect(() => {
     const add = (t: ToastItem) => {
       setToasts((list) => [...list, t]);
-      setTimeout(() => setToasts((list) => list.filter((x) => x.id !== t.id)), DURATION_MS);
+      setTimeout(() => setToasts((list) => list.filter((x) => x.id !== t.id)), DURATION_MS[t.kind]);
     };
     listeners.add(add);
     return () => {
@@ -50,7 +56,7 @@ export default function Toaster() {
           ) : (
             <XCircle size={18} className="text-red-500 shrink-0" />
           )}
-          <span className="flex-1 text-navy font-medium">{t.message}</span>
+          <span className="flex-1 text-navy font-medium whitespace-pre-line">{t.message}</span>
           <button type="button" onClick={() => dismiss(t.id)} aria-label="Close" className="text-gray-400 hover:text-gray-600">
             <X size={14} />
           </button>
