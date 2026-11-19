@@ -66,12 +66,10 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
     setActiveCategory(cat);
     setPage(0);
   };
-  const gridRef = useRef<HTMLElement>(null);
   const goToPage = (p: number) => {
     setPage(p);
-    // back up to the first dish of the new page (under the sticky categories bar)
-    const grid = gridRef.current;
-    if (grid) window.scrollTo({ top: grid.getBoundingClientRect().top + window.scrollY - 140, behavior: "smooth" });
+    // the new page starts from the top of the menu page
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleAddToCart = (item: MenuItem) => {
@@ -179,7 +177,7 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
         </nav>
 
         {/* Menu Grid */}
-        <section ref={gridRef} className="px-8 md:px-20 py-20 min-h-[50vh]" aria-labelledby="menu-dishes-title">
+        <section className="px-8 md:px-20 py-20 min-h-[50vh]" aria-labelledby="menu-dishes-title">
           <h2 id="menu-dishes-title" className="sr-only">{activeCategory === "All" ? "All dishes" : activeCategory}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
             <AnimatePresence mode="popLayout">
