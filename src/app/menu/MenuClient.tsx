@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Utensils, Truck, Tag } from "lucide-react";
+import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Utensils, Truck, Tag, ChevronLeft, ChevronRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FlipBookPopup from "@/components/FlipBookPopup";
@@ -15,6 +15,8 @@ import { formatPrice, unitPrice } from "@/lib/offers";
 
 // Shown as a tab only while some dish has a live offer
 const OFFERS_TAB = "Offers";
+// Dishes per page: 3 rows of 3 on a wide screen
+const MENU_PAGE_SIZE = 9;
 
 // Dishes come from the server (page.tsx), so they are in the HTML Google reads.
 // tableNumber = ?table= from the QR code on the restaurant table. openOffers = ?offers (from the
@@ -53,6 +55,24 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
     : activeCategory === OFFERS_TAB
       ? dbMenuItems.filter(item => item.discount)
       : dbMenuItems.filter(item => item.category === activeCategory);
+
+  // Pages of dishes. For Google every dish stays in the page's HTML (the others are only hidden
+  // from view), and the pages are buttons, not ?page= addresses: one /menu page holds the whole
+  // menu, as the Menu schema in page.tsx does, with no thin or duplicate pages to index
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(filteredItems.length / MENU_PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const showCategory = (cat: string) => {
+    setActiveCategory(cat);
+    setPage(0);
+  };
+  const gridRef = useRef<HTMLElement>(null);
+  const goToPage = (p: number) => {
+    setPage(p);
+    // back up to the first dish of the new page (under the sticky categories bar)
+    const grid = gridRef.current;
+    if (grid) window.scrollTo({ top: grid.getBoundingClientRect().top + window.scrollY - 140, behavior: "smooth" });
+  };
 
   const handleAddToCart = (item: MenuItem) => {
     addToCart(item);
@@ -141,7 +161,7 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
             {categories.map(cat => (
               <button
                 key={cat}
-                onClick={() => setActiveCategory(cat)}
+                onClick={() => showCategory(cat)}
                 className={`whitespace-nowrap text-[10px] tracking-[3px] uppercase transition-all relative ${
                   cat === OFFERS_TAB
                     ? `inline-flex items-center gap-1.5 text-offer ${activeCategory === cat ? "font-bold" : "hover:font-bold"}`
@@ -159,11 +179,13 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
         </nav>
 
         {/* Menu Grid */}
-        <section className="px-8 md:px-20 py-20 min-h-[50vh]" aria-labelledby="menu-dishes-title">
+        <section ref={gridRef} className="px-8 md:px-20 py-20 min-h-[50vh]" aria-labelledby="menu-dishes-title">
           <h2 id="menu-dishes-title" className="sr-only">{activeCategory === "All" ? "All dishes" : activeCategory}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
             <AnimatePresence mode="popLayout">
-            {filteredItems.map((item, i) => (
+            {filteredItems.map((item, i) => {
+              const onPage = Math.floor(i / MENU_PAGE_SIZE) === currentPage;
+              return (
               <motion.article
                 key={item.id}
                 layout
@@ -171,11 +193,13 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                className="group flex flex-col"
+                // dishes of the other pages stay in the HTML for Google, hidden from view
+                className={`group flex-col ${onPage ? "flex" : "hidden"}`}
               >
                 <div className={`relative aspect-[4/3] overflow-hidden mb-6 rounded-sm shadow-sm ${item.discount ? "ring-2 ring-offer ring-offset-4 ring-offset-white" : ""}`}>
-                  {/* First row loads right away; the rest only when scrolled near (lazy) */}
-                  <img src={item.image} alt={item.name} loading={i < 3 ? "eager" : "lazy"} decoding="async" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  {/* The page's first row loads right away; the rest only when scrolled near (lazy:
+                      a hidden page's pictures don't load until it is shown) */}
+                  <img src={item.image} alt={item.name} loading={onPage && i % MENU_PAGE_SIZE < 3 ? "eager" : "lazy"} decoding="async" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                   <div className="absolute top-4 left-4 flex flex-col gap-2">
                     {item.tag && (
                       <span className="bg-navy/90 backdrop-blur-md text-cream text-[8px] font-bold tracking-[3px] uppercase py-1.5 px-3 rounded-full">
@@ -222,14 +246,63 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
                     <Tag size={11} /> {item.offer_title}
                   </p>
                 )}
-                <p className="text-[13px] text-navy/70 leading-relaxed font-light mb-6 flex-grow">
+                <p className={`text-[13px] text-navy/70 leading-relaxed font-light ${item.ingredients?.length ? "mb-3" : "mb-6 flex-grow"}`}>
                   {item.description}
                 </p>
+                {item.ingredients?.length ? (
+                  <p className="text-[11px] text-navy/50 leading-relaxed mb-6 flex-grow">
+                    <span className="tracking-[2px] uppercase font-bold text-navy/60">Ingredients: </span>
+                    {item.ingredients.join(", ")}
+                  </p>
+                ) : null}
                 <div className="h-[1px] w-12 bg-ocean/30"></div>
               </motion.article>
-            ))}
+              );
+            })}
             </AnimatePresence>
           </div>
+
+          {pageCount > 1 && (
+            <nav aria-label="Menu pages" className="mt-16 flex flex-col items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 0}
+                  aria-label="Previous page"
+                  className="w-10 h-10 rounded-full border border-navy/20 flex items-center justify-center text-navy hover:bg-navy hover:text-cream disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                {Array.from({ length: pageCount }, (_, p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => goToPage(p)}
+                    aria-label={`Page ${p + 1}`}
+                    aria-current={p === currentPage ? "page" : undefined}
+                    className={`w-10 h-10 rounded-full text-[13px] font-bold transition-colors ${
+                      p === currentPage ? "bg-navy text-cream" : "text-navy/60 hover:text-navy hover:bg-navy/5"
+                    }`}
+                  >
+                    {p + 1}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === pageCount - 1}
+                  aria-label="Next page"
+                  className="w-10 h-10 rounded-full border border-navy/20 flex items-center justify-center text-navy hover:bg-navy hover:text-cream disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+              <p className="text-[10px] tracking-[3px] uppercase text-navy/50">
+                {currentPage * MENU_PAGE_SIZE + 1}–{Math.min((currentPage + 1) * MENU_PAGE_SIZE, filteredItems.length)} of {filteredItems.length} dishes
+              </p>
+            </nav>
+          )}
         </section>
 
         {/* Cart Indicator (only if items exist) */}

@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, ChevronsDown, ChevronsUp, Fish, Flag, Gift, Loader2, MessageCircle, Play, RotateCcw, ShieldCheck, Ticket, Trophy, X } from "lucide-react";
 import type { Race, RaceState } from "./race";
+import { CAUSES } from "./sim";
 import { devGameCode, getClaim, keepClaimScore, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
 import { whatsapp, WHATSAPP_DISPLAY } from "@/lib/whatsapp";
-import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, formatPercent, OTP_REQUEST_TEXT, RULES, type ClaimView } from "@/lib/game-claims";
+import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, CLAIM_VALID_HOURS, DISCOUNT_TIERS, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, RULES, type ClaimView } from "@/lib/game-claims";
 import { dubaiNow } from "@/lib/bookings";
+import { Buoy, Dolphin, ElectricEel, Gull, Jelly, Octopus } from "./GuideArt";
 
 // The Catbo Racing popup, opened from the peeking cat's "Click to play" (CatFishGrab.tsx). It is
 // loaded only then, with the game (race.ts) and its pictures (/public/race), so the pages carry
@@ -19,8 +21,11 @@ import { dubaiNow } from "@/lib/bookings";
 // score counting, and a code to show at the till. The claim is remembered on this device for the
 // day, so closing the game and coming back carries on with it.
 
-type Mode = "choose" | "free" | "register" | "claim";
+// "rules": the rules sheet, shown first every time the game opens; the game is reached only
+// once the visitor ticks that they accept it
+type Mode = "rules" | "choose" | "free" | "register" | "claim";
 const CLAIM_KEY = "catbo-claim"; // this device's claim today: { id, day }
+const ZAP_MS = 1600; // the shock plays this long before the race-over card shows
 
 const readStoredClaim = () => {
   try {
@@ -74,7 +79,8 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
   const raceRef = useRef<Race | null>(null);
   const [state, setState] = useState<RaceState | null>(null);
   const [failed, setFailed] = useState(false);
-  const [mode, setMode] = useState<Mode>("choose");
+  const [mode, setMode] = useState<Mode>("rules");
+  const [accepted, setAccepted] = useState(false); // the rules sheet's "I accept" tick
   const [claim, setClaim] = useState<ClaimView | null>(null);
   const [pendingChance, setPendingChance] = useState<number | null>(null); // a claim race running, its score not yet sent
   const [busy, setBusy] = useState(false);
@@ -96,6 +102,17 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     const id = readStoredClaim();
     if (id) getClaim(id).then((res) => res.ok && setClaim(res.claim)).catch(() => {});
   }, []);
+
+  // Hooked an electric eel: the race-over card waits ZAP_MS, so Catbo's shock (race.ts) is seen
+  // first. Keyed by the race's end, so each race's eel gets its moment
+  const zapKey = state?.phase === "over" && state.cause === CAUSES.eel ? `${state.metres}-${state.fish}` : null;
+  const [zapShown, setZapShown] = useState<string | null>(null);
+  const zapping = zapKey !== null && zapShown !== zapKey;
+  useEffect(() => {
+    if (!zapKey) return;
+    const timer = setTimeout(() => setZapShown(zapKey), ZAP_MS);
+    return () => clearTimeout(timer);
+  }, [zapKey]);
 
   // Free play: a tap, a click or Space starts and restarts races. For a discount only the buttons do
   const loaded = state !== null; // (the race is set up once its first state arrives)
@@ -365,11 +382,135 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
 
         {/* Before the race, and after it. In free play a tap or click anywhere (or Space) starts the
             next race; for a discount only the buttons do */}
-        {state && state.phase !== "racing" && (
+        {state && state.phase !== "racing" && !zapping && (
           <div
             className={`absolute inset-0 flex items-center justify-center bg-navy/30 p-3 sm:p-4 overflow-y-auto ${mode === "free" ? "cursor-pointer" : ""}`}
             onClick={() => mode === "free" && raceRef.current?.jump()}
           >
+            {mode === "rules" && (
+              // Fits the game box at any size: the heading, the tick and the button always show,
+              // only the guide in between scrolls (with a thin scrollbar)
+              <div className={`${card} text-left max-h-full flex flex-col pb-6 sm:pb-7 md:pb-8`} role="document" aria-labelledby="rules-title">
+                {closeX}
+                <p className="shrink-0 text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-ocean font-bold mb-1.5 sm:mb-2 text-center">Catbo Racing</p>
+                <p id="rules-title" className="shrink-0 font-playfair text-[19px] sm:text-[24px] leading-tight font-bold text-navy mb-2.5 sm:mb-3 text-center">
+                  Game guide &amp; rules
+                </p>
+                <div
+                  className="flex-1 min-h-[7.5rem] overflow-y-auto overscroll-contain pr-2 -mr-2 text-navy/80 text-[12px] sm:text-[13.5px] leading-snug space-y-3 [scrollbar-width:thin] [scrollbar-color:rgba(0,48,73,0.25)_transparent] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-navy/25"
+                  data-lenis-prevent
+                >
+                  <section>
+                    <p className="font-bold text-navy text-[11px] uppercase tracking-[2px] mb-1.5">How to play</p>
+                    <ul className="space-y-2">
+                      <GuideRow pics={<img src="/race/catbo-surf.webp" alt="" className="h-10 w-auto" draggable={false} />} tag="Jump" tagClass="bg-navy text-cream">
+                        This is Catbo. <span className="hidden md:inline">Click or press Space</span>
+                        <span className="md:hidden">Tap the screen</span> to jump.
+                      </GuideRow>
+                      <GuideRow
+                        pics={
+                          <>
+                            <Buoy className="h-9 w-auto" />
+                            <Gull className="h-6 w-auto" />
+                          </>
+                        }
+                        tag="Jump over"
+                        tagClass="bg-green-600 text-white"
+                      >
+                        Buoys and gulls diving at you from ahead: jump over them.
+                      </GuideRow>
+                      <GuideRow
+                        pics={
+                          <>
+                            <Dolphin className="h-7 w-auto" />
+                            <Gull className="h-6 w-auto" flip />
+                          </>
+                        }
+                        tag="Stay down"
+                        tagClass="bg-amber-500 text-white"
+                      >
+                        Leaping dolphins, and gulls coming from behind, pass over you: don&rsquo;t jump into them.
+                      </GuideRow>
+                      <GuideRow
+                        pics={
+                          <>
+                            <img src="/race/fish.webp" alt="" className="h-7 w-auto" draggable={false} />
+                            <img src="/catbo/fish-hook.webp" alt="" className="h-9 w-9 md:hidden" draggable={false} />
+                            <kbd className="hidden md:inline-flex h-8 min-w-8 items-center justify-center rounded-md border border-navy/25 bg-white px-2 text-[15px] font-bold text-navy shadow-sm">↓</kbd>
+                          </>
+                        }
+                        tag="Catch"
+                        tagClass="bg-ocean text-white"
+                      >
+                        Catch fish: <span className="hidden md:inline">press ↓</span>
+                        <span className="md:hidden">tap the hook button</span> to drop the line.
+                      </GuideRow>
+                      <GuideRow
+                        pics={
+                          <>
+                            <Octopus className="h-8 w-auto" />
+                            <Jelly className="h-8 w-auto" />
+                            <ElectricEel className="h-6 w-auto" />
+                          </>
+                        }
+                        tag="Never hook"
+                        tagClass="bg-red-600 text-white"
+                      >
+                        Octopus, jellyfish and electric eels swim among the fish: hook one and the race is over (an eel gives Catbo a shock!).
+                      </GuideRow>
+                    </ul>
+                    <p className="mt-2 text-[12px] text-navy/70">One hit and the race is over. The sea gets harder as you go.</p>
+                  </section>
+                  <section>
+                    <p className="font-bold text-navy text-[11px] uppercase tracking-[2px] mb-1">Discount on your bill</p>
+                    <p className="mb-1.5 rounded-lg bg-offer/10 border border-offer/30 px-3 py-2 text-[12.5px] font-bold text-navy">
+                      Catch at least {MIN_FISH} fish in one race to get a discount. Fewer than {MIN_FISH} fish: no discount.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 mb-1.5">
+                      {[...DISCOUNT_TIERS].reverse().map((t) => (
+                        <div key={t.fish} className="rounded-xl bg-white border border-navy/10 px-3 py-2 text-center">
+                          <p className="text-[11px] text-navy/60">{t.fish === MIN_FISH ? `${t.fish} fish (minimum)` : `${t.fish}+ fish`}</p>
+                          <p className="font-playfair text-[20px] font-bold text-navy leading-tight">{t.percent}% off</p>
+                        </div>
+                      ))}
+                    </div>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li>
+                        From {MIN_FISH} fish, every extra fish counts: {MIN_FISH + 5} fish = {formatPercent(discountFor(MIN_FISH + 5))}% off, {MIN_FISH + 15} fish = {formatPercent(discountFor(MIN_FISH + 15))}% off, {DISCOUNT_TIERS[0].fish} fish or more = {DISCOUNT_TIERS[0].percent}% off (the most).
+                      </li>
+                      <li>
+                        {CLAIM_CHANCES} races a day per phone number. You choose one race&rsquo;s score as your discount: races don&rsquo;t add up.
+                      </li>
+                      <li>Stay in the game until each race ends: a race you leave or pause doesn&rsquo;t count.</li>
+                    </ul>
+                  </section>
+                  <section>
+                    <p className="font-bold text-navy text-[11px] uppercase tracking-[2px] mb-1">Terms</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li>Playing for a discount needs your name and a phone number checked by a WhatsApp code.</li>
+                      <li>Show your claim code at the till. Staff apply it to one bill, once, within {CLAIM_VALID_HOURS} hours.</li>
+                      <li>One game discount per bill (a group uses one person&rsquo;s code). It can&rsquo;t be combined with other offers and has no cash value.</li>
+                      <li>Boat Seafood may cancel a claim if the game was played unfairly, and may change these rules.</li>
+                      <li>Playing free needs no details and gives no discount.</li>
+                    </ul>
+                  </section>
+                </div>
+                <label className="shrink-0 mt-3 sm:mt-4 flex items-start gap-2.5 text-[12.5px] sm:text-[13px] text-navy cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={accepted}
+                    onChange={(e) => setAccepted(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-navy shrink-0"
+                    autoFocus
+                  />
+                  <span>I have read the game guide and accept the rules.</span>
+                </label>
+                <button type="button" disabled={!accepted} className={`${button} shrink-0 w-full mt-3 disabled:opacity-40 disabled:pointer-events-none`} onClick={() => setMode("choose")}>
+                  <ShieldCheck size={16} aria-hidden /> Accept &amp; continue
+                </button>
+              </div>
+            )}
+
             {mode === "choose" && state.phase === "ready" && (
               <div className={card} role="status">
                 {closeX}
@@ -377,7 +518,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                 <p className="font-playfair text-[22px] sm:text-[28px] leading-tight font-bold text-navy mb-3">Surf with Catbo!</p>
                 <p className="text-navy/75 text-[12.5px] leading-snug mb-4 sm:text-[14px] sm:leading-normal sm:mb-5">
                   <span className="hidden md:inline">Click or press Space</span>
-                  <span className="md:hidden">Tap the screen</span> to jump over buoys and gulls diving at you. Dolphins, and gulls coming from behind, pass over you: don&rsquo;t jump into them! To fish, <span className="hidden md:inline">press ↓</span><span className="md:hidden">tap the hook button</span>. One hit and the race is over. It gets harder every 100 m, and more and more sea creatures swim among the fish: never hook an octopus, a jellyfish or a sea snake!
+                  <span className="md:hidden">Tap the screen</span> to jump over buoys and gulls diving at you. Dolphins, and gulls coming from behind, pass over you: don&rsquo;t jump into them! To fish, <span className="hidden md:inline">press ↓</span><span className="md:hidden">tap the hook button</span>. One hit and the race is over. It gets harder every 100 m, and more and more sea creatures swim among the fish: never hook an octopus, a jellyfish or an electric eel!
                 </p>
                 <div className="flex flex-col gap-2.5">
                   <button type="button" autoFocus className={button} onClick={playFree}>
@@ -574,7 +715,7 @@ function ClaimCard({
   const saving = busy && raceOver && c.scores.length < c.chancesUsed;
   const best = c.scores.reduce<RaceScore | null>((b, r) => (!b || r.fish > b.fish ? r : b), null);
   const latest = c.scores[c.scores.length - 1];
-  const valid = new Date(c.expiresAt).toLocaleDateString([], { day: "numeric", month: "short" });
+  const valid = new Date(c.expiresAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
   // a race's score, as a line: "Race 1 · 12 fish · 3% off"
   const scoreLine = (r: RaceScore) => (
@@ -612,6 +753,11 @@ function ClaimCard({
                 <Fish size={15} aria-hidden /> Race {latest.chance} of {CLAIM_CHANCES}: {latest.fish} fish
               </p>
               <p className="font-playfair text-4xl sm:text-5xl font-bold text-navy my-1">{formatPercent(latest.percent)}% off</p>
+              {nextTier(latest.fish) && (
+                <p className="text-ocean text-[12.5px] font-bold">
+                  {nextTier(latest.fish)!.fish - latest.fish} more fish for {nextTier(latest.fish)!.percent}% off
+                </p>
+              )}
               <p className="text-navy/70 text-[12.5px] sm:text-[13px] leading-snug mt-2 mb-4">
                 Keep this score, or play {c.chancesLeft === 1 ? "your last race" : "again"}: this score stays saved, and you choose the one you want afterwards.
               </p>
@@ -649,7 +795,11 @@ function ClaimCard({
                   </button>
                 ))}
               </div>
-              {best && best.percent <= 0 && <p className="text-navy text-[13px] mt-3">No fish caught: no discount this time. Come back tomorrow!</p>}
+              {best && best.percent <= 0 && (
+                <p className="text-navy text-[13px] mt-3">
+                  Fewer than {MIN_FISH} fish: no discount this time. Come back tomorrow!
+                </p>
+              )}
             </>
           )}
 
@@ -694,5 +844,18 @@ function ClaimCard({
         Play free instead
       </button>
     </div>
+  );
+}
+
+// One line of the game guide: the pictures, what to do (a coloured tag), and a short text
+function GuideRow({ pics, tag, tagClass, children }: { pics: React.ReactNode; tag: string; tagClass: string; children: React.ReactNode }) {
+  return (
+    <li className="flex items-center gap-3 rounded-xl bg-white/70 border border-navy/10 p-2">
+      <span className="flex w-[5.5rem] shrink-0 items-center justify-center gap-1">{pics}</span>
+      <span className="min-w-0">
+        <span className={`inline-block rounded-full px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-[1.5px] mb-0.5 ${tagClass}`}>{tag}</span>
+        <span className="block">{children}</span>
+      </span>
+    </li>
   );
 }

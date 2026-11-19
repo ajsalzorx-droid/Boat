@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { saveDailyCatch, deleteDailyCatch, setDailyCatchAvailability, listDailyCatch } from "../actions";
-import { actionFailed, uploadAdminImage } from "../client-helpers";
+import { useState } from "react";
+import { saveDailyCatch, deleteDailyCatch, setDailyCatchAvailability, type DailyCatchRow } from "../actions";
+import { actionFailed, confirmDialog, uploadAdminImage } from "../client-helpers";
+import { toast } from "../Toaster";
 import { Plus, Edit, Trash2, X, AlertCircle, Upload } from "lucide-react";
+import Pagination from "../Pagination";
+import SearchBox from "../SearchBox";
+import { useAdminList } from "../use-admin-list";
+
+const PAGE_SIZE = 8;
 
 export default function AdminDailyCatchPage() {
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -21,16 +25,9 @@ export default function AdminDailyCatchPage() {
     is_available: true
   });
 
-  useEffect(() => {
-    fetchItems();
-  }, []);
-
-  const fetchItems = async () => {
-    setLoading(true);
-    const res = await listDailyCatch();
-    if (!actionFailed(res) && res.ok) setItems(res.data!);
-    setLoading(false);
-  };
+  // Server-side pages + debounced, abortable search (GET /api/admin/daily-catch)
+  const list = useAdminList<DailyCatchRow>("/api/admin/daily-catch", PAGE_SIZE);
+  const { items, total: totalCount, page, loading, busy, goToPage, reload: fetchItems } = list;
 
   const handleOpenModal = (item: any = null) => {
     if (item) {
@@ -62,7 +59,7 @@ export default function AdminDailyCatchPage() {
       const publicUrl = await uploadAdminImage("daily-catch", e.target.files[0]);
       if (publicUrl) setFormData({ ...formData, image_url: publicUrl });
     } catch (error: any) {
-      alert(error.message);
+      toast(error.message, "error");
     } finally {
       setUploadingImage(false);
     }
@@ -83,25 +80,40 @@ export default function AdminDailyCatchPage() {
     // Token is verified on the server before the catch is saved
     if (actionFailed(await saveDailyCatch(editingId, payload))) return;
 
+    toast(editingId ? `"${payload.name}" updated` : `"${payload.name}" added to the daily catch`);
     setIsModalOpen(false);
-    fetchItems();
+    // Last edited are listed first, so the saved catch is on page 1
+    if (page === 0) fetchItems();
+    else goToPage(0);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this fresh catch?")) {
+    const item = items.find((i) => i.id === id);
+    const ok = await confirmDialog({
+      title: "Delete this catch?",
+      text: `${item?.name ? `"${item.name}"` : "This catch"} will be removed from the daily catch. This can't be undone.`,
+      confirmText: "Yes, delete",
+      danger: true,
+    });
+    if (ok) {
       if (actionFailed(await deleteDailyCatch(id))) return;
-      fetchItems();
+      toast("Catch deleted");
+      // Deleting the last item on a page: step back a page
+      if (items.length === 1 && page > 0) goToPage(page - 1);
+      else fetchItems();
     }
   };
 
   const toggleAvailability = async (id: string, currentStatus: boolean) => {
     if (actionFailed(await setDailyCatchAvailability(id, !currentStatus))) return;
+    toast(currentStatus ? "Marked as sold out" : "Marked as available");
     fetchItems();
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col items-end md:flex-row md:justify-between md:items-center gap-3">
+    // Fills the admin area: only the table box scrolls, the heading stays put
+    <div className="h-full min-h-0 flex flex-col gap-6">
+      <div className="shrink-0 flex flex-col items-end md:flex-row md:justify-between md:items-center gap-3">
         <div className="min-w-0 w-full md:w-auto">
           <h1 className="text-2xl md:text-3xl font-playfair font-bold text-navy mb-1 md:mb-2 leading-tight md:leading-normal">Daily Catch</h1>
           <p className="text-sm md:text-base text-gray-500">Manage the fresh catches of the day displayed on the homepage.</p>
@@ -114,14 +126,36 @@ export default function AdminDailyCatchPage() {
         </button>
       </div>
 
-      <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start gap-3 text-blue-800">
+      <div className="shrink-0 bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start gap-3 text-blue-800">
         <AlertCircle size={20} className="shrink-0 mt-0.5" />
         <p className="text-sm">These items appear in the "Today's Catch" section on the homepage. You can easily mark them as sold out instead of deleting them when they run out.</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden max-md:overflow-x-auto admin-scroll">
+      <div className="shrink-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+        <SearchBox
+          value={list.search}
+          onChange={list.setSearch}
+          onEnter={list.searchNow}
+          onClear={list.clearSearch}
+          busy={busy && !loading}
+          placeholder="Search by fish name or origin"
+          label="Search daily catch"
+        />
+        {list.query && !loading && (
+          <p className="text-sm text-gray-500">
+            {totalCount} {totalCount === 1 ? "catch" : "catches"} found
+          </p>
+        )}
+      </div>
+
+      {/* Dimmed while new results are on their way; the old rows stay until then */}
+      <div
+        data-lenis-prevent
+        aria-busy={busy}
+        className={`flex-1 min-h-[240px] overflow-auto overscroll-contain bg-white rounded-xl shadow-sm border border-gray-100 admin-scroll transition-opacity duration-150 ${busy && !loading ? "opacity-60" : ""}`}
+      >
         <table className="w-full max-md:min-w-[640px] text-left border-collapse">
-          <thead>
+          <thead className="sticky top-0 z-[1] bg-gray-50 shadow-[0_1px_0_#f3f4f6]">
             <tr className="bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-500">
               <th className="p-4 w-16">Image</th>
               <th className="p-4">Name & Origin</th>
@@ -134,7 +168,11 @@ export default function AdminDailyCatchPage() {
             {loading ? (
               <tr><td colSpan={5} className="p-8 text-center text-gray-400">Loading daily catch...</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={5} className="p-8 text-center text-gray-400">No fresh catch listed. Add one!</td></tr>
+              <tr>
+                <td colSpan={5} className="p-8 text-center text-gray-400">
+                  {list.query ? `No catch matches "${list.query}".` : "No fresh catch listed. Add one!"}
+                </td>
+              </tr>
             ) : (
               items.map((item) => (
                 <tr key={item.id} className={`border-b border-gray-50 transition-colors ${!item.is_available ? 'bg-gray-50/50 opacity-60' : 'hover:bg-gray-50/50'}`}>
@@ -171,6 +209,11 @@ export default function AdminDailyCatchPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="shrink-0">
+        <Pagination page={page} pageSize={PAGE_SIZE} total={totalCount} onPage={goToPage} disabled={loading} label="Daily catch pages" />
       </div>
 
       {/* Add/Edit Modal */}

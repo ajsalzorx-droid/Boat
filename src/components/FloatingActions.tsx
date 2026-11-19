@@ -59,11 +59,12 @@ export default function FloatingActions() {
   // Button names, alt text and WhatsApp link are edited in the SEO Studio (Header & Footer)
   const f = useSection("floating").fields;
   const isMenuPage = pathname === "/menu";
-  // Customer shortcuts cover staff controls on small screens
+  // Customer shortcuts (and Catbo) are never shown on staff screens: they cover the controls
   const isStaffPage = pathname.startsWith("/admin") || pathname.startsWith("/kitchen");
   // Not on the SEO Studio itself (they would cover the editor); its live preview still shows them.
   // Also not on the standalone flipbook viewer, or the booking page (only the form shows there)
-  const hidden = pathname.startsWith("/seo") || pathname === "/profile" || pathname === "/book" || pathname === "/360-view";
+  const hidden =
+    isStaffPage || pathname.startsWith("/seo") || pathname === "/profile" || pathname === "/book" || pathname === "/360-view";
 
   if (hidden) return null;
 
@@ -71,7 +72,7 @@ export default function FloatingActions() {
     <>
     <div className={`fixed right-4 md:right-8 z-40 flex flex-col items-end gap-2.5 md:gap-3 transition-all duration-500 ${
       cartCount > 0 ? "bottom-32 md:bottom-8" : "bottom-5 md:bottom-8"
-    } ${isStaffPage ? "max-md:hidden" : ""}`}>
+    }`}>
 
       {/* Always visible: View Menu or Back Home */}
       <Link

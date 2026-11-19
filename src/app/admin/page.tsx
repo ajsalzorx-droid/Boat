@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { completeOrder as completeOrderAction, clearPendingOrders, listOrders, type OrderFilter } from "./actions";
-import { actionFailed } from "./client-helpers";
+import { actionFailed, confirmDialog } from "./client-helpers";
+import { toast } from "./Toaster";
 import Pagination from "./Pagination";
 import { TrendingUp, Utensils, DollarSign, Clock, Check, AlertCircle, RefreshCw, BellOff, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -112,12 +113,20 @@ export default function AdminDashboard() {
 
   const completeOrder = async (id: string) => {
     if (actionFailed(await completeOrderAction(id))) return;
+    toast("Order marked as completed");
     loadData();
   };
 
   const clearAll = async () => {
-    if (confirm("Are you sure you want to clear all pending orders?")) {
+    const ok = await confirmDialog({
+      title: "Clear all pending orders?",
+      text: "Every pending order will be removed from the list.",
+      confirmText: "Yes, clear all",
+      danger: true,
+    });
+    if (ok) {
       if (actionFailed(await clearPendingOrders())) return;
+      toast("Pending orders cleared");
       show(view.filter, 0);
     }
   };

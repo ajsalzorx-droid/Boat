@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Menu as MenuIcon, Fish, Percent, CalendarDays, Gamepad2, Settings, LogOut, PanelLeft, X, ArrowLeft } from "lucide-react";
 import { logout } from "./login/actions";
+import Toaster from "./Toaster";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -125,6 +126,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {children}
         </div>
       </main>
+      <Toaster />
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { dubaiNow, whatsappDigits } from '@/lib/bookings'
 import {
   checkPlayer,
   CLAIM_CHANCES,
-  CLAIM_VALID_DAYS,
+  CLAIM_VALID_HOURS,
   CODE_ALPHABET,
   CODE_LENGTH,
   claimScore,
@@ -224,7 +224,7 @@ async function claimFor(phone: string, otp: Player): Promise<ClaimResult> {
         locked: false,
         status: 'open',
         created_at: now,
-        expires_at: new Date(now.getTime() + CLAIM_VALID_DAYS * 86400000),
+        expires_at: new Date(now.getTime() + CLAIM_VALID_HOURS * 3600000),
         verified_at: now,
         device_id: device,
       }
