@@ -2,6 +2,7 @@ import 'server-only'
 import type { Db, Filter, Document } from 'mongodb'
 import { toPlain } from '@/lib/mongodb'
 import { CODE_LENGTH, normalizeCode } from '@/lib/game-claims'
+import { dropNoDiscountClaims } from '@/lib/game-played'
 import type { ClaimDoc } from '@/components/catbo-race/claims'
 import type { DailyCatchRow, GameClaimFilter, GameClaimRow, MenuItemRow } from '@/app/admin/actions'
 
@@ -75,6 +76,8 @@ const CLAIM_FILTERS: GameClaimFilter[] = ['ready', 'used', 'all']
 // search = a claim code or (part of) a phone number. ready = a discount waiting to be used at
 // the till; used = applied to a bill.
 export async function queryGameClaims(db: Db, query: ListQuery & { filter?: string }) {
+  // No-discount claims are not kept: finished or expired ones go first (src/lib/game-played.ts)
+  await dropNoDiscountClaims(db).catch((e) => console.error('dropNoDiscountClaims failed:', e))
   const filter: GameClaimFilter = CLAIM_FILTERS.includes(query.filter as GameClaimFilter) ? (query.filter as GameClaimFilter) : 'ready'
   const { size, skip } = paging(query)
   const now = new Date()
