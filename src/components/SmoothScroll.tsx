@@ -4,6 +4,15 @@ import { useEffect, useLayoutEffect, useRef, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Lenis from "lenis";
 
+// The page's Lenis, while it runs. Lenis keeps its own scroll target, so a plain window.scrollTo
+// is undone when Lenis is still gliding after a wheel or touch scroll: scroll with scrollPageTo
+let activeLenis: Lenis | null = null;
+
+export function scrollPageTo(top: number) {
+  if (activeLenis) activeLenis.scrollTo(top, { duration: 1, force: true });
+  else window.scrollTo({ top, behavior: "smooth" });
+}
+
 interface SmoothScrollProps {
   children: ReactNode;
 }
@@ -36,11 +45,13 @@ export default function SmoothScroll({ children }: SmoothScrollProps) {
 
     frame = requestAnimationFrame(raf);
     lenisRef.current = lenis;
+    activeLenis = lenis;
 
     return () => {
       cancelAnimationFrame(frame);
       lenis.destroy();
       lenisRef.current = null;
+      if (activeLenis === lenis) activeLenis = null;
     };
   }, [disabled]);
 

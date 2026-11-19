@@ -6,6 +6,7 @@ import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Utensils, Truck, Tag, Ch
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FlipBookPopup from "@/components/FlipBookPopup";
+import { scrollPageTo } from "@/components/SmoothScroll";
 import { MENU_CATEGORIES, type MenuItem } from "@/data/menu";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
@@ -69,7 +70,7 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
   const goToPage = (p: number) => {
     setPage(p);
     // the new page starts from the top of the menu page
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    scrollPageTo(0);
   };
 
   const handleAddToCart = (item: MenuItem) => {
