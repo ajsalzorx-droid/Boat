@@ -198,6 +198,30 @@ export async function devGameCode(phoneTyped: string): Promise<{ ok: boolean }> 
   return { ok: true }
 }
 
+const PLAYED_TODAY = `This number has already played its ${CLAIM_CHANCES} races today. Come back tomorrow!`
+const OTHER_NUMBER_TODAY = 'This phone has already played for a discount with another number today. Come back tomorrow!'
+const PRECHECK_PER_IP = 40 // per VERIFY_WINDOW_MS
+
+// Before WhatsApp opens: can this number still play today? The same answers claimFor gives after
+// the code, so a customer who can't play isn't sent to WhatsApp for nothing. Only says yes or no
+// (no name, no score). null = go ahead; claimFor still decides after the code.
+export async function checkNumberToday(phoneTyped: string): Promise<{ error: string | null }> {
+  const phone = whatsappDigits(String(phoneTyped ?? '').trim())
+  if (phone.length < 7) return { error: null }
+  try {
+    if (await hit(`claim-precheck-ip:${await clientIp()}`, PRECHECK_PER_IP, VERIFY_WINDOW_MS)) return { error: null }
+    const day = dubaiNow().date
+    if (await (await claims()).findOne({ phone, day }, { projection: { _id: 1 } })) return { error: null } // today's claim comes back
+    if (await playedToday(phone, day)) return { error: PLAYED_TODAY }
+    const [deviceCount, ipCount] = await Promise.all([hits(`claim-new-device:${await deviceId()}`, DAY_MS), hits(`claim-new-ip:${await clientIp()}`, DAY_MS)])
+    if (deviceCount >= NEW_CLAIMS_PER_DEVICE || ipCount >= NEW_CLAIMS_PER_IP) return { error: OTHER_NUMBER_TODAY }
+    return { error: null }
+  } catch (e) {
+    console.error('checkNumberToday failed:', e)
+    return { error: null }
+  }
+}
+
 // Today's claim for a proved number: the one it already has, or a new one (within the limits)
 type Player = { name: string; phone_typed: string; offers: boolean }
 async function claimFor(phone: string, otp: Player): Promise<ClaimResult> {
@@ -208,12 +232,12 @@ async function claimFor(phone: string, otp: Player): Promise<ClaimResult> {
   const device = await deviceId()
   // Played today already, with no discount (that claim is not kept): no new races today
   if (!doc && (await playedToday(phone, day)))
-    return { ok: false, error: `This number has already played its ${CLAIM_CHANCES} races today. Come back tomorrow!` }
+    return { ok: false, error: PLAYED_TODAY }
   if (!doc) {
     const ip = await clientIp()
     const [deviceCount, ipCount] = await Promise.all([hits(`claim-new-device:${device}`, DAY_MS), hits(`claim-new-ip:${ip}`, DAY_MS)])
     if (deviceCount >= NEW_CLAIMS_PER_DEVICE || ipCount >= NEW_CLAIMS_PER_IP)
-      return { ok: false, error: 'This phone has already played for a discount with another number today. Come back tomorrow!' }
+      return { ok: false, error: OTHER_NUMBER_TODAY }
     for (let tries = 0; !doc && tries < 5; tries++) {
       const fresh: ClaimDoc = {
         _id: newId(),

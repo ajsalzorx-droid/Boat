@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { ChevronDown, ChevronsDown, ChevronsUp, Fish, Flag, Gift, Loader2, LocateFixed, MapPin, MessageCircle, Play, RotateCcw, ShieldCheck, Ticket, Trophy, X } from "lucide-react";
 import type { Race, RaceState } from "./race";
 import { CAUSES } from "./sim";
-import { devGameCode, getClaim, keepClaimScore, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
+import { checkNumberToday, devGameCode, getClaim, keepClaimScore, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
 import { whatsapp, WHATSAPP_DISPLAY } from "@/lib/whatsapp";
 import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, CLAIM_VALID_HOURS, checkSpot, DISCOUNT_TIERS, LOCATION_REQUIRED, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, PLAY_AREA, RULES, type ClaimView, type PlayerSpot } from "@/lib/game-claims";
 import { dubaiNow } from "@/lib/bookings";
@@ -211,13 +211,51 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
   // Step 1: name and number are checked, then WhatsApp opens with "GET OTP" typed, to send to us.
   // Our reply in that chat is the code (src/lib/game-otp.ts). Opened during the click, so the
   // browser doesn't block it as a popup
-  const openWhatsApp = () => window.open(whatsapp(OTP_REQUEST_TEXT), "_blank", "noopener");
-  const getCode = (e?: React.FormEvent) => {
+  // A browser that blocks the new tab (after the number check, or an in-app browser) goes to
+  // WhatsApp in this tab instead
+  const openWhatsApp = () => {
+    const url = whatsapp(OTP_REQUEST_TEXT);
+    const tab = window.open(url, "_blank");
+    if (tab) tab.opener = null;
+    else window.location.href = url;
+  };
+  // Before WhatsApp: can this number still play today (3 races used, or this phone already
+  // played with another number)? Checked while the number is typed, so the tap usually knows
+  // the answer at once and WhatsApp opens during the click itself
+  const numberCheck = useRef<{ number: string; error: string | null } | null>(null);
+  const [checking, setChecking] = useState(false);
+  const askNumber = async (number: string) => {
+    const res = await inTime(checkNumberToday(number)).catch(() => ({ error: null }));
+    numberCheck.current = { number, error: res.error };
+    return res.error;
+  };
+  useEffect(() => {
+    if (mode !== "register" || sentTo) return;
+    const number = fullNumber(country, phone);
+    const last = numberCheck.current;
+    if (last && last.number !== number && last.error) setError((shown) => (shown === last.error ? null : shown)); // another number: its warning goes
+    if (phone.replace(/\D/g, "").length < 7 || last?.number === number) return;
+    const timer = setTimeout(() => {
+      askNumber(number).then((problem) => {
+        if (problem) setError(problem);
+      });
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [mode, sentTo, country, phone]);
+  const getCode = async (e?: React.FormEvent) => {
     e?.preventDefault();
     const number = fullNumber(country, phone);
     const problem = checkPlayer({ name, phone: number, offers });
     if (problem) return setError(problem);
     setError(null);
+    const known = numberCheck.current?.number === number ? numberCheck.current.error : undefined;
+    let blocked = known;
+    if (known === undefined) {
+      setChecking(true);
+      blocked = await askNumber(number);
+      setChecking(false);
+    }
+    if (blocked) return setError(blocked);
     openWhatsApp();
     setOtp("");
     setSentTo(number.replace(/\s+/g, " "));
@@ -692,8 +730,8 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                 </p>
                 {error && <p role="alert" className="mt-3 text-[13px] text-offer font-semibold">{error}</p>}
                 <div className="flex flex-col gap-2 mt-5">
-                  <button type="submit" disabled={busy} className={`${button} disabled:opacity-60`}>
-                    <MessageCircle size={16} aria-hidden /> Get code on WhatsApp
+                  <button type="submit" disabled={busy || checking} className={`${button} disabled:opacity-60`}>
+                    {checking ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <MessageCircle size={16} aria-hidden />} Get code on WhatsApp
                   </button>
                   <p className="text-[12px] text-navy/60 text-center leading-snug">WhatsApp opens with &ldquo;{OTP_REQUEST_TEXT}&rdquo; ready: send it to us from this number, and we reply with your code.</p>
                   <button type="button" className="text-[12px] text-navy/60 underline underline-offset-2 hover:text-navy" onClick={() => { setError(null); setMode("choose"); }}>
