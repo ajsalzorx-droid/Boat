@@ -79,18 +79,37 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
     setTimeout(() => setShowSuccess(null), 2000);
   };
 
+  // Who is ordering (required: shown to the staff on the order), and a table when there's no QR
+  // code (empty = takeaway). Name and number are remembered on this device for the next order
+  const [customer, setCustomer] = useState({ name: "", phone: "" });
+  const [typedTable, setTypedTable] = useState("");
+  const [orderError, setOrderError] = useState<string | null>(null);
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem("order-customer") || "null");
+        if (saved && typeof saved.name === "string" && typeof saved.phone === "string") setCustomer({ name: saved.name, phone: saved.phone });
+      } catch {}
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
+
   const handlePlaceOrder = () => {
+    setOrderError(null);
     setIsConfirming(true);
   };
 
   const submitOrder = async () => {
+    if (customer.name.trim().length < 2) return setOrderError("Please enter your name.");
+    if (customer.phone.replace(/\D/g, "").length < 7) return setOrderError("Please enter your phone number.");
+    setOrderError(null);
     setOrderStatus('submitting');
 
     // Sent through a server action: the database prices the items, so the
     // browser can't choose the total or insert into orders directly.
     let result: PlaceOrderResult;
     try {
-      result = await placeOrder(tableNumber, cart.map(c => ({ id: c.item.id, quantity: c.quantity })), { hp: "", ms: Date.now() - openedAt.current });
+      result = await placeOrder(tableNumber || typedTable.trim() || null, cart.map(c => ({ id: c.item.id, quantity: c.quantity })), { hp: "", ms: Date.now() - openedAt.current }, customer);
     } catch (e) {
       console.error("Unexpected error saving order:", e);
       result = { ok: false, error: "Could not send your order. Please try again or ask a waiter." };
@@ -98,10 +117,13 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
 
     if (!result.ok) {
       setOrderStatus('idle');
-      alert(result.error);
+      setOrderError(result.error);
       return;
     }
 
+    try {
+      localStorage.setItem("order-customer", JSON.stringify({ name: customer.name.trim(), phone: customer.phone.trim() }));
+    } catch {}
     setOrderStatus('complete');
     // Clear cart after order is complete would be good, but let's keep it simple for now as per current logic
     setTimeout(() => {
@@ -426,11 +448,31 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
                       <Utensils size={40} />
                     </div>
                     <h2 className="font-playfair text-3xl font-bold mb-4">Confirm Your Order</h2>
-                    <p className="text-navy/70 font-light mb-8 leading-relaxed">
+                    <p className="text-navy/70 font-light mb-6 leading-relaxed">
                       {tableNumber
                         ? `Your order will be sent directly to the kitchen for Table ${tableNumber}. Please confirm to proceed.`
                         : "Are you sure you want to place this order? This action cannot be undone."}
                     </p>
+
+                    <div className="flex flex-col gap-3 mb-6 text-left">
+                      <div>
+                        <label htmlFor="o-name" className="block text-[9px] tracking-[2px] uppercase font-bold text-navy/70 mb-1.5">Your Name *</label>
+                        <input id="o-name" type="text" autoComplete="name" maxLength={60} value={customer.name} onChange={(e) => setCustomer((c) => ({ ...c, name: e.target.value }))} placeholder="Enter your name" className="w-full border border-navy/20 rounded-lg px-3.5 py-2.5 text-[16px] text-navy bg-white placeholder:text-navy/30 focus:border-navy focus:ring-2 focus:ring-ocean/40 outline-none" />
+                      </div>
+                      <div>
+                        <label htmlFor="o-phone" className="block text-[9px] tracking-[2px] uppercase font-bold text-navy/70 mb-1.5">Phone Number *</label>
+                        <input id="o-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={20} value={customer.phone} onChange={(e) => setCustomer((c) => ({ ...c, phone: e.target.value }))} placeholder="Enter your phone number" className="w-full border border-navy/20 rounded-lg px-3.5 py-2.5 text-[16px] text-navy bg-white placeholder:text-navy/30 focus:border-navy focus:ring-2 focus:ring-ocean/40 outline-none" />
+                      </div>
+                      {!tableNumber && (
+                        <div>
+                          <label htmlFor="o-table" className="block text-[9px] tracking-[2px] uppercase font-bold text-navy/70 mb-1.5">
+                            Table Number <span className="normal-case tracking-normal font-normal">(leave empty for takeaway)</span>
+                          </label>
+                          <input id="o-table" type="text" maxLength={10} value={typedTable} onChange={(e) => setTypedTable(e.target.value.replace(/[^A-Za-z0-9 -]/g, ""))} placeholder="e.g. 5" className="w-full border border-navy/20 rounded-lg px-3.5 py-2.5 text-[16px] text-navy bg-white placeholder:text-navy/30 focus:border-navy focus:ring-2 focus:ring-ocean/40 outline-none" />
+                        </div>
+                      )}
+                      {orderError && <p role="alert" className="text-[13px] text-offer font-semibold">{orderError}</p>}
+                    </div>
 
                     <div className="flex flex-col gap-4">
                       <button

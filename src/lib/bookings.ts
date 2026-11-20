@@ -3,6 +3,7 @@
 // show right away) and createBooking on the server (the check that counts).
 
 import { formatPrice } from '@/lib/offers'
+import { WHATSAPP_DISPLAY } from '@/lib/whatsapp'
 
 export type BookingType = 'table' | 'fish'
 export type BookingStatus = 'new' | 'confirmed' | 'cancelled'
@@ -15,6 +16,8 @@ export type BookingInput = {
   date: string // "2026-11-01" (Dubai)
   time: string // "19:30" (Dubai)
   guests: number
+  // Table reservations: which table (TABLES id), or ANY_TABLE for the staff to choose
+  table: string
   // Fish preparation only
   fish_type: string
   fish_weight: string // kg, "" = not sure
@@ -35,9 +38,44 @@ export const MAX_PREORDER_QTY = 20
 export const MAX_GUESTS = 30
 export const BOOK_DAYS_AHEAD = 60
 export const SLOT_MINUTES = 30
-// Last booking this long before closing; same-day bookings at least this far ahead
-export const LAST_SLOT_BEFORE_CLOSE_MIN = 60
+// Last booking this long before closing (0 = up to closing time: 11 AM to 1 AM); same-day bookings
+// at least MIN_NOTICE_MIN ahead
+export const LAST_SLOT_BEFORE_CLOSE_MIN = 0
 export const MIN_NOTICE_MIN = 30
+// Fish preparation bookings ("Fish Preparation" tab on /book): false = hidden, and the server
+// refuses them. Set back to true to offer it again.
+export const FISH_PREP_ENABLED = false
+
+// The restaurant's tables, for choosing one when booking: Inside 1-10 and Outside 1-36.
+// id is what is saved ("in-3", "out-12"); the customer and staff see "Inside 3", "Outside 12".
+// seats: the most guests a table takes. Not set = any group size; add it per table to limit one,
+// e.g. { id: 'in-1', area: 'inside', number: 1, seats: 2 }.
+export type TableArea = 'inside' | 'outside'
+export type Table = { id: string; area: TableArea; number: number; seats?: number }
+export const TABLE_AREAS: { area: TableArea; label: string; count: number }[] = [
+  { area: 'inside', label: 'Inside', count: 10 },
+  { area: 'outside', label: 'Outside', count: 36 },
+]
+export const TABLES: Table[] = TABLE_AREAS.flatMap(({ area, count }) =>
+  Array.from({ length: count }, (_, i) => ({ id: `${area === 'inside' ? 'in' : 'out'}-${i + 1}`, area, number: i + 1 }))
+)
+// "Any table": no longer offered on the form; kept so older bookings that chose it still read right
+export const ANY_TABLE = 'any'
+// A booked table is kept this long: another booking can't take it within this many minutes
+export const TABLE_HOLD_MIN = 120
+// "in-3" -> "Inside 3"; older bookings saved "T5" -> "Table T5"
+export const tableLabel = (id: string | null | undefined) => {
+  if (!id || id === ANY_TABLE) return 'Any table'
+  const t = TABLES.find((x) => x.id === id)
+  return t ? `${TABLE_AREAS.find((a) => a.area === t.area)!.label} ${t.number}` : `Table ${id}`
+}
+// Does the table take a group this size?
+export const fitsGroup = (t: Table, guests: number) => !t.seats || t.seats >= guests
+// Tables that fit the group, apart from those already taken at that time
+export const tablesFor = (guests: number, taken: string[] = []) => TABLES.filter((t) => fitsGroup(t, guests) && !taken.includes(t.id))
+// Two booking times on the same date too close for one table
+export const clashes = (a: string, b: string) => Math.abs(toMinutes(a) - toMinutes(b)) < TABLE_HOLD_MIN
+
 // Offered when the customer isn't sure how the fish should be cooked
 export const CHEF_CHOICE = "Chef's choice"
 
@@ -57,11 +95,14 @@ const toMinutes = (hhmm: string) => {
   const [h, m] = hhmm.split(':').map(Number)
   return h * 60 + m
 }
-const toHHMM = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
+// Minutes -> "HH:MM". Past midnight it keeps counting ("24:30" = 12:30 AM that night), so a late
+// booking stays on the evening's date and sorts after 11:30 PM
+const toHHMM = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
+const AFTER_MIDNIGHT = 24 * 60
+export const isAfterMidnight = (hhmm: string) => toMinutes(hhmm) >= AFTER_MIDNIGHT
 
-// Booking times from opening to an hour before closing, every 30 minutes ("00:00" close = midnight;
-// a close after midnight, e.g. "01:00", is the next day). Never past 11:30 PM: a booking keeps its
-// date, and "12:00 AM" on it would read as the start of that day, not the end.
+// Booking times from opening to closing, every 30 minutes: with 11:00 to 01:00, 11:00 AM ... 1:00 AM.
+// A close after midnight is that night: its times are "24:00", "24:30", "25:00" on the same date.
 // On today's date only times at least MIN_NOTICE_MIN from now.
 export function timeSlots(opens: string, closes: string, date: string, now = Date.now()) {
   const start = toMinutes(opens)
@@ -70,19 +111,26 @@ export function timeSlots(opens: string, closes: string, date: string, now = Dat
   const today = dubaiNow(now)
   const earliest = date === today.date ? today.minutes + MIN_NOTICE_MIN : -1
   const slots: string[] = []
-  const last = Math.min(end - LAST_SLOT_BEFORE_CLOSE_MIN, 24 * 60 - SLOT_MINUTES)
+  const last = end - LAST_SLOT_BEFORE_CLOSE_MIN
   for (let m = start; m <= last; m += SLOT_MINUTES) {
     if (m >= earliest) slots.push(toHHMM(m))
   }
   return slots
 }
 
-// "19:30" -> "7:30 PM"
+// "19:30" -> "7:30 PM", "24:30" -> "12:30 AM"
 export function formatTime(hhmm: string) {
   const m = toMinutes(hhmm)
   const h = Math.floor(m / 60) % 24
   return `${h % 12 || 12}:${String(m % 60).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
 }
+
+// For the time list: after midnight says so, so 12:30 AM isn't read as the morning
+export const slotLabel = (hhmm: string) =>
+  !isAfterMidnight(hhmm) ? formatTime(hhmm) : toMinutes(hhmm) === AFTER_MIDNIGHT ? `${formatTime(hhmm)} (midnight)` : `${formatTime(hhmm)} (after midnight)`
+
+// The calendar day of the visit: a time after midnight is the next day ("2026-11-21" + "24:30" -> 22 Nov)
+export const visitDate = (date: string, hhmm: string) => (isAfterMidnight(hhmm) ? addDays(date, 1) : date)
 
 // "2026-11-01" -> "Sun, 1 Nov 2026"
 export function formatDate(date: string) {
@@ -102,6 +150,7 @@ export function whatsappDigits(phone: string) {
 export function checkBooking(b: BookingInput, hours: { opens: string; closes: string }, now = Date.now()): string | null {
   const s = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
   if (b?.type !== 'table' && b?.type !== 'fish') return 'Please choose what you would like to book.'
+  if (b.type === 'fish' && !FISH_PREP_ENABLED) return 'Fish preparation bookings are not open right now. Please book a table.'
 
   const name = s(b.name)
   if (name.length < 2) return 'Please enter your name.'
@@ -130,6 +179,14 @@ export function checkBooking(b: BookingInput, hours: { opens: string; closes: st
   const guests = Number(b.guests)
   if (!Number.isInteger(guests) || guests < 1 || guests > MAX_GUESTS)
     return `Number of guests must be 1 to ${MAX_GUESTS}. For bigger groups please call us.`
+
+  if (b.type === 'table') {
+    const table = s(b.table)
+    if (!table) return 'Please choose a table.'
+    const t = TABLES.find((x) => x.id === table)
+    if (!t) return 'Please choose one of the tables shown.'
+    if (!fitsGroup(t, guests)) return `${tableLabel(t.id)} seats up to ${t.seats}. Please choose a bigger table.`
+  }
 
   if (b.type === 'fish') {
     const fish = s(b.fish_type)
@@ -164,6 +221,7 @@ export function confirmationMessage(b: {
   type: BookingType
   name: string
   guests: number
+  table?: string | null
   fish_type: string | null
   date: string
   time: string
@@ -171,10 +229,18 @@ export function confirmationMessage(b: {
   items_total?: number | null
 }) {
   const items = b.items ?? []
-  const what = b.type === 'fish' ? `your fish preparation (${b.fish_type})` : `your table for ${b.guests}`
-  const base = [b.name, what, formatDate(b.date), formatTime(b.time)]
-  const intro = `Hello ${base[0]}, this is Boat Seafood Restaurant. We confirm ${base[1]} on ${base[2]} at ${base[3]}.`
-  if (!items.length) return { parts: base, preorderParts: null, text: `${intro} See you soon!` }
+  const guests = `${b.guests} ${b.guests === 1 ? 'guest' : 'guests'}`
+  const what =
+    b.type === 'fish'
+      ? `your fish preparation (${b.fish_type})`
+      : b.table && b.table !== ANY_TABLE
+        ? `your table (${tableLabel(b.table)}) for ${guests}`
+        : `your table for ${guests}`
+  const base = [b.name, what, formatDate(visitDate(b.date, b.time)), formatTime(b.time)]
+  const intro = `Hello ${base[0]},\n\nThank you for choosing Boat Seafood Restaurant. We are happy to confirm ${base[1]} on ${base[2]} at ${base[3]}.`
+  const contact = WHATSAPP_DISPLAY ? ` at ${WHATSAPP_DISPLAY}` : ''
+  const outro = `If you need to cancel or change your booking, please call or WhatsApp us${contact}.\n\nWe look forward to welcoming you!`
+  if (!items.length) return { parts: base, preorderParts: null, text: `${intro}\n\n${outro}` }
 
   const lineTotal = (i: PreorderItem) => `AED ${formatPrice(Math.round(i.price * i.quantity * 100) / 100)}`
   const total = `AED ${formatPrice(b.items_total ?? Math.round(items.reduce((s, i) => s + i.price * i.quantity, 0) * 100) / 100)}`
@@ -184,6 +250,6 @@ export function confirmationMessage(b: {
     // Basic template only (no pre-order template set up): the dishes are mentioned briefly
     parts: [base[0], `${what} with ${count} pre-ordered ${count === 1 ? 'dish' : 'dishes'} (total ${total})`, base[2], base[3]],
     preorderParts: [...base, dishes, total],
-    text: `${intro}\n\nYour pre-order:\n${items.map((i) => `• ${i.quantity} x ${i.name} – ${lineTotal(i)}`).join('\n')}\nTotal: ${total}\n\nSee you soon!`,
+    text: `${intro}\n\nYour pre-order:\n${items.map((i) => `• ${i.quantity} x ${i.name} – ${lineTotal(i)}`).join('\n')}\nTotal: ${total}\n\n${outro}`,
   }
 }

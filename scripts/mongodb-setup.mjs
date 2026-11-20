@@ -95,6 +95,7 @@ const SCHEMAS = {
       date: { bsonType: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, // Dubai date
       time: { bsonType: "string", pattern: "^\\d{2}:\\d{2}$" }, // Dubai time
       guests: { bsonType: ["int", "long", "double"], minimum: 1, maximum: 30 },
+      table: optStr, // table bookings: TABLES id (src/lib/bookings.ts) or "any"
       fish_type: optStr, // fish preparation only
       fish_weight: { bsonType: ["double", "int", "long", "null"] }, // kg
       style: optStr, // how to cook it
@@ -131,7 +132,9 @@ const SCHEMAS = {
         },
       },
       total: money,
-      status: { enum: ["pending", "completed"] },
+      name: optStr, // who ordered (menu order form)
+      phone: optStr,
+      status: { enum: ["pending", "completed", "cancelled"] },
       timestamp: date,
     },
   },

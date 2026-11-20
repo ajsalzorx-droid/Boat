@@ -40,6 +40,6 @@ export const getSiteContent = unstable_cache(
       return fillHours(mergeAll([]), hoursText(DEFAULT_BUSINESS.opens, DEFAULT_BUSINESS.closes)) // database unreachable -> built-in text
     }
   },
-  ['site-content-v2'], // v2: the {hours} fill-in (Nov 2026); renamed so old saved copies aren't used
+  ['site-content-v3'], // v3: "Table Booking" nav label (Nov 2026); renamed so old saved copies aren't used
   { tags: [CONTENT_TAG, SEO_TAG] } // the hours come from the business info (SEO_TAG)
 )

@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { listBookings, setBookingStatus, deleteBooking, type BookingRow, type BookingStatusFilter, type BookingTypeFilter } from "../actions";
+import { listBookings, resendBookingConfirmation, setBookingStatus, deleteBooking, type BookingRow, type BookingStatusFilter, type BookingTypeFilter } from "../actions";
 import { actionFailed, confirmDialog } from "../client-helpers";
 import { toast } from "../Toaster";
 import Pagination from "../Pagination";
 import { CalendarDays, Fish, Users, Phone, Mail, MessageCircle, Check, X, Trash2, RefreshCw, Clock, StickyNote, UtensilsCrossed } from "lucide-react";
 import { formatPrice } from "@/lib/offers";
-import { confirmationMessage, formatDate, formatTime, whatsappDigits, type BookingStatus } from "@/lib/bookings";
+import { formatDate, FISH_PREP_ENABLED, formatTime, tableLabel, visitDate, type BookingStatus } from "@/lib/bookings";
 
 // Bookings per page (2 rows of 3 on wide screens)
 const PAGE_SIZE = 9;
@@ -90,30 +90,24 @@ export default function AdminBookingsPage() {
       !(await confirmDialog({ title: "Cancel this booking?", text: `The booking for ${b.name} will be marked as cancelled.`, confirmText: "Yes, cancel it", cancelText: "Keep it", danger: true }))
     )
       return;
-    // Without the WhatsApp API, Confirm opens WhatsApp with the message ready (staff tap Send).
-    // The tab is opened right away, during the click, so the browser doesn't block it as a popup;
-    // it gets the WhatsApp address once the booking is saved as confirmed.
-    const tab = status === "confirmed" && !whatsappApi ? window.open("", "_blank") : null;
+    // The confirmation goes only from Boat's WhatsApp number (Wati), never from the staff
+    // member's own phone. If it can't go yet, the card says so and "Send WhatsApp" tries again
     const res = await setBookingStatus(b.id, status);
-    if (actionFailed(res)) {
-      tab?.close();
-      return;
-    }
-    if (tab) tab.location.href = whatsappLink(b);
+    if (actionFailed(res)) return;
     const wa = res.ok ? res.data : undefined;
     toast(status === "confirmed" ? `Booking for ${b.name} confirmed` : status === "cancelled" ? `Booking for ${b.name} cancelled` : `Booking for ${b.name} updated`);
-    if (wa?.whatsapp === "sent") setNotice(`Confirmed. WhatsApp message sent to ${b.name} (${b.phone}).`);
+    if (wa?.whatsapp === "sent") setNotice(`Confirmed. WhatsApp message sent to ${b.name} (${b.phone}) from Boat's number.`);
+    if (wa?.whatsapp === "failed") toast(`Booking confirmed, but the WhatsApp message was not sent: ${wa.error}`, "error");
     load();
-    if (
-      wa?.whatsapp === "failed" &&
-      (await confirmDialog({
-        title: "WhatsApp message not sent",
-        text: `The booking is confirmed, but the WhatsApp message could not be sent:\n${wa.error}\n\nOpen WhatsApp to send it yourself?`,
-        confirmText: "Open WhatsApp",
-        cancelText: "Not now",
-      }))
-    )
-      window.open(whatsappLink(b), "_blank");
+  };
+
+  const resend = async (b: BookingRow) => {
+    const res = await resendBookingConfirmation(b.id);
+    if (actionFailed(res)) return;
+    const wa = res.ok ? res.data : undefined;
+    if (wa?.whatsapp === "sent") setNotice(`WhatsApp message sent to ${b.name} (${b.phone}) from Boat's number.`);
+    else toast(`WhatsApp message not sent: ${wa?.error ?? "please try again"}`, "error");
+    load();
   };
 
   const remove = async (b: BookingRow) => {
@@ -129,10 +123,6 @@ export default function AdminBookingsPage() {
     load();
   };
 
-  // WhatsApp chat with the customer, confirmation message ready to send
-  const whatsappLink = (b: BookingRow) =>
-    `https://wa.me/${whatsappDigits(b.phone)}?text=${encodeURIComponent(confirmationMessage(b).text)}`;
-
   const statusLabel = STATUSES.find((s) => s.value === view.status)!.label.toLowerCase();
 
   return (
@@ -140,7 +130,7 @@ export default function AdminBookingsPage() {
       <div className="flex flex-col items-start md:flex-row md:justify-between md:items-center gap-3">
         <div className="min-w-0 w-full md:w-auto">
           <h1 className="text-2xl md:text-3xl font-playfair font-bold text-navy mb-1 md:mb-2 leading-tight md:leading-normal">Bookings</h1>
-          <p className="text-sm md:text-base text-gray-500">Table reservations and fish-preparation requests from the website (/book).</p>
+          <p className="text-sm md:text-base text-gray-500">{FISH_PREP_ENABLED ? "Table reservations and fish-preparation requests from the website (/book)." : "Table bookings from the website (/book)."}</p>
         </div>
         <button
           onClick={load}
@@ -152,7 +142,8 @@ export default function AdminBookingsPage() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
-        <div role="tablist" aria-label="Booking type" className="flex gap-1 p-1 bg-gray-100 rounded-lg w-full sm:w-fit">
+        {/* Table / fish preparation: only while fish preparation is offered (FISH_PREP_ENABLED) */}
+        {FISH_PREP_ENABLED && <div role="tablist" aria-label="Booking type" className="flex gap-1 p-1 bg-gray-100 rounded-lg w-full sm:w-fit">
           {TYPES.map((t) => (
             <button
               key={t.value}
@@ -166,7 +157,7 @@ export default function AdminBookingsPage() {
               {t.label}
             </button>
           ))}
-        </div>
+        </div>}
         <div aria-label="Booking status" className="flex flex-wrap gap-2">
           {STATUSES.map((s) => (
             <button
@@ -183,6 +174,15 @@ export default function AdminBookingsPage() {
           ))}
         </div>
       </div>
+
+      {loaded && !whatsappApi && (
+        <div role="note" className="flex items-start gap-3 bg-amber-50 border border-amber-200 text-amber-900 p-3.5 rounded-xl text-sm">
+          <MessageCircle size={18} className="shrink-0 mt-0.5" />
+          <span>
+            Confirmation messages can&rsquo;t be sent from Boat&rsquo;s WhatsApp number yet: an approved Wati template is needed. You can still confirm bookings and use &ldquo;Send WhatsApp&rdquo; once it is set up.
+          </span>
+        </div>
+      )}
 
       {notice && (
         <div role="status" className="flex items-center gap-3 bg-green-50 border border-green-100 text-green-800 p-3.5 rounded-xl text-sm">
@@ -209,9 +209,9 @@ export default function AdminBookingsPage() {
                 <div className="min-w-0">
                   <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-2 ${b.type === "fish" ? "text-ocean" : "text-navy/70"}`}>
                     {b.type === "fish" ? <Fish size={13} /> : <CalendarDays size={13} />}
-                    {b.type === "fish" ? "Fish Preparation" : "Table"}
+                    {b.type === "fish" ? "Fish Preparation" : b.table ? tableLabel(b.table) : "Table"}
                   </span>
-                  <p className="font-playfair text-xl font-bold text-navy leading-tight">{formatDate(b.date)}</p>
+                  <p className="font-playfair text-xl font-bold text-navy leading-tight">{formatDate(visitDate(b.date, b.time))}</p>
                   <p className="text-sm font-semibold text-navy/80 mt-0.5">
                     {formatTime(b.time)} · {b.guests} {b.guests === 1 ? "guest" : "guests"}
                   </p>
@@ -280,15 +280,15 @@ export default function AdminBookingsPage() {
                     <Check size={15} /> Confirm
                   </button>
                 )}
-                <a
-                  href={whatsappLink(b)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Message the customer on WhatsApp"
-                  className="flex-1 flex items-center justify-center gap-1.5 bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
-                >
-                  <MessageCircle size={15} /> WhatsApp
-                </a>
+                {b.status === "confirmed" && !b.whatsapp_sent_at && (
+                  <button
+                    onClick={() => resend(b)}
+                    title="Send the confirmation from Boat's WhatsApp number"
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
+                  >
+                    <MessageCircle size={15} /> Send WhatsApp
+                  </button>
+                )}
                 {b.status !== "cancelled" && (
                   <button onClick={() => changeStatus(b, "cancelled")} title="Cancel booking" aria-label={`Cancel booking for ${b.name}`} className="p-2.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
                     <X size={16} />

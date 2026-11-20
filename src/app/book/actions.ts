@@ -4,7 +4,7 @@ import { getDb, newId, toPlain, type IdDoc } from '@/lib/mongodb'
 import { bestOffer, offerStatus, unitPrice, type Offer } from '@/lib/offers'
 import { getBusinessInfo } from '@/lib/seo-data'
 import { clientIp, hit, looksLikeBot, type FormGuard } from '@/lib/rate-limit'
-import { checkBooking, MAX_PREORDER_QTY, type BookingInput, type PreorderItem } from '@/lib/bookings'
+import { ANY_TABLE, checkBooking, clashes, MAX_PREORDER_QTY, tableLabel, type BookingInput, type PreorderItem } from '@/lib/bookings'
 
 export type CreateBookingResult = { ok: true } | { ok: false; error: string }
 
@@ -15,6 +15,27 @@ const GENERIC_ERROR = 'Could not send your booking. Please try again or call us.
 const WINDOW_MS = 10 * 60_000
 const MAX_BOOKINGS_PER_IP = 5
 const MAX_BOOKINGS_SITE = 40
+
+// Tables already booked near this time on this date (new or confirmed bookings, within
+// TABLE_HOLD_MIN): the form leaves them out, and createBooking refuses them
+async function tablesTaken(date: string, time: string) {
+  const db = await getDb()
+  const same = await db
+    .collection<{ _id: string; table?: string | null; time: string }>('bookings')
+    .find({ type: 'table', date, status: { $in: ['new', 'confirmed'] }, table: { $nin: [null, ANY_TABLE] } }, { projection: { table: 1, time: 1 } })
+    .toArray()
+  return [...new Set(same.filter((b) => b.table && clashes(b.time, time)).map((b) => b.table as string))]
+}
+
+export async function takenTables(date: string, time: string): Promise<string[]> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date)) || !/^\d{2}:\d{2}$/.test(String(time))) return []
+  try {
+    return await tablesTaken(date, time)
+  } catch (e) {
+    console.error('takenTables failed:', e)
+    return []
+  }
+}
 
 // Saves a table reservation or fish-preparation request; staff see it in Admin -> Bookings
 export async function createBooking(input: BookingInput, guard?: FormGuard): Promise<CreateBookingResult> {
@@ -33,8 +54,11 @@ export async function createBooking(input: BookingInput, guard?: FormGuard): Pro
   if (problem) return { ok: false, error: problem }
 
   const fish = input.type === 'fish'
+  const table = fish ? null : input.table.trim()
   try {
     const db = await getDb()
+    if (table && table !== ANY_TABLE && (await tablesTaken(input.date, input.time)).includes(table))
+      return { ok: false, error: `${tableLabel(table)} has just been booked for that time. Please choose another table.` }
 
     // Pre-ordered dishes: names and prices come from the database (offers running now applied),
     // never from the browser. Same line merged; dishes no longer on the menu are refused.
@@ -71,6 +95,7 @@ export async function createBooking(input: BookingInput, guard?: FormGuard): Pro
       date: input.date,
       time: input.time,
       guests: Number(input.guests),
+      table,
       fish_type: fish ? input.fish_type.trim() : null,
       fish_weight: fish && input.fish_weight.trim() ? Number(input.fish_weight) : null,
       style: fish ? input.style.trim() : null,

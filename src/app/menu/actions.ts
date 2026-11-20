@@ -5,6 +5,20 @@ import { bestOffer, offerStatus, unitPrice, type Offer } from '@/lib/offers'
 import { clientIp, hit, looksLikeBot, type FormGuard } from '@/lib/rate-limit'
 
 export type OrderLine = { id: string; quantity: number }
+// Who ordered: shown on the Admin and Kitchen order cards
+export type OrderCustomer = { name: string; phone: string }
+
+// A message for the customer, or null when the name and number are fine
+function customerProblem(c: OrderCustomer | null | undefined): string | null {
+  const name = String(c?.name ?? '').trim()
+  if (name.length < 2) return 'Please enter your name.'
+  if (name.length > 60 || /[<>]/.test(name)) return 'Please enter a shorter name, letters only.'
+  const phone = String(c?.phone ?? '').trim()
+  const digits = phone.replace(/[^0-9]/g, '')
+  if (!phone) return 'Please enter your phone number.'
+  if (!/^[+]?[0-9\s()-]+$/.test(phone) || digits.length < 7 || digits.length > 15) return 'Please enter a valid phone number, e.g. 050 123 4567.'
+  return null
+}
 export type PlaceOrderResult = { ok: true } | { ok: false; error: string }
 
 const GENERIC_ERROR = 'Could not send your order. Please try again or ask a waiter.'
@@ -15,13 +29,16 @@ const MAX_ORDERS_PER_IP = 3 // per minute
 const MAX_ORDERS_SITE = 120 // per 10 minutes, all visitors together
 const TOO_MANY = 'Too many orders. Please wait a minute and try again.'
 
-export async function placeOrder(table: string | null, lines: OrderLine[], guard?: FormGuard): Promise<PlaceOrderResult> {
+export async function placeOrder(table: string | null, lines: OrderLine[], guard?: FormGuard, customer?: OrderCustomer): Promise<PlaceOrderResult> {
   // Bots: a hidden field was filled, or the order was sent instantly
   if (looksLikeBot(guard)) return { ok: false, error: GENERIC_ERROR }
   if (await hit(`order-ip:${await clientIp()}`, MAX_ORDERS_PER_IP, 60_000)) return { ok: false, error: TOO_MANY }
   if (await hit('order-site', MAX_ORDERS_SITE, 10 * 60_000)) return { ok: false, error: TOO_MANY }
 
-  // Table comes from the QR code (?table=); anything else is treated as invalid
+  const problem = customerProblem(customer)
+  if (problem) return { ok: false, error: problem }
+
+  // Table comes from the QR code (?table=), or is typed in the order form; none = takeaway
   const tableName = table?.trim() || 'Takeaway'
   if (!/^[A-Za-z0-9 -]{1,10}$/.test(tableName)) {
     return { ok: false, error: 'Invalid table number.' }
@@ -70,6 +87,8 @@ export async function placeOrder(table: string | null, lines: OrderLine[], guard
     await db.collection<IdDoc>('orders').insertOne({
       _id: newId(),
       table: tableName,
+      name: customer!.name.trim(),
+      phone: customer!.phone.trim(),
       items,
       total: Math.round(total * 100) / 100,
       status: 'pending',

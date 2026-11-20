@@ -219,7 +219,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     if (tab) tab.opener = null;
     else window.location.href = url;
   };
-  // Before WhatsApp: can this number still play today (3 races used, or this phone already
+  // Before WhatsApp: can this number still play today (all its races used, or this phone already
   // played with another number)? Checked while the number is typed, so the tap usually knows
   // the answer at once and WhatsApp opens during the click itself
   const numberCheck = useRef<{ number: string; error: string | null } | null>(null);
