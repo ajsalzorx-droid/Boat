@@ -9,22 +9,32 @@ import { useSection } from "@/context/ContentContext";
 import { whatsapp } from "@/lib/whatsapp";
 import {
   addDays,
+  ANY_TABLE,
   BOOK_DAYS_AHEAD,
   checkBooking,
   CHEF_CHOICE,
   dubaiNow,
+  FISH_PREP_ENABLED,
   formatDate,
   formatTime,
   MAX_GUESTS,
+  slotLabel,
+  visitDate,
+  tableLabel,
+  TABLE_AREAS,
+  TABLES,
+  fitsGroup,
+  tablesFor,
   timeSlots,
   type BookingInput,
   type BookingType,
 } from "@/lib/bookings";
-import { createBooking } from "./actions";
+import { createBooking, takenTables } from "./actions";
 import PreorderPicker, { type PreorderDish } from "./PreorderPicker";
+import Toaster, { toast } from "@/app/admin/Toaster";
 
-const TABS: { value: BookingType; label: string; icon: typeof Fish; intro: string }[] = [
-  { value: "table", label: "Reserve a Table", icon: CalendarDays, intro: "Book your table at Waterfront Market. We will confirm by phone or WhatsApp." },
+const ALL_TABS: { value: BookingType; label: string; icon: typeof Fish; intro: string }[] = [
+  { value: "table", label: "Table Booking", icon: CalendarDays, intro: "Book your table at Waterfront Market. We will confirm your booking on WhatsApp." },
   {
     value: "fish",
     label: "Fish Preparation",
@@ -32,6 +42,8 @@ const TABS: { value: BookingType; label: string; icon: typeof Fish; intro: strin
     intro: "Bringing fish from the market? Tell us what you have and how you like it, and our chefs will be ready for you.",
   },
 ];
+// Fish preparation shows only while FISH_PREP_ENABLED (src/lib/bookings.ts)
+const TABS = ALL_TABS.filter((t) => t.value === "table" || FISH_PREP_ENABLED);
 
 const EMPTY: Omit<BookingInput, "type"> = {
   name: "",
@@ -40,6 +52,7 @@ const EMPTY: Omit<BookingInput, "type"> = {
   date: "",
   time: "",
   guests: 2,
+  table: "",
   fish_type: "",
   fish_weight: "",
   style: "",
@@ -63,7 +76,7 @@ export default function BookingForm({
   dishes: PreorderDish[];
 }) {
   const styles = useSection("fish_styles").items.map((s) => s.title).filter(Boolean);
-  const [type, setType] = useState<BookingType>(initialType);
+  const [type, setType] = useState<BookingType>(FISH_PREP_ENABLED ? initialType : "table");
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
@@ -86,9 +99,29 @@ export default function BookingForm({
   const slots = now === null || !form.date ? [] : timeSlots(hours.opens, hours.closes, form.date, now);
   const set = (patch: Partial<typeof EMPTY>) => setForm((f) => ({ ...f, ...patch }));
 
+  // Tables already booked near the chosen date and time (asked of the server when they change).
+  // A chosen table that is taken, or too small for the group, stops counting as chosen
+  const [taken, setTaken] = useState<{ key: string; ids: string[] } | null>(null);
+  const takenKey = form.date && form.time ? `${form.date} ${form.time}` : "";
+  useEffect(() => {
+    if (!takenKey) return;
+    let stale = false;
+    const [date, time] = takenKey.split(" ");
+    takenTables(date, time)
+      .then((ids) => !stale && setTaken({ key: takenKey, ids }))
+      .catch(() => !stale && setTaken({ key: takenKey, ids: [] }));
+    return () => {
+      stale = true;
+    };
+  }, [takenKey]);
+  const tablesKnown = !!takenKey && taken?.key === takenKey;
+  const freeTables = tablesKnown ? tablesFor(form.guests, taken!.ids) : [];
+  const tableOk = freeTables.some((t) => t.id === form.table);
+  const chosenTable = tableOk ? form.table : "";
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const booking: BookingInput = { ...form, type };
+    const booking: BookingInput = { ...form, table: chosenTable, type };
     // Same checks as the server, so mistakes show right away
     const problem = checkBooking(booking, hours);
     if (problem) {
@@ -121,13 +154,14 @@ export default function BookingForm({
   return (
     <>
       <Navbar />
+      <Toaster />
       {/* Only the form: the card fills the screen under the fixed navbar (92px phone, 137px from md)
           and its fields scroll inside it, with the tabs staying on top */}
       <main className="h-dvh flex items-center justify-center px-3 sm:px-6 pt-[104px] pb-3 md:pt-[153px] md:pb-6 bg-gradient-to-br from-ink via-navy to-ocean/60">
-          <h1 className="sr-only">Book a table or fish preparation at Boat Seafood</h1>
+          <h1 className="sr-only">Table booking at Boat Seafood</h1>
           <div className="w-full max-w-xl h-full max-h-[880px] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden">
             {/* Which booking */}
-            <div role="tablist" aria-label="Booking type" className="shrink-0 grid grid-cols-2 border-b border-navy/10">
+            {TABS.length > 1 && <div role="tablist" aria-label="Booking type" className="shrink-0 grid grid-cols-2 border-b border-navy/10">
               {TABS.map((t) => (
                 <button
                   key={t.value}
@@ -146,7 +180,12 @@ export default function BookingForm({
                   {t.label}
                 </button>
               ))}
-            </div>
+            </div>}
+            {TABS.length === 1 && (
+              <div className="shrink-0 flex items-center justify-center gap-2 py-3.5 border-b border-navy/10 text-[10px] font-bold tracking-[2px] uppercase text-navy">
+                <CalendarDays size={16} className="shrink-0" /> {TABS[0].label}
+              </div>
+            )}
 
             <div data-lenis-prevent className="flex-1 min-h-0 overflow-y-auto overscroll-contain admin-scroll p-5 sm:p-7">
               <AnimatePresence mode="wait">
@@ -158,7 +197,7 @@ export default function BookingForm({
                     <h2 className="font-playfair text-2xl font-bold text-navy mb-3">Request Received!</h2>
                     <p className="text-navy/70 leading-relaxed mb-6">
                       Thank you, {form.name.trim()}. We will contact you on <b>{form.phone.trim()}</b> to confirm your{" "}
-                      {type === "fish" ? "fish preparation" : "table"} for <b>{formatDate(form.date)}</b> at <b>{formatTime(form.time)}</b>.
+                      {type === "fish" ? "fish preparation" : form.table && form.table !== ANY_TABLE ? <b>{tableLabel(form.table)}</b> : "table"} for <b>{formatDate(visitDate(form.date, form.time))}</b> at <b>{formatTime(form.time)}</b>.
                       {form.items.length > 0 && " Your pre-ordered dishes will be ready for you."}
                     </p>
                     <div className="flex flex-col gap-3 max-w-sm mx-auto">
@@ -190,16 +229,10 @@ export default function BookingForm({
                         <input id="b-name" type="text" autoComplete="name" maxLength={60} value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="Enter your name" className={inputClass} />
                       </div>
                       <div>
-                        <label htmlFor="b-phone" className={labelClass}>Phone Number *</label>
+                        <label htmlFor="b-phone" className={labelClass}>Phone Number (WhatsApp) *</label>
                         <input id="b-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={20} value={form.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="Enter your phone number" className={inputClass} />
+                        <p className="mt-1 text-[11px] text-navy/50">We send your booking confirmation here on WhatsApp.</p>
                       </div>
-                    </div>
-
-                    <div>
-                      <label htmlFor="b-email" className={labelClass}>
-                        Email <span className="normal-case tracking-normal font-normal">(optional)</span>
-                      </label>
-                      <input id="b-email" type="email" autoComplete="email" maxLength={100} value={form.email} onChange={(e) => set({ email: e.target.value })} placeholder="Enter your email" className={inputClass} />
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -220,7 +253,7 @@ export default function BookingForm({
                         <select id="b-time" value={form.time} onChange={(e) => set({ time: e.target.value })} disabled={!form.date} className={`${inputClass} disabled:bg-gray-50 disabled:text-navy/40`}>
                           <option value="">{!form.date ? "Pick a date first" : slots.length ? "Choose" : "No times left"}</option>
                           {slots.map((s) => (
-                            <option key={s} value={s}>{formatTime(s)}</option>
+                            <option key={s} value={s}>{slotLabel(s)}</option>
                           ))}
                         </select>
                       </div>
@@ -233,6 +266,69 @@ export default function BookingForm({
                         </select>
                       </div>
                     </div>
+
+                    {type === "table" && (
+                      <div>
+                        <span className={labelClass}>Choose Your Table *</span>
+                        {!takenKey ? (
+                          <p className="text-[12px] text-navy/50">Pick a date and time first to see the free tables.</p>
+                        ) : !tablesKnown ? (
+                          <p className="text-[12px] text-navy/50">Checking free tables…</p>
+                        ) : (
+                          <>
+                            <div role="radiogroup" aria-label="Table" className="flex flex-col gap-3">
+                              {/* Every table shows, by area. One already booked at this time (or too small
+                                  for the group, where seats are set) is greyed out; tapping it says why */}
+                              {TABLE_AREAS.map(({ area, label }) => (
+                                <div key={area}>
+                                  <p className="text-[11px] font-bold uppercase tracking-[2px] text-navy/60 mb-1.5">{label}</p>
+                                  <div className="grid grid-cols-6 min-[420px]:grid-cols-8 sm:grid-cols-10 gap-1.5">
+                                    {TABLES.filter((t) => t.area === area).map((t) => {
+                                      const booked = taken!.ids.includes(t.id);
+                                      const small = !fitsGroup(t, form.guests);
+                                      const off = booked || small;
+                                      const picked = chosenTable === t.id;
+                                      return (
+                                        <button
+                                          key={t.id}
+                                          type="button"
+                                          role="radio"
+                                          aria-checked={picked}
+                                          aria-disabled={off}
+                                          aria-label={`${tableLabel(t.id)}${booked ? ", booked" : small ? ", too small" : ""}`}
+                                          title={tableLabel(t.id)}
+                                          onClick={() => {
+                                            if (booked) return toast(`${tableLabel(t.id)} is already booked at ${formatTime(form.time)}. Please choose another table or time.`, "error");
+                                            if (small) return toast(`${tableLabel(t.id)} seats up to ${t.seats}. For ${form.guests} guests, please choose a bigger table.`, "error");
+                                            set({ table: t.id });
+                                          }}
+                                          className={`h-10 rounded-lg border text-[13px] font-semibold transition-colors ${
+                                            picked
+                                              ? "bg-navy text-white border-navy"
+                                              : off
+                                                ? "bg-gray-50 text-navy/30 border-navy/10 cursor-not-allowed line-through"
+                                                : "bg-white text-navy border-navy/20 hover:border-navy"
+                                          }`}
+                                        >
+                                          {t.number}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ))}
+                              {chosenTable && chosenTable !== ANY_TABLE && (
+                                <p className="text-[12px] text-navy/70">Chosen: <b className="text-navy">{tableLabel(chosenTable)}</b></p>
+                              )}
+                              <p className="text-[11px] text-navy/45">Crossed-out tables are already booked at this time.</p>
+                            </div>
+                            {freeTables.length === 0 && (
+                              <p className="mt-2 text-[12px] text-navy/60">No table for {form.guests} is free at this time. Please pick another time, or call or WhatsApp us and we will arrange one.</p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
 
                     {type === "fish" && (
                       <div className="grid grid-cols-[1fr_96px] sm:grid-cols-[1fr_120px] gap-3 sm:gap-4 p-4 bg-cream/50 rounded-xl border border-navy/10">
@@ -268,21 +364,6 @@ export default function BookingForm({
                     )}
 
                     <PreorderPicker dishes={dishes} value={form.items} onChange={(items) => set({ items })} />
-
-                    <div>
-                      <label htmlFor="b-notes" className={labelClass}>
-                        Notes <span className="normal-case tracking-normal font-normal">(optional)</span>
-                      </label>
-                      <textarea
-                        id="b-notes"
-                        rows={2}
-                        maxLength={500}
-                        value={form.notes}
-                        onChange={(e) => set({ notes: e.target.value })}
-                        placeholder="Enter any special requests"
-                        className={inputClass}
-                      />
-                    </div>
 
                     {error && (
                       <p role="alert" className="text-[13px] text-offer bg-offer/5 border border-offer/20 rounded-lg px-4 py-3">{error}</p>

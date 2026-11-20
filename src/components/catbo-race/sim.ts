@@ -76,26 +76,26 @@ export const LEVELS = [
 // still follow the distance. The server's replay runs this same code, so the score it works out
 // matches. HARD_SPEED_UP: how fast Catbo then speeds up to it.
 export const HARD_AFTER_FISH = 10
-export const HARDEST_AFTER_FISH = 15
+export const HARDEST_AFTER_FISH = 20
 const HARD_PLAY = {
-  speed: 820,
-  gap: [0.9, 0.4],
+  speed: 720,
+  gap: [1.0, 0.55],
+  dolphins: 0.5,
+  birds: 0.2,
+  pairs: 0.35,
+  creatures: ['octopus', 'jelly', 'eel'] as Creature[],
+  danger: 0.45,
+}
+const HARDEST_PLAY = {
+  speed: 840,
+  gap: [0.95, 0.4],
   dolphins: 0.55,
   birds: 0.22,
   pairs: 0.5,
   creatures: ['octopus', 'jelly', 'eel'] as Creature[],
-  danger: 0.6,
+  danger: 0.65,
 }
-const HARDEST_PLAY = {
-  speed: 940,
-  gap: [0.88, 0.25],
-  dolphins: 0.55,
-  birds: 0.25,
-  pairs: 0.65,
-  creatures: ['octopus', 'jelly', 'eel'] as Creature[],
-  danger: 0.85,
-}
-const HARD_SPEED_UP = 45
+const HARD_SPEED_UP = 35
 
 // What hooking each sea creature, or hitting each obstacle, says on the race-over card
 export const CAUSES = {

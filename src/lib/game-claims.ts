@@ -8,7 +8,7 @@
 // score is the fish caught, in steps (DISCOUNT_TIERS, discountFor). The claim gets a short code; staff
 // find it in Admin -> Game Claims and apply it to the bill, once, within CLAIM_VALID_HOURS.
 
-export const CLAIM_CHANCES: number = 3 // races a day per phone number
+export const CLAIM_CHANCES: number = 5 // races a day per phone number
 // "1 race a day" / "2 races a day", for the texts
 export const chancesText = (n = CLAIM_CHANCES) => (n === 1 ? '1 race a day' : `${n} races a day`)
 // What the customer sends to our WhatsApp to get a code (src/lib/game-otp.ts answers it)
@@ -92,8 +92,8 @@ export type ClaimView = {
 // The switch for all of it: false = the discount game works from anywhere (the location box is
 // hidden, no GPS is asked for, and the server skips the check). Set back to true to limit it to
 // the restaurant again.
-export const LOCATION_REQUIRED = true
-export const PLAY_AREA = { lat: 25 + 17 / 60 + 32.2 / 3600, lng: 55 + 19 / 60 + 21.8 / 3600, radiusM: 100 }
+export const LOCATION_REQUIRED = false
+export const PLAY_AREA = { lat: 25 + 17 / 60 + 32.2 / 3600, lng: 55 + 19 / 60 + 21.8 / 3600, radiusM: 200 }
 const DRIFT_M = 30
 const MAX_ACCURACY_M = 150
 

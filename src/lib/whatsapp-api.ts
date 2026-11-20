@@ -10,10 +10,11 @@ import { randomUUID } from 'node:crypto'
 //   WATI_PREORDER_TEMPLATE     (optional) template with the dishes, e.g. booking_confirmed_preorder
 // Messages the restaurant starts must use approved templates, with these exact variable names:
 //   booking_confirmed:
-//     Hello {{customer_name}}, this is Boat Seafood Restaurant. We confirm {{booking}} on {{date}}
-//     at {{time}}. See you soon!
-//   booking_confirmed_preorder: the same, then
-//     Your pre-order: {{dishes}}. Total: {{total}}. See you soon!
+//     Hello {{customer_name}}, thank you for choosing Boat Seafood Restaurant. We are happy to
+//     confirm {{booking}} on {{date}} at {{time}}. If you need to cancel or change your booking,
+//     please call or WhatsApp us at +971 50 298 1902. We look forward to welcoming you!
+//   booking_confirmed_preorder: the same, with before the cancel line
+//     Your pre-order: {{dishes}}. Total: {{total}}.
 // Without the pre-order template, bookings with dishes use booking_confirmed (dish count + total).
 
 const CONFIRM_PARAMS = ['customer_name', 'booking', 'date', 'time']

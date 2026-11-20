@@ -6,6 +6,10 @@ import { siteUrl } from '@/lib/seo'
 import { getBusinessInfo } from '@/lib/seo-data'
 import { WHATSAPP_DISPLAY } from '@/lib/whatsapp'
 import type { MenuItem } from '@/data/menu'
+import { formatTime } from '@/lib/bookings'
+
+// "11:00" -> "11 AM", "01:00" -> "1 AM", "23:30" -> "11:30 PM": how customers read the hours
+const clockText = (hhmm: string) => formatTime(hhmm).replace(':00 ', ' ')
 
 // What the WhatsApp assistant knows: public facts only (dishes, offers, the fresh catch, contact
 // details). Orders, bookings and staff data are never read here, so it can't repeat them.
@@ -48,7 +52,7 @@ export async function restaurantKnowledge() {
     `Name: ${business.name}`,
     `Cuisine: ${business.cuisine}`,
     `Address: ${address}`,
-    `Hours: every day, ${business.opens} to ${business.closes} (24-hour clock, Dubai time)`,
+    `Hours: open every day from ${clockText(business.opens)} to ${clockText(business.closes)} (Dubai time; closing is after midnight). Always write times like this, never in the 24-hour clock.`,
     `Phone: ${business.phone}`,
     `WhatsApp: ${WHATSAPP_DISPLAY}`,
     `Email: ${business.email}`,

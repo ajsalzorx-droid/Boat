@@ -84,9 +84,8 @@ export async function checkOtp(phone: string, typed: string): Promise<OtpCheck> 
 const ASKS = new Set(['GETOTP', 'OTP', 'SHAREMYOTP', 'SENDOTP', 'GETCODE', 'GAMECODE', 'MYOTP'])
 const isRequest = (text: string) => ASKS.has(text.toUpperCase().replace(/[^A-Z]/g, ''))
 
-const replyText = (code: string) =>
-  `${code} is your Boat Seafood game code. Type it in the game to play for a discount. It works for ${OTP_VALID_MS / 60_000} minutes.\n\n` +
-  `Never share this code with anyone: our staff will never ask for it.`
+// Only the 6 digits, so the customer can copy it straight into the game
+const replyText = (code: string) => code
 
 // A WhatsApp message from Wati's webhook. true = it asked for a game code and was answered here
 // (the chatbot then leaves it alone). Works for every number, whatever the chatbot's own settings.

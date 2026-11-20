@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Clock, Utensils, AlertCircle, RefreshCw, LogOut, BellOff } from "lucide-react";
+import { Check, Clock, Utensils, AlertCircle, RefreshCw, LogOut, BellOff, User, Phone } from "lucide-react";
 import Link from "next/link";
 import { completeOrder as completeOrderAction, clearPendingOrders, listOrders } from "@/app/admin/actions";
 import { actionFailed } from "@/app/admin/client-helpers";
@@ -13,10 +13,12 @@ const ORDER_POLL_MS = 5000;
 interface Order {
   id: string;
   table: string;
+  name?: string | null; // who ordered (orders from before this have none)
+  phone?: string | null;
   items: { name: string; quantity: number }[];
   total: number;
   timestamp: string;
-  status: 'pending' | 'completed';
+  status: 'pending' | 'completed' | 'cancelled';
 }
 
 export default function KitchenPage() {
@@ -152,10 +154,24 @@ export default function KitchenPage() {
                 className="bg-white/5 border border-white/10 rounded-sm overflow-hidden flex flex-col"
               >
                 {/* Order Header */}
-                <div className="p-6 border-b border-white/5 bg-white/[0.02] flex justify-between items-start">
-                  <div>
-                    <div className="text-[9px] tracking-[2px] uppercase text-ocean font-bold mb-1">Table</div>
-                    <div className="text-3xl font-playfair font-bold">{order.table}</div>
+                <div className="p-4 sm:p-6 border-b border-white/5 bg-white/[0.02] flex flex-wrap justify-between items-start gap-x-3 gap-y-2">
+                  <div className="min-w-0 flex-1 basis-40">
+                    <p className="flex items-start gap-1.5 text-xl sm:text-2xl font-playfair font-bold leading-tight break-words">
+                      <User size={16} className="shrink-0 mt-1.5 text-white/40" aria-hidden />
+                      <span className="min-w-0">{order.name || <span className="text-white/40 font-normal italic text-base">No name given</span>}</span>
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {order.table && order.table !== "Takeaway" && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-ocean text-navy px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">
+                          <Utensils size={11} aria-hidden /> Table {order.table}
+                        </span>
+                      )}
+                      {order.phone && (
+                        <a href={`tel:${order.phone.replace(/[^0-9+]/g, "")}`} className="inline-flex items-center gap-1 rounded-full border border-white/20 text-white/85 hover:text-white px-2.5 py-1 text-xs font-semibold">
+                          <Phone size={12} aria-hidden /> {order.phone}
+                        </a>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className="flex items-center gap-1.5 text-white/40 mb-1">

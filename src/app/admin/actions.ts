@@ -271,6 +271,22 @@ export async function completeOrder(id: string) {
   })
 }
 
+// A pending order the customer or staff called off: it leaves the kitchen screen and the revenue
+export async function cancelOrder(id: string) {
+  return withAdmin(async (db) => {
+    const res = await db.collection<IdDoc>('orders').updateOne({ _id: String(id), status: 'pending' }, { $set: { status: 'cancelled' } })
+    if (!res.matchedCount) fail('Only pending orders can be cancelled. Refresh the list and try again.')
+  })
+}
+
+// Removes one order for good, once it is completed or cancelled (a pending one is still being cooked)
+export async function deleteOrder(id: string) {
+  return withAdmin(async (db) => {
+    const res = await db.collection<IdDoc>('orders').deleteOne({ _id: String(id), status: { $in: ['completed', 'cancelled'] } })
+    if (!res.deletedCount) fail('Only completed or cancelled orders can be deleted. Refresh the list and try again.')
+  })
+}
+
 export async function clearPendingOrders() {
   return withAdmin(async (db) => {
     await db.collection('orders').deleteMany({ status: 'pending' })
@@ -622,9 +638,11 @@ export async function listOffers() {
 
 export type OrderRow = Plain<{
   table: string
+  name?: string | null // who ordered (from the menu's order form)
+  phone?: string | null
   items: { name: string; quantity: number }[]
   total: number
-  status: 'pending' | 'completed'
+  status: 'pending' | 'completed' | 'cancelled'
   timestamp: string
 }>
 
@@ -638,6 +656,7 @@ export type BookingRow = Plain<{
   date: string
   time: string
   guests: number
+  table?: string | null // TABLES id, or ANY_TABLE (staff choose); none on older bookings
   fish_type: string | null
   fish_weight: number | null
   style: string | null
@@ -693,15 +712,36 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
     const before = await bookings.findOneAndUpdate({ _id: String(id) }, { $set: { status, updated_at: new Date() } })
     if (!before) fail('This item no longer exists. Please refresh.')
 
-    // Confirming sends the customer a WhatsApp message from the restaurant's number (once)
-    if (status !== 'confirmed' || before.status === 'confirmed' || !whatsappApiReady()) return { whatsapp: 'off' }
-    const b = toPlain(before) as unknown as BookingRow
-    const sent = await sendConfirmation(whatsappDigits(b.phone), confirmationMessage(b))
-    await bookings.updateOne(
-      { _id: String(id) },
-      { $set: sent.ok ? { whatsapp_sent_at: new Date(), whatsapp_error: null } : { whatsapp_error: sent.error } }
-    )
-    return sent.ok ? { whatsapp: 'sent' } : { whatsapp: 'failed', error: sent.error }
+    // Confirming sends the customer a WhatsApp message from the restaurant's number (once). It never
+    // goes from a staff member's own phone: until Wati can send it, the booking says it wasn't sent
+    // and "Send WhatsApp" (resendBookingConfirmation) tries again later
+    if (status !== 'confirmed' || before.status === 'confirmed') return { whatsapp: 'off' }
+    return sendBookingConfirmation(db, toPlain(before) as unknown as BookingRow)
+  })
+}
+
+const NOT_SET_UP = "Sending from Boat's WhatsApp number isn't set up yet (an approved Wati template is needed)."
+
+async function sendBookingConfirmation(db: Db, b: BookingRow): Promise<BookingStatusResult> {
+  const bookings = db.collection<IdDoc>('bookings')
+  if (!whatsappApiReady()) {
+    await bookings.updateOne({ _id: b.id }, { $set: { whatsapp_error: NOT_SET_UP } })
+    return { whatsapp: 'failed', error: NOT_SET_UP }
+  }
+  const sent = await sendConfirmation(whatsappDigits(b.phone), confirmationMessage(b))
+  await bookings.updateOne({ _id: b.id }, { $set: sent.ok ? { whatsapp_sent_at: new Date(), whatsapp_error: null } : { whatsapp_error: sent.error } })
+  return sent.ok ? { whatsapp: 'sent' } : { whatsapp: 'failed', error: sent.error }
+}
+
+// "Send WhatsApp" on a confirmed booking whose message didn't go: tries again from Boat's number
+export async function resendBookingConfirmation(id: string) {
+  return withAdmin<BookingStatusResult>(async (db) => {
+    const doc = await db.collection<IdDoc>('bookings').findOne({ _id: String(id) })
+    if (!doc) fail('This item no longer exists. Please refresh.')
+    const b = toPlain(doc!) as unknown as BookingRow
+    if (b.status !== 'confirmed') fail('Only confirmed bookings get the WhatsApp confirmation.')
+    if (b.whatsapp_sent_at) fail('The confirmation was already sent on WhatsApp.')
+    return sendBookingConfirmation(db, b)
   })
 }
 
@@ -711,14 +751,30 @@ export async function deleteBooking(id: string) {
   })
 }
 
-export type OrderFilter = 'all' | 'pending' | 'completed'
+export type OrderFilter = 'all' | 'pending' | 'completed' | 'cancelled'
+
+// Upcoming table bookings (new or confirmed, from today on), soonest first: the dashboard's
+// "Table Bookings" tab, with their pre-ordered food. Confirming stays in Admin -> Bookings.
+const upcomingBookings = () => ({ status: { $in: ['new', 'confirmed'] }, date: { $gte: dubaiNow().date } })
+export async function listUpcomingBookings(page: number, pageSize: number) {
+  return withAdmin(async (db) => {
+    const size = Math.min(Math.max(Math.floor(pageSize) || 8, 1), 100)
+    const skip = Math.max(Math.floor(page) || 0, 0) * size
+    const bookings = db.collection('bookings')
+    const [docs, total] = await Promise.all([
+      bookings.find(upcomingBookings()).sort({ date: 1, time: 1, _id: 1 }).skip(skip).limit(size).toArray(),
+      bookings.countDocuments(upcomingBookings()),
+    ])
+    return { bookings: docs.map((d) => toPlain(d) as unknown as BookingRow), total }
+  })
+}
 
 // Orders (newest first) from the orders collection, plus totals for the dashboard.
 // filter = which orders; with a page size only that page is returned (dashboard), without it
 // every matching order (kitchen screen: all pending orders).
 export async function listOrders(page?: number, pageSize?: number, filter: OrderFilter = 'pending') {
   return withAdmin(async (db) => {
-    if (!['all', 'pending', 'completed'].includes(filter)) fail('Invalid order filter.')
+    if (!['all', 'pending', 'completed', 'cancelled'].includes(filter)) fail('Invalid order filter.')
     const orders = db.collection('orders')
     const query = filter === 'all' ? {} : { status: filter }
     let cursor = orders.find(query).sort({ timestamp: -1, _id: 1 })
@@ -726,25 +782,27 @@ export async function listOrders(page?: number, pageSize?: number, filter: Order
       const size = Math.min(Math.max(Math.floor(pageSize) || 8, 1), 100)
       cursor = cursor.skip(Math.max(Math.floor(page ?? 0) || 0, 0) * size).limit(size)
     }
-    const [rows, byStatus] = await Promise.all([
+    const [rows, byStatus, bookings] = await Promise.all([
       cursor.toArray(),
       orders
         .aggregate<{ _id: string; count: number; revenue: number }>([
           { $group: { _id: '$status', count: { $sum: 1 }, revenue: { $sum: '$total' } } },
         ])
         .toArray(),
+      db.collection('bookings').countDocuments(upcomingBookings()), // the "Table Bookings" tab's count
     ])
-    const counts = { all: 0, pending: 0, completed: 0 }
+    const counts = { all: 0, pending: 0, completed: 0, cancelled: 0 }
     let revenue = 0
     for (const s of byStatus) {
-      if (s._id === 'pending' || s._id === 'completed') counts[s._id] = s.count
+      if (s._id === 'pending' || s._id === 'completed' || s._id === 'cancelled') counts[s._id] = s.count
       counts.all += s.count
-      revenue += s.revenue
+      if (s._id !== 'cancelled') revenue += s.revenue // a cancelled order earns nothing
     }
     return {
       orders: rows.map((d) => toPlain(d) as unknown as OrderRow),
       total: counts[filter], // orders matching the filter (for the pagination)
       counts,
+      bookings,
       revenue: Math.round(revenue * 100) / 100,
     }
   })
