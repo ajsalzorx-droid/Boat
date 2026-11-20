@@ -7,7 +7,7 @@ import type { Race, RaceState } from "./race";
 import { CAUSES } from "./sim";
 import { devGameCode, getClaim, keepClaimScore, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
 import { whatsapp, WHATSAPP_DISPLAY } from "@/lib/whatsapp";
-import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, CLAIM_VALID_HOURS, checkSpot, DISCOUNT_TIERS, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, PLAY_AREA, RULES, type ClaimView, type PlayerSpot } from "@/lib/game-claims";
+import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, CLAIM_VALID_HOURS, checkSpot, DISCOUNT_TIERS, LOCATION_REQUIRED, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, PLAY_AREA, RULES, type ClaimView, type PlayerSpot } from "@/lib/game-claims";
 import { dubaiNow } from "@/lib/bookings";
 import { Buoy, Dolphin, ElectricEel, Gull, Jelly, Octopus } from "./GuideArt";
 
@@ -177,7 +177,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
   // Where the player is, for the discount game: asked for on the first screen ("Turn on
   // location"). inside = at the restaurant: the discount button opens. Free play never needs it
   type Where = { state: "idle" } | { state: "checking" } | { state: "inside" } | { state: "outside"; message: string };
-  const [where, setWhere] = useState<Where>({ state: "idle" });
+  const [where, setWhere] = useState<Where>(LOCATION_REQUIRED ? { state: "idle" } : { state: "inside" });
   const checkWhere = async () => {
     setLocating(true);
     setWhere({ state: "checking" });
@@ -192,7 +192,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
   };
   // Location already allowed for this site (an earlier visit): checked straight away, no tap needed
   useEffect(() => {
-    if (mode !== "choose" || where.state !== "idle" || !navigator.permissions) return;
+    if (!LOCATION_REQUIRED || mode !== "choose" || where.state !== "idle" || !navigator.permissions) return;
     navigator.permissions
       .query({ name: "geolocation" })
       .then((p) => {
@@ -229,7 +229,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const spot = await locate();
+      const spot = LOCATION_REQUIRED ? await locate() : undefined;
       const res = await inTime(verifyClaimCode({ name, phone: fullNumber(country, phone), offers }, otp, { hp: website, ms: Date.now() - formOpenedAt.current }, spot));
       if (!res.ok) return setError(res.error);
       storeClaim(res.claim.claimId);
@@ -247,7 +247,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await inTime(startClaimChance(claim.claimId, await locate()));
+      const res = await inTime(startClaimChance(claim.claimId, LOCATION_REQUIRED ? await locate() : undefined));
       if (!res.ok) return setError(res.error);
       setClaim(res.claim);
       sentChance.current = null;
@@ -544,7 +544,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                   <section>
                     <p className="font-bold text-navy text-[11px] uppercase tracking-[2px] mb-1">Terms</p>
                     <ul className="list-disc pl-4 space-y-1">
-                      <li className="font-semibold text-navy">The discount game can only be played at Boat Seafood: your phone must be within {PLAY_AREA.radiusM} m of the restaurant, so the game asks for your location (only to check this; it isn&rsquo;t saved).</li>
+                      {LOCATION_REQUIRED && <li className="font-semibold text-navy">The discount game can only be played at Boat Seafood: your phone must be within {PLAY_AREA.radiusM} m of the restaurant, so the game asks for your location (only to check this; it isn&rsquo;t saved).</li>}
                       <li>Playing for a discount needs your name and a phone number checked by a WhatsApp code.</li>
                       <li>Show your claim code at the till. Staff apply it to one bill, once, within {CLAIM_VALID_HOURS} hours.</li>
                       <li>One game discount per bill (a group uses one person&rsquo;s code). It can&rsquo;t be combined with other offers and has no cash value.</li>
@@ -583,8 +583,13 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                   <button type="button" autoFocus className={button} onClick={playFree}>
                     <Play size={16} className="fill-current" aria-hidden /> Play free
                   </button>
+                  {!LOCATION_REQUIRED && (
+                    <button type="button" className={buttonAlt} onClick={chooseClaim}>
+                      <Gift size={16} aria-hidden /> {claim ? "My discount claim" : "Play for a discount"}
+                    </button>
+                  )}
                   {/* The discount game: only at the restaurant. Locked until the location is checked */}
-                  <div className="rounded-2xl border border-navy/15 bg-white/70 p-3 text-left">
+                  {LOCATION_REQUIRED && <div className="rounded-2xl border border-navy/15 bg-white/70 p-3 text-left">
                     <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[2px] text-navy/70 mb-1.5">
                       <MapPin size={13} aria-hidden /> Discount game · at Boat Seafood only
                     </p>
@@ -621,7 +626,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                         </button>
                       </>
                     )}
-                  </div>
+                  </div>}
                   <p className="text-[11px] sm:text-[12px] leading-snug text-navy/60">
                     Off your bill: {RULES} · {chancesText()} · one discount per bill. Play free from anywhere!
                   </p>
