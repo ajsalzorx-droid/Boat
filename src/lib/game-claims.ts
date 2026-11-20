@@ -92,7 +92,7 @@ export type ClaimView = {
 // The switch for all of it: false = the discount game works from anywhere (the location box is
 // hidden, no GPS is asked for, and the server skips the check). Set back to true to limit it to
 // the restaurant again.
-export const LOCATION_REQUIRED = false
+export const LOCATION_REQUIRED = true
 export const PLAY_AREA = { lat: 25 + 17 / 60 + 32.2 / 3600, lng: 55 + 19 / 60 + 21.8 / 3600, radiusM: 100 }
 const DRIFT_M = 30
 const MAX_ACCURACY_M = 150
