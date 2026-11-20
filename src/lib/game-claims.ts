@@ -89,6 +89,10 @@ export type ClaimView = {
 // The browser's location reading has an accuracy (metres); a reading counts as inside when it
 // is within the radius plus a little GPS drift (up to DRIFT_M), and a reading too rough to tell
 // (worse than MAX_ACCURACY_M) is refused, so "somewhere in Dubai" never passes.
+// The switch for all of it: false = the discount game works from anywhere (the location box is
+// hidden, no GPS is asked for, and the server skips the check). Set back to true to limit it to
+// the restaurant again.
+export const LOCATION_REQUIRED = false
 export const PLAY_AREA = { lat: 25 + 17 / 60 + 32.2 / 3600, lng: 55 + 19 / 60 + 21.8 / 3600, radiusM: 100 }
 const DRIFT_M = 30
 const MAX_ACCURACY_M = 150
@@ -107,6 +111,7 @@ export function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng
 
 // A message for the player, or null when they are at the restaurant
 export function checkSpot(spot: PlayerSpot | null | undefined): string | null {
+  if (!LOCATION_REQUIRED) return null
   const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN)
   const [lat, lng, accuracy] = [n(spot?.lat), n(spot?.lng), n(spot?.accuracy)]
   if (Number.isNaN(lat) || Number.isNaN(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180)
