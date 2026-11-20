@@ -158,10 +158,16 @@ export async function sendTyping(target: string) {
 const named = (names: string[], values: string[]) => Object.fromEntries(names.map((n, i) => [n, values[i]]))
 
 // Booking confirmation: with the dishes and total when the pre-order template is set up
-export function sendConfirmation(to: string, message: { parts: string[]; preorderParts: string[] | null }) {
+// With dishes, the pre-order template is tried first. If Wati can't send it (not created or not
+// approved yet: Wati answers 404), the basic template goes instead: it still says how many dishes
+// and the total (message.parts), so the customer always gets a confirmation
+export async function sendConfirmation(to: string, message: { parts: string[]; preorderParts: string[] | null }) {
   const preorderTemplate = process.env.WATI_PREORDER_TEMPLATE
-  return message.preorderParts && preorderTemplate
-    ? sendTemplate(to, preorderTemplate, named(PREORDER_PARAMS, message.preorderParts))
-    : sendTemplate(to, process.env.WATI_CONFIRM_TEMPLATE ?? '', named(CONFIRM_PARAMS, message.parts))
+  if (message.preorderParts && preorderTemplate) {
+    const sent = await sendTemplate(to, preorderTemplate, named(PREORDER_PARAMS, message.preorderParts))
+    if (sent.ok) return sent
+    console.error(`Pre-order template "${preorderTemplate}" not sent (${sent.error}); sending the basic confirmation instead`)
+  }
+  return sendTemplate(to, process.env.WATI_CONFIRM_TEMPLATE ?? '', named(CONFIRM_PARAMS, message.parts))
 }
 

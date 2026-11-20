@@ -9,6 +9,7 @@ import { checkNumberToday, devGameCode, getClaim, keepClaimScore, startClaimChan
 import { whatsapp, WHATSAPP_DISPLAY } from "@/lib/whatsapp";
 import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, CLAIM_VALID_HOURS, checkSpot, DISCOUNT_TIERS, LOCATION_REQUIRED, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, PLAY_AREA, RULES, type ClaimView, type PlayerSpot } from "@/lib/game-claims";
 import { dubaiNow } from "@/lib/bookings";
+import { COUNTRIES, fullNumber } from "@/lib/phone-countries";
 import { Buoy, Dolphin, ElectricEel, Gull, Jelly, Octopus } from "./GuideArt";
 
 // The Catbo Racing popup, opened from the peeking cat's "Click to play" (CatFishGrab.tsx). It is
@@ -40,32 +41,7 @@ const readStoredClaim = () => {
 const ANSWER_MS = 20_000;
 const inTime = <T,>(call: Promise<T>) =>
   Promise.race([call, new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), ANSWER_MS))]);
-// The country code in front of the number, chosen in the form (UAE first). A number typed with
-// its own + code is used as it is. Without one, a number like 9562xx9404 (India) would be read as
-// a +956 number, and the WhatsApp code would go nowhere
-// [code, flag, name]: the box shows the flag and code; the list it opens shows the names too
-const COUNTRIES = [
-  ["971", "🇦🇪", "UAE"],
-  ["91", "🇮🇳", "India"],
-  ["92", "🇵🇰", "Pakistan"],
-  ["880", "🇧🇩", "Bangladesh"],
-  ["63", "🇵🇭", "Philippines"],
-  ["94", "🇱🇰", "Sri Lanka"],
-  ["977", "🇳🇵", "Nepal"],
-  ["966", "🇸🇦", "Saudi Arabia"],
-  ["968", "🇴🇲", "Oman"],
-  ["974", "🇶🇦", "Qatar"],
-  ["965", "🇰🇼", "Kuwait"],
-  ["973", "🇧🇭", "Bahrain"],
-  ["20", "🇪🇬", "Egypt"],
-  ["44", "🇬🇧", "UK"],
-  ["1", "🇺🇸", "USA / Canada"],
-] as const;
-const fullNumber = (country: string, typed: string) => {
-  const t = typed.trim();
-  if (t.startsWith("+") || t.startsWith("00")) return t;
-  return `+${country} ${t.replace(/^0+/, "")}`; // the local 0 (050 ...) goes
-};
+// The country code in front of the number, chosen in the form (UAE first): src/lib/phone-countries.ts
 
 const SLOW = "No answer from our server. Please check your internet connection and try again.";
 
