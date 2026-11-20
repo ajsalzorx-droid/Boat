@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Fish, Check, Phone, Home } from "lucide-react";
+import { CalendarDays, ChevronDown, Fish, Check, Phone, Home } from "lucide-react";
+import { COUNTRIES, fullNumber } from "@/lib/phone-countries";
 import Navbar from "@/components/Navbar";
 import { useSection } from "@/context/ContentContext";
 import { whatsapp } from "@/lib/whatsapp";
@@ -77,6 +78,7 @@ export default function BookingForm({
 }) {
   const styles = useSection("fish_styles").items.map((s) => s.title).filter(Boolean);
   const [type, setType] = useState<BookingType>(FISH_PREP_ENABLED ? initialType : "table");
+  const [country, setCountry] = useState<string>(COUNTRIES[0][0]); // the phone number's country code (UAE first)
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
@@ -121,7 +123,7 @@ export default function BookingForm({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const booking: BookingInput = { ...form, table: chosenTable, type };
+    const booking: BookingInput = { ...form, phone: form.phone.trim() ? fullNumber(country, form.phone) : "", table: chosenTable, type };
     // Same checks as the server, so mistakes show right away
     const problem = checkBooking(booking, hours);
     if (problem) {
@@ -196,8 +198,9 @@ export default function BookingForm({
                     </div>
                     <h2 className="font-playfair text-2xl font-bold text-navy mb-3">Request Received!</h2>
                     <p className="text-navy/70 leading-relaxed mb-6">
-                      Thank you, {form.name.trim()}. We will contact you on <b>{form.phone.trim()}</b> to confirm your{" "}
-                      {type === "fish" ? "fish preparation" : form.table && form.table !== ANY_TABLE ? <b>{tableLabel(form.table)}</b> : "table"} for <b>{formatDate(visitDate(form.date, form.time))}</b> at <b>{formatTime(form.time)}</b>.
+                      Thank you, {form.name.trim()}. We have your request for{" "}
+                      {type === "fish" ? "fish preparation" : form.table && form.table !== ANY_TABLE ? <b>{tableLabel(form.table)}</b> : "a table"} on <b>{formatDate(visitDate(form.date, form.time))}</b> at <b>{formatTime(form.time)}</b>.
+                      {" "}Once we confirm it, you will get a WhatsApp message on <b className="whitespace-nowrap">{fullNumber(country, form.phone)}</b>.
                       {form.items.length > 0 && " Your pre-ordered dishes will be ready for you."}
                     </p>
                     <div className="flex flex-col gap-3 max-w-sm mx-auto">
@@ -230,7 +233,23 @@ export default function BookingForm({
                       </div>
                       <div>
                         <label htmlFor="b-phone" className={labelClass}>Phone Number (WhatsApp) *</label>
-                        <input id="b-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={20} value={form.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="Enter your phone number" className={inputClass} />
+                        {/* The country code goes in front, so the WhatsApp confirmation reaches the
+                            right number (an Indian 95629... would otherwise be read as +956...) */}
+                        <div className="flex items-stretch gap-2">
+                          <div className="relative shrink-0 w-[6.25rem]">
+                            <span aria-hidden className="pointer-events-none flex h-full items-center justify-between gap-1 rounded-lg border border-navy/20 bg-white pl-2.5 pr-1.5 text-[14px] text-navy">
+                              <span className="whitespace-nowrap">{COUNTRIES.find(([code]) => code === country)?.[1]} +{country}</span>
+                              <ChevronDown size={14} className="shrink-0 text-navy/50" />
+                            </span>
+                            <label htmlFor="b-country" className="sr-only">Country code</label>
+                            <select id="b-country" value={country} onChange={(e) => setCountry(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
+                              {COUNTRIES.map(([code, flag, label]) => (
+                                <option key={code} value={code}>{flag} {label} (+{code})</option>
+                              ))}
+                            </select>
+                          </div>
+                          <input id="b-phone" type="tel" inputMode="tel" autoComplete="tel-national" maxLength={20} value={form.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="Enter your number" className={`${inputClass} flex-1 min-w-0`} />
+                        </div>
                         <p className="mt-1 text-[11px] text-navy/50">We send your booking confirmation here on WhatsApp.</p>
                       </div>
                     </div>
