@@ -33,3 +33,18 @@ export async function verifyAdmin(role: Role = 'admin') {
   await touchSession(sid!)
   return { user: { email: user.email, role: user.role }, db }
 }
+
+// The same check for an action several roles may use (the kitchen screen: kitchen and admin
+// accounts). Tries each role's own cookie in turn; the first valid login wins.
+export async function verifyStaff(roles: Role[]) {
+  let last: unknown = new AuthError('Please log in again.', 401)
+  for (const role of roles) {
+    if (!(await cookies()).get(SESSION_COOKIES[role])?.value) continue
+    try {
+      return await verifyAdmin(role)
+    } catch (e) {
+      last = e
+    }
+  }
+  throw last
+}

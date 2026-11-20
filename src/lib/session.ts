@@ -11,16 +11,17 @@ import { getDb } from '@/lib/mongodb'
 
 export const SESSION_DAYS = 7
 
-// admin = products (menu, daily catch) and orders; seo = the SEO Studio only
-export type Role = 'admin' | 'seo'
+// admin = products (menu, daily catch) and orders; seo = the SEO Studio only;
+// kitchen = the kitchen screen only (/kitchen: incoming orders and Complete), never the admin dashboard
+export type Role = 'admin' | 'seo' | 'kitchen'
 export type Session = { email: string; role: Role }
 
 // One cookie per role, so an admin and an SEO account can be logged in at the same time in the
 // same browser (e.g. two tabs); logging in or out of one area leaves the other untouched
-export const SESSION_COOKIES: Record<Role, string> = { admin: 'boat_admin_sid', seo: 'boat_seo_sid' }
+export const SESSION_COOKIES: Record<Role, string> = { admin: 'boat_admin_sid', seo: 'boat_seo_sid', kitchen: 'boat_kitchen_sid' }
 
 // The area each role works in: where it lands after login, and the only pages it can open
-export const ROLE_HOME: Record<Role, string> = { admin: '/admin', seo: '/seo' }
+export const ROLE_HOME: Record<Role, string> = { admin: '/admin', seo: '/seo', kitchen: '/kitchen' }
 
 type SessionDoc = {
   _id: string // sha256 of the cookie's session id

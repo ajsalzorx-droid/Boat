@@ -3,7 +3,6 @@
 // show right away) and createBooking on the server (the check that counts).
 
 import { formatPrice } from '@/lib/offers'
-import { WHATSAPP_DISPLAY } from '@/lib/whatsapp'
 
 export type BookingType = 'table' | 'fish'
 export type BookingStatus = 'new' | 'confirmed' | 'cancelled'
@@ -211,11 +210,26 @@ export function checkBooking(b: BookingInput, hours: { opens: string; closes: st
   return null
 }
 
-// The confirmation sent to the customer on WhatsApp, with their pre-ordered dishes and prices.
+// "out-6" -> "Outside Table No. 6", as the WhatsApp messages say it
+const tableNo = (id: string) => tableLabel(id).replace(/^(.+) (\d+)$/, '$1 Table No. $2')
+
+// Sent on WhatsApp right after the customer books, before staff confirm it (the restaurant's
+// wording, keep it):
+//   Thank you, Abdul. We have your request for Outside Table No. 6 on Fri, 20 Nov 2026 at 5:00 PM.
+//   Once confirmed, you will receive a WhatsApp message at +971 526794296.
+// Values for the approved booking_received template (src/lib/whatsapp-api.ts):
+//   customer_name, booking, date, time, phone
+export function receivedMessage(b: { type: BookingType; name: string; phone: string; table?: string | null; date: string; time: string }) {
+  const what = b.type === 'fish' ? 'fish preparation' : b.table && b.table !== ANY_TABLE ? tableNo(b.table) : 'a table'
+  return [b.name, what, formatDate(visitDate(b.date, b.time)), formatTime(b.time), b.phone]
+}
+
+// The confirmation sent when staff confirm the booking, with any pre-ordered dishes and prices.
 // text = the whole message written out (tap-to-send fallback).
 // parts = values for the approved templates (src/lib/whatsapp-api.ts):
-//   booking_confirmed:          customer_name, booking, date, time
+//   booking_confirmed:          customer_name, table_no, guests, date, time
 //   booking_confirmed_preorder: the same, then dishes, total   (when dishes were pre-ordered)
+// table_no = "Outside Table No. 6" ("Any available table" when none was chosen); guests = "2".
 // Template values can't hold line breaks, so there the dishes are one line, comma separated.
 export function confirmationMessage(b: {
   type: BookingType
@@ -229,18 +243,13 @@ export function confirmationMessage(b: {
   items_total?: number | null
 }) {
   const items = b.items ?? []
-  const guests = `${b.guests} ${b.guests === 1 ? 'guest' : 'guests'}`
-  const what =
-    b.type === 'fish'
-      ? `your fish preparation (${b.fish_type})`
-      : b.table && b.table !== ANY_TABLE
-        ? `your table (${tableLabel(b.table)}) for ${guests}`
-        : `your table for ${guests}`
-  const base = [b.name, what, formatDate(visitDate(b.date, b.time)), formatTime(b.time)]
-  const intro = `Hello ${base[0]},\n\nThank you for choosing Boat Seafood Restaurant. We are happy to confirm ${base[1]} on ${base[2]} at ${base[3]}.`
-  const contact = WHATSAPP_DISPLAY ? ` at ${WHATSAPP_DISPLAY}` : ''
-  const outro = `If you need to cancel or change your booking, please call or WhatsApp us${contact}.\n\nWe look forward to welcoming you!`
-  if (!items.length) return { parts: base, preorderParts: null, text: `${intro}\n\n${outro}` }
+  const table =
+    b.type === 'fish' ? `Fish preparation (${b.fish_type})` : b.table && b.table !== ANY_TABLE ? tableNo(b.table) : 'Any available table'
+  const base = [b.name, table, String(b.guests), formatDate(visitDate(b.date, b.time)), formatTime(b.time)]
+  const contact = ' at +971 50 748 7220' // the number the WhatsApp templates give
+  const say = (extra = '') =>
+    `Hello ${base[0]}, your booking at Boat Seafood Restaurant is confirmed!\n\nTable: ${base[1]}\nGuests: ${base[2]}\nDate: ${base[3]}\nTime: ${base[4]}${extra}\n\nWe look forward to welcoming you!\nNeed help? Call or WhatsApp us${contact}.`
+  if (!items.length) return { parts: base, preorderParts: null, text: say() }
 
   const lineTotal = (i: PreorderItem) => `AED ${formatPrice(Math.round(i.price * i.quantity * 100) / 100)}`
   const total = `AED ${formatPrice(b.items_total ?? Math.round(items.reduce((s, i) => s + i.price * i.quantity, 0) * 100) / 100)}`
@@ -248,8 +257,8 @@ export function confirmationMessage(b: {
   const count = items.reduce((s, i) => s + i.quantity, 0)
   return {
     // Basic template only (no pre-order template set up): the dishes are mentioned briefly
-    parts: [base[0], `${what} with ${count} pre-ordered ${count === 1 ? 'dish' : 'dishes'} (total ${total})`, base[2], base[3]],
+    parts: [base[0], `${table} (${count} pre-ordered ${count === 1 ? 'dish' : 'dishes'}, total ${total})`, ...base.slice(2)],
     preorderParts: [...base, dishes, total],
-    text: `${intro}\n\nYour pre-order:\n${items.map((i) => `• ${i.quantity} x ${i.name} – ${lineTotal(i)}`).join('\n')}\nTotal: ${total}\n\n${outro}`,
+    text: say(`\n\nYour pre-order:\n${items.map((i) => `• ${i.quantity} x ${i.name} – ${lineTotal(i)}`).join('\n')}\nTotal: ${total}`),
   }
 }

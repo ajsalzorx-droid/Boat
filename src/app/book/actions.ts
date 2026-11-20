@@ -1,10 +1,12 @@
 'use server'
 
+import { after } from 'next/server'
 import { getDb, newId, toPlain, type IdDoc } from '@/lib/mongodb'
+import { sendBookingReceived } from '@/lib/whatsapp-api'
 import { bestOffer, offerStatus, unitPrice, type Offer } from '@/lib/offers'
 import { getBusinessInfo } from '@/lib/seo-data'
 import { clientIp, hit, looksLikeBot, type FormGuard } from '@/lib/rate-limit'
-import { ANY_TABLE, checkBooking, clashes, MAX_PREORDER_QTY, tableLabel, type BookingInput, type PreorderItem } from '@/lib/bookings'
+import { ANY_TABLE, checkBooking, clashes, MAX_PREORDER_QTY, receivedMessage, tableLabel, whatsappDigits, type BookingInput, type PreorderItem } from '@/lib/bookings'
 
 export type CreateBookingResult = { ok: true } | { ok: false; error: string }
 
@@ -86,8 +88,9 @@ export async function createBooking(input: BookingInput, guard?: FormGuard): Pro
     }
     const itemsTotal = Math.round(items.reduce((sum, i) => sum + i.price * i.quantity, 0) * 100) / 100
 
+    const id = newId()
     await db.collection<IdDoc>('bookings').insertOne({
-      _id: newId(),
+      _id: id,
       type: input.type,
       name: input.name.trim(),
       phone: input.phone.trim(),
@@ -104,6 +107,20 @@ export async function createBooking(input: BookingInput, guard?: FormGuard): Pro
       items_total: items.length ? itemsTotal : null,
       status: 'new',
       created_at: new Date(),
+    })
+
+    // "We have your request" on WhatsApp from Boat's number, sent after the customer already sees
+    // the thank-you screen (a slow or failed send never holds up or fails the booking)
+    const phone = input.phone.trim()
+    const parts = receivedMessage({ ...input, name: input.name.trim(), phone, table })
+    after(async () => {
+      const sent = await sendBookingReceived(whatsappDigits(phone), parts)
+      if (!sent) return
+      if (!sent.ok) console.error('Booking received message not sent:', sent.error)
+      await db
+        .collection<IdDoc>('bookings')
+        .updateOne({ _id: id }, { $set: sent.ok ? { received_sent_at: new Date() } : { received_error: sent.error } })
+        .catch((e) => console.error('Saving the received-message result failed:', e))
     })
   } catch (e) {
     console.error('createBooking failed:', e)

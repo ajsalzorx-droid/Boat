@@ -26,8 +26,8 @@ export default function AdminLogin() {
     } else {
       // Only follow same-site paths so ?next= can't redirect off the site
       const next = new URLSearchParams(window.location.search).get("next");
-      // Follow ?next= only inside this account's own area (admin: /admin, /kitchen; SEO: /seo)
-      const allowed = res.role === "seo" ? /^\/seo(\/|$)/ : /^\/(admin|kitchen)(\/|$)/;
+      // Follow ?next= only inside this account's own area (admin: /admin, /kitchen; SEO: /seo; kitchen: /kitchen)
+      const allowed = res.role === "seo" ? /^\/seo(\/|$)/ : res.role === "kitchen" ? /^\/kitchen(\/|$)/ : /^\/(admin|kitchen)(\/|$)/;
       const target = next && /^\/(?![/\\])/.test(next) && allowed.test(next) ? next : res.home;
       router.push(target);
     }
