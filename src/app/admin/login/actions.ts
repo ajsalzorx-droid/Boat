@@ -82,9 +82,9 @@ export async function login(email: string, password: string): Promise<LoginResul
   }
 }
 
-// Ends this area's session only (the admin and SEO logins are separate)
+// Ends this area's session only (the admin, SEO and kitchen logins are separate)
 export async function logout(role: Role) {
-  if (role !== 'admin' && role !== 'seo') return
+  if (role !== 'admin' && role !== 'seo' && role !== 'kitchen') return
   const jar = await cookies()
   await deleteSession(jar.get(SESSION_COOKIES[role])?.value).catch((e) => console.error('Logout:', e))
   jar.delete(SESSION_COOKIES[role])

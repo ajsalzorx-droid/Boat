@@ -2,6 +2,7 @@
 //
 //   node --env-file=.env.local scripts/create-admin.mjs you@example.com          -> admin (products, orders)
 //   node --env-file=.env.local scripts/create-admin.mjs seo@agency.com seo      -> SEO Studio only
+//   node --env-file=.env.local scripts/create-admin.mjs kitchen@boat.com kitchen -> kitchen screen only
 //
 // Asks for the password (hidden while typing). Only a scrypt hash is stored, in the same
 // format as src/lib/session.ts.
@@ -14,8 +15,8 @@ const scrypt = promisify(scryptCb);
 const [, , rawEmail, role = "admin"] = process.argv;
 const email = String(rawEmail ?? "").trim().toLowerCase();
 
-if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !["admin", "seo"].includes(role)) {
-  console.error("Usage: node --env-file=.env.local scripts/create-admin.mjs <email> [admin|seo]");
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !["admin", "seo", "kitchen"].includes(role)) {
+  console.error("Usage: node --env-file=.env.local scripts/create-admin.mjs <email> [admin|seo|kitchen]");
   process.exit(1);
 }
 if (!process.env.MONGODB_URI) {

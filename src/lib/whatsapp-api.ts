@@ -9,15 +9,21 @@ import { randomUUID } from 'node:crypto'
 //   WATI_CONFIRM_TEMPLATE      approved template, e.g. booking_confirmed
 //   WATI_PREORDER_TEMPLATE     (optional) template with the dishes, e.g. booking_confirmed_preorder
 // Messages the restaurant starts must use approved templates, with these exact variable names:
-//   booking_confirmed:
-//     Hello {{customer_name}}, thank you for choosing Boat Seafood Restaurant. We are happy to
-//     confirm {{booking}} on {{date}} at {{time}}. If you need to cancel or change your booking,
-//     please call or WhatsApp us at +971 50 298 1902. We look forward to welcoming you!
-//   booking_confirmed_preorder: the same, with before the cancel line
+//   booking_confirmed (sent when admin confirms):
+//     Hello {{customer_name}}, your booking at Boat Seafood Restaurant is confirmed!
+//     Table: {{table_no}} / Guests: {{guests}} / Date: {{date}} / Time: {{time}}  (one per line)
+//     We look forward to welcoming you!
+//     Need help? Call or WhatsApp us at +971 50 748 7220.
+//   booking_confirmed_preorder: the same, then after Time
 //     Your pre-order: {{dishes}}. Total: {{total}}.
 // Without the pre-order template, bookings with dishes use booking_confirmed (dish count + total).
+//   WATI_RECEIVED_TEMPLATE     (optional) sent as soon as the customer books, e.g. booking_received
+//   (the restaurant's wording, keep it):
+//     Thank you, {{customer_name}}. We have your request for {{booking}} on {{date}} at {{time}}.
+//     Once confirmed, you will receive a WhatsApp message at {{phone}}.
 
-const CONFIRM_PARAMS = ['customer_name', 'booking', 'date', 'time']
+const CONFIRM_PARAMS = ['customer_name', 'table_no', 'guests', 'date', 'time']
+const RECEIVED_PARAMS = ['customer_name', 'booking', 'date', 'time', 'phone']
 const PREORDER_PARAMS = [...CONFIRM_PARAMS, 'dishes', 'total']
 
 export function whatsappApiReady() {
@@ -156,6 +162,13 @@ export async function sendTyping(target: string) {
 }
 
 const named = (names: string[], values: string[]) => Object.fromEntries(names.map((n, i) => [n, values[i]]))
+
+// "We have your request": sent when the customer books. null = WATI_RECEIVED_TEMPLATE not set (skipped)
+export async function sendBookingReceived(to: string, parts: string[]): Promise<SendResult | null> {
+  const template = process.env.WATI_RECEIVED_TEMPLATE?.trim()
+  if (!template || !whatsappChatReady()) return null
+  return sendTemplate(to, template, named(RECEIVED_PARAMS, parts))
+}
 
 // Booking confirmation: with the dishes and total when the pre-order template is set up
 // With dishes, the pre-order template is tried first. If Wati can't send it (not created or not
