@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   ExternalLink,
+  Eye,
   Heading2,
   Image as ImageIcon,
   Link2,
@@ -35,6 +36,7 @@ import { DEFAULT_BUSINESS } from "@/lib/seo";
 import { DESC_LIMIT, TITLE_LIMIT, lengthStatus } from "../../use-studio-data";
 import { useStudio } from "../../studio-context";
 import { AltStatus, Counter, GooglePreview, Label, Thumb, UploadButton, inputClass, siteOrigin } from "../../fields";
+import BlogPreview from "../BlogPreview";
 
 const card = "bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6";
 
@@ -60,6 +62,7 @@ export default function BlogPostEditor() {
   const [liveSlug, setLiveSlug] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState(false);
 
   useEffect(() => {
     if (isNew) return;
@@ -167,6 +170,13 @@ export default function BlogPostEditor() {
                 View on website <ExternalLink size={12} />
               </a>
             )}
+            <button
+              type="button"
+              onClick={() => setPreviewing(true)}
+              className="ml-auto flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider"
+            >
+              <Eye size={14} /> Preview
+            </button>
           </div>
         </div>
 
@@ -368,6 +378,13 @@ export default function BlogPostEditor() {
         <span className="text-xs text-gray-500 mr-auto">
           {dirty ? "Unsaved changes" : isLive ? "Live on the website" : isNew ? "Not saved yet" : "Saved as draft (not on the website)"}
         </span>
+        <button
+          type="button"
+          onClick={() => setPreviewing(true)}
+          className="flex items-center gap-2 px-5 py-3 rounded-lg text-xs font-bold uppercase tracking-wider border border-gray-200 text-navy hover:bg-gray-50"
+        >
+          <Eye size={14} /> Preview
+        </button>
         {isLive ? (
           <button type="button" onClick={() => save("draft")} disabled={saving} className="px-5 py-3 rounded-lg text-xs font-bold uppercase tracking-wider text-gray-600 hover:bg-gray-100 disabled:opacity-40">
             Unpublish
@@ -391,6 +408,8 @@ export default function BlogPostEditor() {
           {saving ? "Saving…" : isLive ? "Update live post" : "Publish"}
         </button>
       </div>
+
+      {previewing && <BlogPreview post={post} publishedAt={publishedAt} onClose={() => setPreviewing(false)} />}
     </div>
   );
 }
