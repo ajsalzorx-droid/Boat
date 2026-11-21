@@ -189,22 +189,15 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
   // browser doesn't block it as a popup
   // A browser that blocks the new tab (after the number check, or an in-app browser) goes to
   // WhatsApp in this tab instead
-  // iPhone/iPad: wa.me in a new tab leaves an api.whatsapp.com tab in front of the game when the
-  // player comes back (and asks "Open in WA Business?" on phones with only WhatsApp Business).
-  // So the app link opens in this tab, which stays on the game; if no WhatsApp app took it
-  // (the page is still showing after a moment), wa.me is the fallback
+  // iPhone/iPad: only the app link (whatsapp://), in this tab, which stays on the game. No wa.me
+  // fallback: while iOS shows its own "Open in WhatsApp / WA Business?" box the page still counts
+  // as visible, so a timed fallback fired behind it and left the player on an api.whatsapp.com
+  // page asking a second time. If WhatsApp didn't open, "Open WhatsApp again" is on the code screen
   const openWhatsApp = () => {
     const url = whatsapp(OTP_REQUEST_TEXT);
     const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     if (ios) {
-      let left = false;
-      const onHide = () => { if (document.visibilityState === "hidden") left = true; };
-      document.addEventListener("visibilitychange", onHide);
       window.location.href = whatsappApp(OTP_REQUEST_TEXT);
-      setTimeout(() => {
-        document.removeEventListener("visibilitychange", onHide);
-        if (!left && document.visibilityState === "visible") window.location.href = url;
-      }, 2000);
       return;
     }
     const tab = window.open(url, "_blank");
