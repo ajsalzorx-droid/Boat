@@ -4,7 +4,7 @@ import type { Collection } from 'mongodb'
 import { getDb } from '@/lib/mongodb'
 import { hit } from '@/lib/rate-limit'
 import { sendText, whatsappChatReady } from '@/lib/whatsapp-api'
-import type { WatiEvent } from '@/lib/chatbot'
+import { rememberOwnMessage, type WatiEvent } from '@/lib/chatbot'
 export { OTP_REQUEST_TEXT } from '@/lib/game-claims'
 
 // The code that proves a phone number for Catbo Racing discounts, asked for by the customer:
@@ -108,12 +108,18 @@ export async function handleOtpRequest(event: WatiEvent): Promise<boolean> {
   ])
   if (repeat) return true
   const target = event.channelPhoneNumber ? `${event.channelPhoneNumber}:${event.waId}` : phone
+  // Noted first, so the chatbot knows the reply is ours when Wati reports it back (not staff
+  // taking over the chat, which would silence the chatbot there for hours)
+  const reply = async (text: string) => {
+    await rememberOwnMessage(event, text).catch((e) => console.error('Game code: chat note failed:', e))
+    return sendText(target, text)
+  }
   if (overNumber || overNumberDay || overSite) {
-    await sendText(target, 'You have asked for several codes just now. Please wait a few minutes and send GET OTP again.')
+    await reply('You have asked for several codes just now. Please wait a few minutes and send GET OTP again.')
     return true
   }
   const code = await issueOtp(phone)
-  const sent = await sendText(target, replyText(code))
+  const sent = await reply(replyText(code))
   if (!sent.ok) {
     console.error('Game code reply failed:', sent.error)
     await (await otpCodes()).deleteOne({ _id: phone })
