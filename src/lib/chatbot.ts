@@ -241,9 +241,11 @@ function collections(db: Db) {
 
 type Stores = ReturnType<typeof collections>
 
-// Our own message coming back from Wati, even if the spacing or formatting changed on the way
-const sentKey = (text: string) => normalize(text).slice(0, SENT_KEY_CHARS)
+// Our own message coming back from Wati, even if the spacing or formatting changed on the way.
+// Kept as a hash: a game code (src/lib/game-otp.ts) is one of these, and it must not sit in the
+// database as plain text.
 const sha = (text: string) => createHash('sha256').update(text).digest('hex')
+const sentKey = (text: string) => sha(normalize(text).slice(0, SENT_KEY_CHARS))
 const inFuture = (ms: number) => new Date(Date.now() + ms)
 
 async function firstDelivery(seen: Stores['seen'], id: string) {
@@ -382,6 +384,20 @@ async function say(target: string, user: string, text: string, chats: Stores['ch
   )
   const result = await sendText(target, text)
   if (!result.ok) console.error('Chatbot send failed:', result.error)
+}
+
+// A message sent from here without the chatbot (the game code reply, src/lib/game-otp.ts): noted
+// before it goes out, so when Wati reports it back it is known as ours. Before this, each game code
+// looked like a staff reply and silenced the chatbot in that chat for 6 hours.
+export async function rememberOwnMessage(event: WatiEvent, text: string) {
+  const user = event.waId || event.bsuid || event.conversationId
+  if (!user) return
+  const { chats } = collections(await getDb())
+  await chats.updateOne(
+    { _id: user },
+    { $push: { sent: { $each: [sentKey(text)], $slice: -SENT_REMEMBERED } }, $setOnInsert: { expires_at: inFuture(HISTORY_MS) } },
+    { upsert: true }
+  )
 }
 
 // A message from the business side that isn't one of ours: staff are handling this chat

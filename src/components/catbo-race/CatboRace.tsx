@@ -27,6 +27,7 @@ import { Buoy, Dolphin, ElectricEel, Gull, Jelly, Octopus } from "./GuideArt";
 type Mode = "rules" | "choose" | "free" | "register" | "claim";
 const CLAIM_KEY = "catbo-claim"; // this device's claim today: { id, day }
 const ZAP_MS = 1600; // the shock plays this long before the race-over card shows
+const RESEND_WAIT_S = 30; // before "Resend code" can be used again
 
 const readStoredClaim = () => {
   try {
@@ -96,6 +97,19 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const sentChance = useRef<number | null>(null);
+  // "Resend code": open again after RESEND_WAIT_S (the server allows 3 codes a number per 15 min)
+  const [resendAt, setResendAt] = useState(0);
+  const [clock, setClock] = useState(0);
+  const resendIn = Math.max(0, Math.ceil((resendAt - clock) / 1000));
+  useEffect(() => {
+    if (!sentTo || resendAt <= Date.now()) return;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setClock(now);
+      if (now >= resendAt) clearInterval(timer);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [sentTo, resendAt]);
 
   // A claim this device registered earlier today comes back (its chances, or its code)
   useEffect(() => {
@@ -233,6 +247,19 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     }, 600);
     return () => clearTimeout(timer);
   }, [mode, sentTo, country, phone]);
+  const startResendWait = () => {
+    const now = Date.now();
+    setClock(now);
+    setResendAt(now + RESEND_WAIT_S * 1000);
+  };
+  // A new code: WhatsApp opens again with GET OTP typed; our reply is a new code (the old one stops working)
+  const resendCode = () => {
+    if (resendIn > 0) return;
+    setError(null);
+    setOtp("");
+    openWhatsApp();
+    startResendWait();
+  };
   const getCode = async (e?: React.FormEvent) => {
     e?.preventDefault();
     const number = fullNumber(country, phone);
@@ -250,6 +277,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     openWhatsApp();
     setOtp("");
     setSentTo(number.replace(/\s+/g, " "));
+    startResendWait();
     devGameCode(number).catch(() => {}); // on a developer's computer only: the code shows in the terminal
   };
   // Step 2: the code typed back opens the claim
@@ -762,9 +790,15 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                   <button type="submit" disabled={busy || otp.length !== 6} className={`${button} disabled:opacity-60`}>
                     {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ShieldCheck size={16} aria-hidden />} Verify and play
                   </button>
+                  <p className="text-[12px] text-navy/60 mt-1">Didn&rsquo;t get a code?</p>
                   <div className="flex items-center justify-center gap-4 text-[12px]">
-                    <button type="button" disabled={busy} onClick={openWhatsApp} className="text-navy/70 underline underline-offset-2 hover:text-navy">
-                      Open WhatsApp again
+                    <button
+                      type="button"
+                      disabled={busy || resendIn > 0}
+                      onClick={resendCode}
+                      className="inline-flex items-center gap-1.5 font-semibold text-navy underline underline-offset-2 hover:text-ocean disabled:no-underline disabled:font-normal disabled:text-navy/45"
+                    >
+                      <RotateCcw size={13} aria-hidden /> {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
                     </button>
                     <button type="button" disabled={busy} onClick={() => { setError(null); setSentTo(null); setOtp(""); }} className="text-navy/70 underline underline-offset-2 hover:text-navy">
                       Change number
