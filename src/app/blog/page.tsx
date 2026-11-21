@@ -3,10 +3,10 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Heading } from "@/components/ContentText";
-import { readingMinutes } from "@/lib/blog";
+import { paragraphsOf, readingMinutes } from "@/lib/blog";
 import { getPublishedPosts } from "@/lib/blog-data";
-import { pageMetadata } from "@/lib/seo-data";
-import { blogSection } from "@/lib/blog-content";
+import { getBusinessInfo, getSeoPages, pageMetadata } from "@/lib/seo-data";
+import { blogIntroSection, blogSection } from "@/lib/blog-content";
 
 // Title, description and share image come from SEO Studio -> Pages -> Blog (like every page).
 // While no post is live, the page is kept out of Google (an empty page is thin content).
@@ -19,8 +19,26 @@ const dateText = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Dubai" }) : "";
 
 export default async function BlogIndexPage() {
-  const [posts, hero] = await Promise.all([getPublishedPosts(), blogSection()]);
+  const [posts, hero, introSection, seoPages, business] = await Promise.all([
+    getPublishedPosts(),
+    blogSection(),
+    blogIntroSection(),
+    getSeoPages(),
+    getBusinessInfo(),
+  ]);
   const readTime = (n: number) => (hero.fields.read_time || "{n} min read").replaceAll("{n}", String(n));
+
+  // Intro: photo left, text right (SEO Studio -> Pages -> Blog -> Intro). Empty fields use the
+  // page's share image and meta description, so what is entered under "Google & sharing" shows here.
+  const seo = seoPages["/blog"];
+  const f = introSection.fields;
+  const intro = {
+    image: f.image || seo?.og_image || business.default_og_image || "",
+    alt: f.image_alt || (f.image ? "" : seo?.title) || "",
+    title: f.title || "",
+    paragraphs: paragraphsOf(f.body || seo?.description || ""),
+  };
+  const hasIntro = !!intro.image || intro.paragraphs.length > 0;
 
   return (
     <>
@@ -42,7 +60,35 @@ export default async function BlogIndexPage() {
         </section>
 
         <section className="py-20 px-8 md:px-20">
+          {hasIntro && (
+            <div className={`grid grid-cols-1 ${intro.image && intro.paragraphs.length ? "md:grid-cols-2" : ""} gap-10 md:gap-16 items-center max-w-6xl mx-auto ${posts.length ? "mb-20" : ""}`}>
+              {intro.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={intro.image}
+                  alt={intro.alt}
+                  loading="eager"
+                  decoding="async"
+                  // The photo's own shape (cropping would cut text on a poster), at most 600px tall
+                  className="block w-auto h-auto max-w-full max-h-[600px] mx-auto rounded-[2rem] shadow-xl"
+                />
+              )}
+              {(intro.title || intro.paragraphs.length > 0) && (
+                <div>
+                  {intro.title && <h2 className="font-playfair text-3xl md:text-4xl font-bold text-navy mb-5 leading-tight">{intro.title}</h2>}
+                  <div className="space-y-4 text-[17px] leading-[1.85] text-navy/75 font-light">
+                    {intro.paragraphs.map((p, n) => (
+                      <p key={n} className="whitespace-pre-line">
+                        {p}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {posts.length === 0 ? (
+            !hasIntro &&
             <p className="text-navy/60 text-center py-20">{hero.fields.empty}</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
