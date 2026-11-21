@@ -15,6 +15,9 @@ import { botTestNumbers, sendText, sendTyping, whatsappChatReady } from '@/lib/w
 //   WATI_BOT_AI_DAILY_LIMIT AI calls a day across all customers (default 1000)
 //   WATI_BOT_REPLY_DELAY_MS wait before replying, so staff can answer first (default 0: no wait)
 //   WATI_BOT_TYPING         "false" to stop showing "typing..." (each one is a Wati API call)
+//   WATI_BOT_STAFF_PAUSE_MIN  minutes the assistant stays quiet in a chat after a staff reply there
+//                           (or after the customer asks for staff); each staff reply starts it again.
+//                           Default 10; 0 = never pause (the assistant always answers)
 //
 // MongoDB collections, created on first use, all cleaned up by TTL indexes:
 //   bot_seen   message ids already handled (Wati can deliver one twice)
@@ -29,7 +32,18 @@ const HISTORY_TURNS = 6
 const HISTORY_MS = 60 * 60_000
 const SEEN_MS = 2 * 24 * 60 * 60_000
 const CACHE_MS = 3 * 24 * 60 * 60_000
-const STAFF_PAUSE_MS = 6 * 60 * 60_000 // the assistant stays out of a chat staff have taken over
+// The assistant stays out of a chat staff are answering, for this long after their last message.
+// Short on purpose: it used to be 6 hours, and anything that looked like a staff reply (a game code,
+// a Wati auto-reply) silenced the assistant in that chat for the rest of the day.
+const DEFAULT_STAFF_PAUSE_MIN = 10
+function staffPauseMs() {
+  const raw = process.env.WATI_BOT_STAFF_PAUSE_MIN?.trim()
+  const set = raw === undefined || raw === '' ? NaN : Number(raw)
+  const min = Number.isFinite(set) ? set : DEFAULT_STAFF_PAUSE_MIN // unset or mistyped -> the default
+  return min > 0 ? Math.min(min, 24 * 60) * 60_000 : 0
+}
+// A chat document is kept at least as long as its history (HISTORY_MS), and as long as any pause
+const keepFor = (pauseMs: number) => Math.max(HISTORY_MS, pauseMs)
 const MAX_MESSAGE_AGE_S = 10 * 60 // older messages are history imports or late retries, not new questions
 const MAX_MESSAGES_PER_HOUR = 20
 const MAX_SENDS_PER_HOUR = 300 // all customers together: a brake if the webhook address ever leaks
@@ -374,7 +388,8 @@ async function say(target: string, user: string, text: string, chats: Stores['ch
   await chats.updateOne(
     { _id: user },
     {
-      $set: { ...extra, expires_at: inFuture(extra.paused_until ? STAFF_PAUSE_MS : HISTORY_MS) },
+      // Never shorter than a pause still running in this chat
+      $set: { ...extra, expires_at: inFuture(keepFor(staffPauseMs())) },
       $push: {
         sent: { $each: [sentKey(text)], $slice: -SENT_REMEMBERED },
         turns: { $each: newTurns, $slice: -HISTORY_TURNS },
@@ -388,7 +403,7 @@ async function say(target: string, user: string, text: string, chats: Stores['ch
 
 // A message sent from here without the chatbot (the game code reply, src/lib/game-otp.ts): noted
 // before it goes out, so when Wati reports it back it is known as ours. Before this, each game code
-// looked like a staff reply and silenced the chatbot in that chat for 6 hours.
+// looked like a staff reply and silenced the chatbot in that chat.
 export async function rememberOwnMessage(event: WatiEvent, text: string) {
   const user = event.waId || event.bsuid || event.conversationId
   if (!user) return
@@ -400,14 +415,17 @@ export async function rememberOwnMessage(event: WatiEvent, text: string) {
   )
 }
 
-// A message from the business side that isn't one of ours: staff are handling this chat
+// A message from the business side that isn't one of ours: staff are answering this chat, so the
+// assistant waits a short while (each staff message starts the wait again)
 async function noteBusinessMessage(user: string, event: WatiEvent, chats: Stores['chats']) {
-  if (event.type !== 'text' || !event.text) return
+  const pauseMs = staffPauseMs()
+  if (!pauseMs || event.type !== 'text' || !event.text) return
   const chat = await chats.findOne({ _id: user })
   if (chat?.sent?.includes(sentKey(event.text))) return
   await chats.updateOne(
     { _id: user },
-    { $set: { paused_until: inFuture(STAFF_PAUSE_MS), expires_at: inFuture(STAFF_PAUSE_MS) } },
+    // the chat's history stays (kept at least HISTORY_MS), only the pause is added
+    { $set: { paused_until: inFuture(pauseMs), expires_at: inFuture(keepFor(pauseMs)) } },
     { upsert: true }
   )
 }
@@ -483,7 +501,9 @@ export async function handleWatiEvent(event: WatiEvent) {
   const turns: Turn[] = answer.remember
     ? [{ role: 'customer', text: redact(text) }, { role: 'assistant', text: answer.reply.slice(0, SENT_KEY_CHARS) }]
     : []
-  await say(target, user, answer.reply, chats, answer.pause ? { paused_until: inFuture(STAFF_PAUSE_MS) } : {}, turns)
+  // Asked for staff: a short pause so staff can answer (none when WATI_BOT_STAFF_PAUSE_MIN is 0)
+  const pauseMs = answer.pause ? staffPauseMs() : 0
+  await say(target, user, answer.reply, chats, pauseMs ? { paused_until: inFuture(pauseMs) } : {}, turns)
   console.log(`Chatbot reply: ${answer.source}, answer ${Date.now() - started} ms, total ${Date.now() - received} ms`) // never the message or number
 
   // Asked once, after a real answer, so nobody's first message gets a marketing question back
