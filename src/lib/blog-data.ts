@@ -1,5 +1,5 @@
 import 'server-only'
-import { unstable_cache } from 'next/cache'
+import { safeCache } from '@/lib/safe-cache'
 import { getDb, toPlain } from '@/lib/mongodb'
 import { BLOG_TAG, type BlogPost } from '@/lib/blog'
 
@@ -27,19 +27,16 @@ export function toPost(doc: Record<string, unknown>): BlogPost {
   }
 }
 
-export const getPublishedPosts = unstable_cache(
+export const getPublishedPosts = safeCache(
   async (): Promise<BlogPost[]> => {
-    try {
-      const db = await getDb()
-      const docs = await db.collection('blog_posts').find({ status: 'published' }).sort({ published_at: -1, _id: 1 }).toArray()
-      return docs.map(toPost)
-    } catch (e) {
-      console.error('Error fetching blog posts:', e)
-      return []
-    }
+    const db = await getDb()
+    const docs = await db.collection('blog_posts').find({ status: 'published' }).sort({ published_at: -1, _id: 1 }).toArray()
+    return docs.map(toPost)
   },
+  () => [],
   ['blog-posts'],
   { tags: [BLOG_TAG] },
+  'blog posts',
 )
 
 // The post at this address, or the post that used to be there (the page then redirects)

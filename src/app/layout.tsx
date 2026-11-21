@@ -48,9 +48,19 @@ export const metadata: Metadata = {
   },
 };
 
+import { draftMode } from "next/headers";
 import { CartProvider } from "@/context/CartContext";
 import { ContentProvider } from "@/context/ContentContext";
 import { getSiteContent } from "@/lib/content-data";
+import PreviewBadge from "@/components/PreviewBadge";
+
+// Pages are kept ready on the server and rebuilt at most every 60 s (ISR). Saving in the admin or
+// Confirm & Publish in the SEO Studio rebuilds them straight away (updateTag), and purges the
+// Hostinger CDN when a token is set (src/lib/cdn-purge.ts). With expireTime in next.config.mjs the
+// CDN gets "s-maxage=60, stale-while-revalidate=60": before, a page without revalidate was sent
+// with s-maxage=1 year and the CDN kept the old copy. Now an old copy lasts 2 minutes at most,
+// even if a purge fails, and offers that start or end by the clock show on time.
+export const revalidate = 60;
 
 export default async function RootLayout({
   children,
@@ -58,7 +68,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   // Editable site text (SEO Studio) for every client component, via useSection()
-  const content = await getSiteContent();
+  // SEO Studio preview (draft mode, /api/preview): unpublished changes are shown, caches skipped
+  const [content, { isEnabled: previewing }] = await Promise.all([getSiteContent(), draftMode()]);
 
   return (
     <html lang="en">
@@ -73,6 +84,7 @@ export default async function RootLayout({
               {children}
               <FloatingActions />
             </SmoothScroll>
+            {previewing && <PreviewBadge />}
           </CartProvider>
         </ContentProvider>
       </body>

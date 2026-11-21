@@ -2,7 +2,7 @@
 
 import type { Db } from 'mongodb'
 import { v2 as cloudinary } from 'cloudinary'
-import { updateTag } from 'next/cache'
+import { refreshSite } from '@/lib/site-refresh'
 import { AuthError, verifyAdmin } from '@/lib/auth'
 import { newId, toPlain, type IdDoc, type Plain } from '@/lib/mongodb'
 import { DEFAULT_BUSINESS, SEO_PAGES, SEO_TAG, type BusinessInfo } from '@/lib/seo'
@@ -109,14 +109,14 @@ export async function saveMenuItem(id: string | null, input: MenuItemInput) {
     const items = db.collection<IdDoc>('menu_items')
     if (id) found(await items.updateOne({ _id: String(id) }, { $set: row }))
     else await items.insertOne({ _id: newId(), ...row, is_active: true, created_at: new Date() })
-    updateTag(MENU_TAG) // the site reads dishes from cache (src/lib/menu-data.ts)
+    refreshSite(MENU_TAG) // the site reads dishes from cache (src/lib/menu-data.ts)
   })
 }
 
 export async function deleteMenuItem(id: string) {
   return withAdmin(async (db) => {
     found(await db.collection<IdDoc>('menu_items').deleteOne({ _id: String(id) }))
-    updateTag(MENU_TAG)
+    refreshSite(MENU_TAG)
   })
 }
 
@@ -146,14 +146,14 @@ export async function saveDailyCatch(id: string | null, input: DailyCatchInput) 
     const catches = db.collection<IdDoc>('daily_catch')
     if (id) found(await catches.updateOne({ _id: String(id) }, { $set: row }))
     else await catches.insertOne({ _id: newId(), ...row })
-    updateTag(MENU_TAG)
+    refreshSite(MENU_TAG)
   })
 }
 
 export async function deleteDailyCatch(id: string) {
   return withAdmin(async (db) => {
     found(await db.collection<IdDoc>('daily_catch').deleteOne({ _id: String(id) }))
-    updateTag(MENU_TAG)
+    refreshSite(MENU_TAG)
   })
 }
 
@@ -164,7 +164,7 @@ export async function setDailyCatchAvailability(id: string, isAvailable: boolean
         .collection<IdDoc>('daily_catch')
         .updateOne({ _id: String(id) }, { $set: { is_available: !!isAvailable, updated_at: new Date() } })
     )
-    updateTag(MENU_TAG)
+    refreshSite(MENU_TAG)
   })
 }
 
@@ -227,12 +227,12 @@ export async function saveOffer(id: string | null, input: OfferInput) {
     const offers = db.collection<IdDoc>('offers')
     if (id) {
       found(await offers.updateOne({ _id: String(id) }, { $set: row }))
-      updateTag(MENU_TAG) // menu prices and the homepage banner read offers from cache
+      refreshSite(MENU_TAG) // menu prices and the homepage banner read offers from cache
       return { whatsapp: null }
     }
     const offerId = newId()
     await offers.insertOne({ _id: offerId, ...row, created_at: new Date() })
-    updateTag(MENU_TAG)
+    refreshSite(MENU_TAG)
     if (!input?.send_whatsapp) return { whatsapp: null }
     return {
       whatsapp: await broadcastOffer(db, {
@@ -248,7 +248,7 @@ export async function saveOffer(id: string | null, input: OfferInput) {
 export async function deleteOffer(id: string) {
   return withAdmin(async (db) => {
     found(await db.collection<IdDoc>('offers').deleteOne({ _id: String(id) }))
-    updateTag(MENU_TAG)
+    refreshSite(MENU_TAG)
   })
 }
 
@@ -259,7 +259,7 @@ export async function setOfferActive(id: string, isActive: boolean) {
         .collection<IdDoc>('offers')
         .updateOne({ _id: String(id) }, { $set: { is_active: !!isActive, updated_at: new Date() } })
     )
-    updateTag(MENU_TAG)
+    refreshSite(MENU_TAG)
   })
 }
 
@@ -306,8 +306,7 @@ export async function publishSite() {
     const now = new Date()
     await db.collection<IdDoc<number>>('site_publish').updateOne({ _id: 1 }, { $set: { published_at: now } }, { upsert: true })
     const publishedAt = now.toISOString()
-    updateTag(SEO_TAG)
-    updateTag(CONTENT_TAG)
+    refreshSite(SEO_TAG, CONTENT_TAG)
     return { publishedAt }
   }, 'seo')
 }
@@ -505,7 +504,7 @@ export async function saveBlogPost(id: string | null, input: BlogPostInput) {
     } else {
       await posts.insertOne({ _id: postId, ...row, old_slugs: [], created_at: now, updated_at: now, published_at: row.status === 'published' ? now : null })
     }
-    updateTag(BLOG_TAG)
+    refreshSite(BLOG_TAG)
     return { id: postId }
   }, 'seo')
 }
@@ -513,7 +512,7 @@ export async function saveBlogPost(id: string | null, input: BlogPostInput) {
 export async function deleteBlogPost(id: string) {
   return withAdmin(async (db) => {
     found(await db.collection<IdDoc>('blog_posts').deleteOne({ _id: String(id) }))
-    updateTag(BLOG_TAG)
+    refreshSite(BLOG_TAG)
   }, 'seo')
 }
 

@@ -1,6 +1,6 @@
 import 'server-only'
 import type { Metadata, MetadataRoute } from 'next'
-import { unstable_cache } from 'next/cache'
+import { safeCache } from '@/lib/safe-cache'
 import { getDb, toPlain, type IdDoc } from '@/lib/mongodb'
 import {
   DEFAULT_BUSINESS,
@@ -17,21 +17,17 @@ import {
 // SEO values from the seo_pages / business_info collections (edited in the SEO Studio, /seo).
 // Reads are cached under the "seo" tag; "Confirm & Publish" calls updateTag('seo').
 
-export const getSeoPages = unstable_cache(
-  async (): Promise<Record<string, SeoPage>> => {
-    const defaults = Object.fromEntries(
-      SEO_PAGES.map((p) => [p.path, { path: p.path, title: p.title, description: p.description, og_image: '', noindex: false }]),
-    ) as Record<string, SeoPage>
+const defaultSeoPages = () =>
+  Object.fromEntries(
+    SEO_PAGES.map((p) => [p.path, { path: p.path, title: p.title, description: p.description, og_image: '', noindex: false }]),
+  ) as Record<string, SeoPage>
 
-    let data: SeoPage[]
-    try {
-      const db = await getDb()
-      const docs = await db.collection<{ _id: string }>('seo_pages').find().toArray()
-      data = docs.map((d) => ({ ...toPlain(d), path: d._id }) as unknown as SeoPage)
-    } catch (e) {
-      console.error('Error fetching SEO pages:', e)
-      return defaults // database unreachable -> code defaults
-    }
+export const getSeoPages = safeCache(
+  async (): Promise<Record<string, SeoPage>> => {
+    const defaults = defaultSeoPages()
+    const db = await getDb()
+    const docs = await db.collection<{ _id: string }>('seo_pages').find().toArray()
+    const data = docs.map((d) => ({ ...toPlain(d), path: d._id }) as unknown as SeoPage)
 
     for (const row of data) {
       const d = defaults[row.path]
@@ -44,20 +40,16 @@ export const getSeoPages = unstable_cache(
     }
     return defaults
   },
+  defaultSeoPages, // database unreachable -> code defaults (not cached)
   ['seo-pages'],
   { tags: [SEO_TAG] },
+  'SEO pages',
 )
 
-export const getBusinessInfo = unstable_cache(
+export const getBusinessInfo = safeCache(
   async (): Promise<BusinessInfo> => {
-    let data: IdDoc<number> | null
-    try {
-      const db = await getDb()
-      data = await db.collection<IdDoc<number>>('business_info').findOne({ _id: 1 })
-    } catch (e) {
-      console.error('Error fetching business info:', e)
-      return DEFAULT_BUSINESS
-    }
+    const db = await getDb()
+    const data = await db.collection<IdDoc<number>>('business_info').findOne({ _id: 1 })
     if (!data) return DEFAULT_BUSINESS
 
     const merged = { ...DEFAULT_BUSINESS }
@@ -67,8 +59,10 @@ export const getBusinessInfo = unstable_cache(
     }
     return merged
   },
+  () => DEFAULT_BUSINESS, // database unreachable (not cached)
   ['business-info-v2'], // v2: renamed so the 11:00–01:00 hours (Nov 2026) show without waiting for a publish
   { tags: [SEO_TAG] },
+  'business info',
 )
 
 // Used by each route's layout: export const generateMetadata = () => pageMetadata('/menu')

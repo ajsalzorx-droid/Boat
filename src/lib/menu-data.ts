@@ -1,5 +1,5 @@
 import 'server-only'
-import { unstable_cache } from 'next/cache'
+import { safeCache } from '@/lib/safe-cache'
 import { getDb, toPlain } from '@/lib/mongodb'
 import type { MenuItem } from '@/data/menu'
 import { bestOffer, offerStatus, type Offer, type OfferBanner } from '@/lib/offers'
@@ -18,43 +18,37 @@ export type DailyCatchItem = {
   image_url: string
 }
 
-export const getActiveMenuItems = unstable_cache(
+export const getActiveMenuItems = safeCache(
   async (): Promise<MenuItem[]> => {
-    try {
-      const db = await getDb()
-      const docs = await db
-        .collection('menu_items')
-        .find({ is_active: true })
-        .sort({ created_at: 1, _id: 1 }) // stable order when created_at ties
-        .toArray()
-      return docs.map((d) => {
-        const item = toPlain(d)
-        return { ...item, image: d.image_url ?? '' } as unknown as MenuItem
-      })
-    } catch (e) {
-      console.error('Error fetching menu:', e)
-      return []
-    }
+    const db = await getDb()
+    const docs = await db
+      .collection('menu_items')
+      .find({ is_active: true })
+      .sort({ created_at: 1, _id: 1 }) // stable order when created_at ties
+      .toArray()
+    return docs.map((d) => {
+      const item = toPlain(d)
+      return { ...item, image: d.image_url ?? '' } as unknown as MenuItem
+    })
   },
+  () => [],
   ['menu-items'],
-  { tags: [MENU_TAG] }
+  { tags: [MENU_TAG] },
+  'menu'
 )
 
 // Offers switched on in the admin. The date window is checked outside the cache (getLiveOffers),
 // so an offer starts and ends on time without an admin change.
-const getActiveOffers = unstable_cache(
+const getActiveOffers = safeCache(
   async (): Promise<Offer[]> => {
-    try {
-      const db = await getDb()
-      const docs = await db.collection('offers').find({ is_active: true }).sort({ percent: -1, _id: 1 }).toArray()
-      return docs.map((d) => toPlain(d) as unknown as Offer)
-    } catch (e) {
-      console.error('Error fetching offers:', e)
-      return []
-    }
+    const db = await getDb()
+    const docs = await db.collection('offers').find({ is_active: true }).sort({ percent: -1, _id: 1 }).toArray()
+    return docs.map((d) => toPlain(d) as unknown as Offer)
   },
+  () => [],
   ['offers'],
-  { tags: [MENU_TAG] }
+  { tags: [MENU_TAG] },
+  'offers'
 )
 
 export async function getLiveOffers() {
@@ -92,17 +86,14 @@ export function offerBanners(offers: Offer[]): OfferBanner[] {
   })
 }
 
-export const getAvailableCatch = unstable_cache(
+export const getAvailableCatch = safeCache(
   async (): Promise<DailyCatchItem[]> => {
-    try {
-      const db = await getDb()
-      const docs = await db.collection('daily_catch').find({ is_available: true }).sort({ updated_at: -1 }).toArray()
-      return docs.map((d) => toPlain(d) as unknown as DailyCatchItem)
-    } catch (e) {
-      console.error('Error fetching daily catch:', e)
-      return []
-    }
+    const db = await getDb()
+    const docs = await db.collection('daily_catch').find({ is_available: true }).sort({ updated_at: -1 }).toArray()
+    return docs.map((d) => toPlain(d) as unknown as DailyCatchItem)
   },
+  () => [],
   ['daily-catch'],
-  { tags: [MENU_TAG] }
+  { tags: [MENU_TAG] },
+  'daily catch'
 )

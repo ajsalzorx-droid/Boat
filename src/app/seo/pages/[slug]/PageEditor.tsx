@@ -62,6 +62,7 @@ export default function PageEditor({ slug }: { slug: StudioPageSlug }) {
     if (actionFailed(res)) return false;
     studio.markSectionSaved(def.id);
     markJustSaved(def.id);
+    refreshPreview(); // the preview shows saved changes, so show this one now
     return true;
   };
 
@@ -73,6 +74,7 @@ export default function PageEditor({ slug }: { slug: StudioPageSlug }) {
     if (actionFailed(res)) return false;
     studio.markSeoSaved(seoPath);
     markJustSaved(SEO_ANCHOR);
+    refreshPreview();
     return true;
   };
 
@@ -88,7 +90,11 @@ export default function PageEditor({ slug }: { slug: StudioPageSlug }) {
     setSaving(null);
     if (actionFailed(res)) return;
     studio.markSectionReset(def.id, defaultSection(def));
+    refreshPreview();
   };
+
+  // Through /api/preview (draft mode): saved changes show before Confirm & Publish
+  const previewSrc = `/api/preview?path=${encodeURIComponent(page.href)}`;
 
   const jumpTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -335,7 +341,7 @@ export default function PageEditor({ slug }: { slug: StudioPageSlug }) {
               <div className="sticky top-36">
                 <div className="flex items-center justify-between mb-2">
                   <PreviewLabel>
-                    <Eye size={12} className="inline -mt-0.5 mr-1" /> Live website (published)
+                    <Eye size={12} className="inline -mt-0.5 mr-1" /> Preview (saved changes)
                   </PreviewLabel>
                   <button type="button" onClick={refreshPreview} className="text-xs text-ocean hover:text-navy font-semibold">
                     Reload
@@ -347,11 +353,11 @@ export default function PageEditor({ slug }: { slug: StudioPageSlug }) {
                   }`}
                 >
                   {preview === "mobile" ? (
-                    <iframe key={`${previewVersion}-${studio.publishedVersion}`} src={page.href} title={`${page.name} preview`} className="w-full h-full" />
+                    <iframe key={`${previewVersion}-${studio.publishedVersion}`} src={previewSrc} title={`${page.name} preview`} className="w-full h-full" />
                   ) : (
                     // Desktop layout at 1280px wide, scaled down to fit the column
                     <div className="w-[1280px] h-[200%] origin-top-left scale-50">
-                      <iframe key={`${previewVersion}-${studio.publishedVersion}`} src={page.href} title={`${page.name} preview`} className="w-full h-full" />
+                      <iframe key={`${previewVersion}-${studio.publishedVersion}`} src={previewSrc} title={`${page.name} preview`} className="w-full h-full" />
                     </div>
                   )}
                 </div>

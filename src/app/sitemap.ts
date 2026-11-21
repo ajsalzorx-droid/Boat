@@ -6,6 +6,9 @@ import { siteUrl } from '@/lib/seo'
 // Public pages from the SEO dashboard; pages marked "Hide from Google" are left out.
 // Published blog posts (not drafts, not hidden ones) are added after them, plus /blog once
 // there is at least one.
+// Rebuilt at most every 60 s, and straight away when a post is published (blog tag)
+export const revalidate = 60
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [pages, posts, business] = await Promise.all([sitemapEntries(), getPublishedPosts(), getBusinessInfo()])
   const base = siteUrl(business).origin
