@@ -13,6 +13,12 @@ import { FALLBACK_SHARE_IMAGE, siteUrl, type BusinessInfo } from "@/lib/seo";
 
 type Props = { params: Promise<{ slug: string }> };
 
+// No posts are built ahead; each post is built on its first visit and then kept like every page
+// (rebuilt at most every 60 s, and straight away when the post is saved). Unknown addresses 404.
+export async function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const [found, business] = await Promise.all([findPublishedPost(slug), getBusinessInfo()]);

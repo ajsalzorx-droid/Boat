@@ -1,5 +1,5 @@
 import 'server-only'
-import { unstable_cache } from 'next/cache'
+import { safeCache } from '@/lib/safe-cache'
 import { getDb } from '@/lib/mongodb'
 import { CONTENT_TAG, mergeAll, type SectionData, type SiteContent } from '@/lib/content'
 import { DEFAULT_BUSINESS, SEO_TAG } from '@/lib/seo'
@@ -26,20 +26,18 @@ function fillHours(content: SiteContent, hours: string): SiteContent {
 
 // Page text saved in the SEO Studio (site_content collection, one document per section),
 // merged over the built-in defaults. Cached under CONTENT_TAG until "Confirm & Publish".
-export const getSiteContent = unstable_cache(
+export const getSiteContent = safeCache(
   async (): Promise<SiteContent> => {
-    try {
-      const db = await getDb()
-      const [docs, business] = await Promise.all([
-        db.collection<{ _id: string; data: SectionData }>('site_content').find().toArray(),
-        getBusinessInfo(),
-      ])
-      return fillHours(mergeAll(docs.map((d) => ({ section: d._id, data: d.data }))), hoursText(business.opens, business.closes))
-    } catch (e) {
-      console.error('Error fetching page content:', e)
-      return fillHours(mergeAll([]), hoursText(DEFAULT_BUSINESS.opens, DEFAULT_BUSINESS.closes)) // database unreachable -> built-in text
-    }
+    const db = await getDb()
+    const [docs, business] = await Promise.all([
+      db.collection<{ _id: string; data: SectionData }>('site_content').find().toArray(),
+      getBusinessInfo(),
+    ])
+    return fillHours(mergeAll(docs.map((d) => ({ section: d._id, data: d.data }))), hoursText(business.opens, business.closes))
   },
+  // database unreachable -> built-in text (not cached: the next request tries again)
+  () => fillHours(mergeAll([]), hoursText(DEFAULT_BUSINESS.opens, DEFAULT_BUSINESS.closes)),
   ['site-content-v3'], // v3: "Table Booking" nav label (Nov 2026); renamed so old saved copies aren't used
-  { tags: [CONTENT_TAG, SEO_TAG] } // the hours come from the business info (SEO_TAG)
+  { tags: [CONTENT_TAG, SEO_TAG] }, // the hours come from the business info (SEO_TAG)
+  'page content'
 )

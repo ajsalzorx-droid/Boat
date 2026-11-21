@@ -20,8 +20,8 @@ import { Heading } from "@/components/ContentText";
 
 export const generateMetadata = () => pageMetadata("/");
 
-// Offers start and end by date: rebuild the page at least every 5 minutes so the offers section follows them
-export const revalidate = 300;
+// Offers start and end by date: the page is rebuilt at most every 60 s (revalidate in
+// src/app/layout.tsx) and getLiveOffers() checks the date window, so the offers section follows them.
 
 export default async function Home() {
   const [business, content, dishes, dailyCatch, offers] = await Promise.all([

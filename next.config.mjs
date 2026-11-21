@@ -30,6 +30,10 @@ const nextConfig = {
       { source: "/game", destination: "/?play=game", permanent: false },
     ];
   },
+  // How long the CDN may show an old page while it fetches the new one. With revalidate = 60
+  // (src/app/layout.tsx) pages are sent as "s-maxage=60, stale-while-revalidate=60". The default
+  // (1 year) let the Hostinger CDN keep showing old pages after an update.
+  expireTime: 120,
   // Don't advertise the framework (an "X-Powered-By: Next.js" header helps attackers pick exploits)
   poweredByHeader: false,
   // Security headers on every response
