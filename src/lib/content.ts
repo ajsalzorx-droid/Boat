@@ -733,6 +733,19 @@ export const CONTENT_SECTIONS = [
       text('read_time', 'Reading time label ({n} = minutes)', '{n} min read'),
     ],
   },
+  {
+    // Photo on the left, text on the right, under the top section (in place of the "no post yet"
+    // text, and above the posts once there are some). Empty photo / text fall back to the page's
+    // share image and meta description (Google & sharing, above).
+    id: 'blog_intro',
+    page: 'blog',
+    label: 'Intro (photo + text)',
+    fields: [
+      ...image('', '', 'Photo (empty = the share image)'),
+      text('title', 'Heading (optional)', ''),
+      area('body', 'Text (empty = the meta description)', '', 'A blank line starts a new paragraph.'),
+    ],
+  },
 ] as const satisfies readonly SectionDef[]
 
 export type SectionId = (typeof CONTENT_SECTIONS)[number]['id']
