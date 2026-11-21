@@ -112,7 +112,7 @@ export async function createBooking(input: BookingInput, guard?: FormGuard): Pro
     // "We have your request" on WhatsApp from Boat's number, sent after the customer already sees
     // the thank-you screen (a slow or failed send never holds up or fails the booking)
     const phone = input.phone.trim()
-    const parts = receivedMessage({ ...input, name: input.name.trim(), phone, table })
+    const parts = receivedMessage({ ...input, name: input.name.trim(), table, fish_type: fish ? input.fish_type.trim() : null })
     after(async () => {
       const sent = await sendBookingReceived(whatsappDigits(phone), parts)
       if (!sent) return

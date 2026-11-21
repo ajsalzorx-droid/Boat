@@ -213,15 +213,18 @@ export function checkBooking(b: BookingInput, hours: { opens: string; closes: st
 // "out-6" -> "Outside Table No. 6", as the WhatsApp messages say it
 const tableNo = (id: string) => tableLabel(id).replace(/^(.+) (\d+)$/, '$1 Table No. $2')
 
-// Sent on WhatsApp right after the customer books, before staff confirm it (the restaurant's
-// wording, keep it):
-//   Thank you, Abdul. We have your request for Outside Table No. 6 on Fri, 20 Nov 2026 at 5:00 PM.
-//   Once confirmed, you will receive a WhatsApp message at +971 526794296.
-// Values for the approved booking_received template (src/lib/whatsapp-api.ts):
-//   customer_name, booking, date, time, phone
-export function receivedMessage(b: { type: BookingType; name: string; phone: string; table?: string | null; date: string; time: string }) {
-  const what = b.type === 'fish' ? 'fish preparation' : b.table && b.table !== ANY_TABLE ? tableNo(b.table) : 'a table'
-  return [b.name, what, formatDate(visitDate(b.date, b.time)), formatTime(b.time), b.phone]
+// Sent on WhatsApp right after the customer books, before staff confirm it. Values for the
+// approved booking_received template (src/lib/whatsapp-api.ts): customer_name, booking, date, time
+// booking = "Outside Table No. 6 for 2 guests" ("a table for 2 guests" when none was chosen)
+export function receivedMessage(b: { type: BookingType; name: string; guests: number; table?: string | null; fish_type: string | null; date: string; time: string }) {
+  const guests = `${b.guests} ${b.guests === 1 ? 'guest' : 'guests'}`
+  const what =
+    b.type === 'fish'
+      ? `fish preparation (${b.fish_type})`
+      : b.table && b.table !== ANY_TABLE
+        ? `${tableNo(b.table)} for ${guests}`
+        : `a table for ${guests}`
+  return [b.name, what, formatDate(visitDate(b.date, b.time)), formatTime(b.time)]
 }
 
 // The confirmation sent when staff confirm the booking, with any pre-ordered dishes and prices.

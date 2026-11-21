@@ -2,27 +2,23 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Clock, Utensils, AlertCircle, RefreshCw, LogOut, BellOff, User, Phone } from "lucide-react";
+import { Check, Clock, Utensils, AlertCircle, RefreshCw, LogOut, BellOff, User, Phone, CalendarDays, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
-import { completeOrder as completeOrderAction, clearPendingOrders, listOrders } from "@/app/admin/actions";
+import { clearPendingOrders } from "@/app/admin/actions";
+import { logout } from "@/app/admin/login/actions";
 import { actionFailed } from "@/app/admin/client-helpers";
+import Toaster from "@/app/admin/Toaster";
+import { kitchenCompleteOrder, kitchenOrders, type KitchenOrder } from "./actions";
 
 // How often the kitchen screen checks for new orders
 const ORDER_POLL_MS = 5000;
 
-interface Order {
-  id: string;
-  table: string;
-  name?: string | null; // who ordered (orders from before this have none)
-  phone?: string | null;
-  items: { name: string; quantity: number }[];
-  total: number;
-  timestamp: string;
-  status: 'pending' | 'completed' | 'cancelled';
-}
+type Order = KitchenOrder;
 
 export default function KitchenPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  // Who is looking: kitchen accounts see only the orders; admins also get Clear All and the dashboard link
+  const [role, setRole] = useState<string | null>(null);
   // Pending orders seen at the last check
   const lastOrderCount = useRef(0);
   const [isRinging, setIsRinging] = useState(false);
@@ -42,15 +38,16 @@ export default function KitchenPage() {
   };
 
   const loadOrders = async () => {
-    const res = await listOrders();
+    const res = await kitchenOrders();
     if (!res.ok) {
       // Logged out: back to login. Other errors (e.g. offline): keep showing the last orders
       if (res.status === 401) actionFailed(res);
       else console.error("Error loading orders:", res.error);
       return;
     }
-    const data = res.data!.orders;
+    const data = res.data.orders;
     setOrders(data);
+    setRole(res.data.role);
     // Ring when there are more pending orders than at the last check
     if (data.length > lastOrderCount.current) {
       setIsRinging(true);
@@ -77,7 +74,7 @@ export default function KitchenPage() {
 
   const completeOrder = async (id: string) => {
     stopRinging();
-    if (actionFailed(await completeOrderAction(id))) return;
+    if (actionFailed(await kitchenCompleteOrder(id))) return;
     loadOrders();
   };
 
@@ -89,10 +86,16 @@ export default function KitchenPage() {
     }
   };
 
+  const signOut = async () => {
+    await logout("kitchen").catch((e) => console.error("Logout error:", e));
+    window.location.assign("/admin/login?next=/kitchen");
+  };
+
   return (
-    <main className="bg-[#02080a] min-h-screen text-white p-8">
+    <main className="bg-[#02080a] min-h-screen text-white p-4 sm:p-8">
+      <Toaster />
       {/* Header */}
-      <header className="flex justify-between items-center mb-12 border-b border-white/5 pb-8">
+      <header className="flex flex-wrap gap-4 justify-between items-center mb-12 border-b border-white/5 pb-8">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-3 h-3 rounded-full bg-ocean animate-pulse"></div>
@@ -101,7 +104,7 @@ export default function KitchenPage() {
           <h2 className="font-playfair text-4xl font-bold">Active Orders</h2>
         </div>
         
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-6">
           {isRinging && (
             <button 
               onClick={stopRinging}
@@ -118,16 +121,24 @@ export default function KitchenPage() {
             <RefreshCw size={16} />
             <span className="text-[9px] tracking-[2px] uppercase font-bold">Refresh</span>
           </button>
-          <button 
-            onClick={clearAll}
-            className="flex items-center gap-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 px-4 py-2 rounded-sm transition-all"
-          >
-            <AlertCircle size={16} />
-            <span className="text-[9px] tracking-[2px] uppercase font-bold">Clear All</span>
-          </button>
-          <Link href="/" className="text-white/40 hover:text-white transition-colors">
-            <LogOut size={20} />
-          </Link>
+          {role === "admin" && (
+            <button
+              onClick={clearAll}
+              className="flex items-center gap-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 px-4 py-2 rounded-sm transition-all"
+            >
+              <AlertCircle size={16} />
+              <span className="text-[9px] tracking-[2px] uppercase font-bold">Clear All</span>
+            </button>
+          )}
+          {role === "admin" ? (
+            <Link href="/admin" title="Admin dashboard" className="text-white/40 hover:text-white transition-colors">
+              <LayoutDashboard size={20} />
+            </Link>
+          ) : (
+            <button onClick={signOut} title="Log out" aria-label="Log out" className="text-white/40 hover:text-white transition-colors">
+              <LogOut size={20} />
+            </button>
+          )}
         </div>
       </header>
 
@@ -161,6 +172,14 @@ export default function KitchenPage() {
                       <span className="min-w-0">{order.name || <span className="text-white/40 font-normal italic text-base">No name given</span>}</span>
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {order.source === "booking" && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-400 text-navy px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">
+                          <CalendarDays size={11} aria-hidden /> Booking {order.booking_date}{order.booking_time ? `, ${order.booking_time}` : ""}
+                        </span>
+                      )}
+                      {order.table === "Takeaway" && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-white/20 text-white/70 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">Takeaway</span>
+                      )}
                       {order.table && order.table !== "Takeaway" && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-ocean text-navy px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">
                           <Utensils size={11} aria-hidden /> Table {order.table}

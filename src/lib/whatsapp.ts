@@ -9,5 +9,10 @@ if (!WHATSAPP_NUMBER) console.warn('NEXT_PUBLIC_WHATSAPP_NUMBER is not set in .e
 export const whatsapp = (text?: string) =>
   `https://wa.me/${WHATSAPP_NUMBER}${text ? `?text=${encodeURIComponent(text)}` : ''}`
 
+// The app's own link (whatsapp://): opens WhatsApp or WhatsApp Business straight away, without
+// the browser tab wa.me leaves behind on iPhone
+export const whatsappApp = (text?: string) =>
+  `whatsapp://send?phone=${WHATSAPP_NUMBER}${text ? `&text=${encodeURIComponent(text)}` : ''}`
+
 // The same number written for people, e.g. 971507487220 -> "+971 50 748 7220"
 export const WHATSAPP_DISPLAY = WHATSAPP_NUMBER.replace(/^971(\d{2})(\d{3})(\d{4})$/, '+971 $1 $2 $3')

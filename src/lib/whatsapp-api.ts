@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto'
 //   WATI_CONFIRM_TEMPLATE      approved template, e.g. booking_confirmed
 //   WATI_PREORDER_TEMPLATE     (optional) template with the dishes, e.g. booking_confirmed_preorder
 // Messages the restaurant starts must use approved templates, with these exact variable names:
-//   booking_confirmed (sent when admin confirms):
+//   booking_confirmed_v2 (sent when admin confirms):
 //     Hello {{customer_name}}, your booking at Boat Seafood Restaurant is confirmed!
 //     Table: {{table_no}} / Guests: {{guests}} / Date: {{date}} / Time: {{time}}  (one per line)
 //     We look forward to welcoming you!
@@ -17,13 +17,14 @@ import { randomUUID } from 'node:crypto'
 //   booking_confirmed_preorder: the same, then after Time
 //     Your pre-order: {{dishes}}. Total: {{total}}.
 // Without the pre-order template, bookings with dishes use booking_confirmed (dish count + total).
-//   WATI_RECEIVED_TEMPLATE     (optional) sent as soon as the customer books, e.g. booking_received
-//   (the restaurant's wording, keep it):
-//     Thank you, {{customer_name}}. We have your request for {{booking}} on {{date}} at {{time}}.
-//     Once confirmed, you will receive a WhatsApp message at {{phone}}.
+//   WATI_RECEIVED_TEMPLATE     (optional) sent as soon as the customer books, e.g. booking_received:
+//     Hello {{customer_name}}, thank you for booking with Boat Seafood Restaurant!
+//     We have received your booking for {{booking}} on {{date}} at {{time}}.
+//     Our team is reviewing it now and will get back to you shortly.
+//     Need help? Call or WhatsApp us at +971 50 748 7220.
 
 const CONFIRM_PARAMS = ['customer_name', 'table_no', 'guests', 'date', 'time']
-const RECEIVED_PARAMS = ['customer_name', 'booking', 'date', 'time', 'phone']
+const RECEIVED_PARAMS = ['customer_name', 'booking', 'date', 'time']
 const PREORDER_PARAMS = [...CONFIRM_PARAMS, 'dishes', 'total']
 
 export function whatsappApiReady() {

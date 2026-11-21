@@ -6,7 +6,7 @@ import { ChevronDown, ChevronsDown, ChevronsUp, Fish, Flag, Gift, Loader2, Locat
 import type { Race, RaceState } from "./race";
 import { CAUSES } from "./sim";
 import { checkNumberToday, devGameCode, getClaim, keepClaimScore, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
-import { whatsapp, WHATSAPP_DISPLAY } from "@/lib/whatsapp";
+import { whatsapp, whatsappApp, WHATSAPP_DISPLAY } from "@/lib/whatsapp";
 import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, CLAIM_VALID_HOURS, checkSpot, DISCOUNT_TIERS, LOCATION_REQUIRED, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, PLAY_AREA, RULES, type ClaimView, type PlayerSpot } from "@/lib/game-claims";
 import { dubaiNow } from "@/lib/bookings";
 import { COUNTRIES, fullNumber } from "@/lib/phone-countries";
@@ -189,8 +189,24 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
   // browser doesn't block it as a popup
   // A browser that blocks the new tab (after the number check, or an in-app browser) goes to
   // WhatsApp in this tab instead
+  // iPhone/iPad: wa.me in a new tab leaves an api.whatsapp.com tab in front of the game when the
+  // player comes back (and asks "Open in WA Business?" on phones with only WhatsApp Business).
+  // So the app link opens in this tab, which stays on the game; if no WhatsApp app took it
+  // (the page is still showing after a moment), wa.me is the fallback
   const openWhatsApp = () => {
     const url = whatsapp(OTP_REQUEST_TEXT);
+    const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (ios) {
+      let left = false;
+      const onHide = () => { if (document.visibilityState === "hidden") left = true; };
+      document.addEventListener("visibilitychange", onHide);
+      window.location.href = whatsappApp(OTP_REQUEST_TEXT);
+      setTimeout(() => {
+        document.removeEventListener("visibilitychange", onHide);
+        if (!left && document.visibilityState === "visible") window.location.href = url;
+      }, 2000);
+      return;
+    }
     const tab = window.open(url, "_blank");
     if (tab) tab.opener = null;
     else window.location.href = url;
