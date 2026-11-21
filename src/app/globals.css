@@ -2,6 +2,8 @@
 
 /* Short screens (a phone turned sideways): compact bars so the flip book gets the height */
 @custom-variant short (@media (max-height: 520px));
+/* Keyboard-and-mouse computers (wide, with a fine pointer that hovers). Tablets and phones get touch controls */
+@custom-variant kb (@media (min-width: 48rem) and (hover: hover) and (pointer: fine));
 
 @theme {
   --color-cream: #fdf0d5;

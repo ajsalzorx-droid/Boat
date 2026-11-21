@@ -421,40 +421,40 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
         {state?.phase === "racing" && (
           <div
             aria-hidden={!state.hint}
-            className={`absolute left-[44%] bottom-[31%] md:left-[40%] md:bottom-[56%] pointer-events-none transition-all duration-300 ${
+            className={`absolute left-[44%] bottom-[31%] kb:left-[40%] kb:bottom-[56%] pointer-events-none transition-all duration-300 ${
               state.hint ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
             }`}
           >
-            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white text-navy pl-2.5 pr-3.5 py-2 text-[13px] md:text-[15px] font-bold shadow-[0_6px_18px_-6px_rgba(0,48,73,0.55)] motion-safe:animate-bounce">
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white text-navy pl-2.5 pr-3.5 py-2 text-[13px] kb:text-[15px] font-bold shadow-[0_6px_18px_-6px_rgba(0,48,73,0.55)] motion-safe:animate-bounce">
               <span className="w-6 h-6 rounded-full bg-offer text-white flex items-center justify-center">
                 <ChevronsUp size={15} aria-hidden />
               </span>
-              <span className="md:hidden">Tap to jump!</span>
-              <span className="hidden md:inline">Press Space to jump!</span>
+              <span className="kb:hidden">Tap to jump!</span>
+              <span className="hidden kb:inline">Press Space to jump!</span>
             </span>
           </div>
         )}
 
-        {/* "Tap to fish" after that: by the fish button on a phone, near Catbo on a computer */}
+        {/* "Tap to fish" after that: by the fish button on a phone or tablet, near Catbo on a computer */}
         {state?.phase === "racing" && (
           <div
             aria-hidden={!state.fishHint}
-            className={`absolute right-4 bottom-[calc(max(1.25rem,env(safe-area-inset-bottom))+4.75rem)] md:right-auto md:left-[40%] md:bottom-[56%] pointer-events-none transition-all duration-300 ${
+            className={`absolute right-4 bottom-[calc(max(1.25rem,env(safe-area-inset-bottom))+4.75rem)] kb:right-auto kb:left-[40%] kb:bottom-[56%] pointer-events-none transition-all duration-300 ${
               state.fishHint ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
             }`}
           >
-            <span className="relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white text-navy pl-2.5 pr-3.5 py-2 text-[13px] md:text-[15px] font-bold shadow-[0_6px_18px_-6px_rgba(0,48,73,0.55)] motion-safe:animate-bounce">
+            <span className="relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white text-navy pl-2.5 pr-3.5 py-2 text-[13px] kb:text-[15px] font-bold shadow-[0_6px_18px_-6px_rgba(0,48,73,0.55)] motion-safe:animate-bounce">
               <span className="w-6 h-6 rounded-full bg-ocean text-white flex items-center justify-center">
                 <ChevronsDown size={15} aria-hidden />
               </span>
-              <span className="md:hidden">Tap to fish!</span>
-              <span className="hidden md:inline">Press ↓ to fish!</span>
-              <span aria-hidden className="md:hidden absolute -bottom-1.5 right-6 w-3 h-3 rotate-45 bg-white" />
+              <span className="kb:hidden">Tap to fish!</span>
+              <span className="hidden kb:inline">Press ↓ to fish!</span>
+              <span aria-hidden className="kb:hidden absolute -bottom-1.5 right-6 w-3 h-3 rotate-45 bg-white" />
             </span>
           </div>
         )}
 
-        {/* On a phone: a button to drop Catbo's line (on a computer, the down arrow) */}
+        {/* On a phone or tablet: a button to drop Catbo's line (on a computer, the down arrow) */}
         {state?.phase === "racing" && (
           <button
             type="button"
@@ -463,7 +463,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
               raceRef.current?.cast();
             }}
             aria-label="Drop the fishing line"
-            className="md:hidden absolute right-4 bottom-[max(1.25rem,env(safe-area-inset-bottom))] w-16 h-16 rounded-full shadow-[0_6px_18px_-6px_rgba(0,48,73,0.6)] active:scale-95 transition-transform touch-none"
+            className="kb:hidden absolute right-4 bottom-[max(1.25rem,env(safe-area-inset-bottom))] w-16 h-16 rounded-full shadow-[0_6px_18px_-6px_rgba(0,48,73,0.6)] active:scale-95 transition-transform touch-none"
           >
             {/* the restaurant's hook-and-fish artwork: a white disc in a navy ring */}
             <img src="/catbo/fish-hook.webp" alt="" width={64} height={64} draggable={false} className="w-full h-full pointer-events-none select-none" />
@@ -549,15 +549,15 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                         pics={
                           <>
                             <img src="/race/fish.webp" alt="" className="h-7 w-auto" draggable={false} />
-                            <img src="/catbo/fish-hook.webp" alt="" className="h-9 w-9 md:hidden" draggable={false} />
-                            <kbd className="hidden md:inline-flex h-8 min-w-8 items-center justify-center rounded-md border border-navy/25 bg-white px-2 text-[15px] font-bold text-navy shadow-sm">↓</kbd>
+                            <img src="/catbo/fish-hook.webp" alt="" className="h-9 w-9 kb:hidden" draggable={false} />
+                            <kbd className="hidden kb:inline-flex h-8 min-w-8 items-center justify-center rounded-md border border-navy/25 bg-white px-2 text-[15px] font-bold text-navy shadow-sm">↓</kbd>
                           </>
                         }
                         tag="Catch"
                         tagClass="bg-ocean text-white"
                       >
-                        Catch fish: <span className="hidden md:inline">press ↓</span>
-                        <span className="md:hidden">tap the hook button</span> to drop the line.
+                        Catch fish: <span className="hidden kb:inline">press ↓</span>
+                        <span className="kb:hidden">tap the hook button</span> to drop the line.
                       </GuideRow>
                       <GuideRow
                         pics={
@@ -633,8 +633,8 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                 <p className="text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-ocean font-bold mb-2">Catbo Racing</p>
                 <p className="font-playfair text-[22px] sm:text-[28px] leading-tight font-bold text-navy mb-3">Surf with Catbo!</p>
                 <p className="text-navy/75 text-[12.5px] leading-snug mb-4 sm:text-[14px] sm:leading-normal sm:mb-5">
-                  <span className="hidden md:inline">Click or press Space</span>
-                  <span className="md:hidden">Tap the screen</span> to jump over buoys and gulls diving at you. Dolphins, and gulls coming from behind, pass over you: don&rsquo;t jump into them! To fish, <span className="hidden md:inline">press ↓</span><span className="md:hidden">tap the hook button</span>. One hit and the race is over. It gets harder every 100 m, and more and more sea creatures swim among the fish: never hook an octopus, a jellyfish or an electric eel!
+                  <span className="hidden kb:inline">Click or press Space</span>
+                  <span className="kb:hidden">Tap the screen</span> to jump over buoys and gulls diving at you. Dolphins, and gulls coming from behind, pass over you: don&rsquo;t jump into them! To fish, <span className="hidden kb:inline">press ↓</span><span className="kb:hidden">tap the hook button</span>. One hit and the race is over. It gets harder every 100 m, and more and more sea creatures swim among the fish: never hook an octopus, a jellyfish or an electric eel!
                 </p>
                 <div className="flex flex-col gap-2.5">
                   <button type="button" autoFocus className={button} onClick={playFree}>
