@@ -14,5 +14,13 @@ export const whatsapp = (text?: string) =>
 export const whatsappApp = (text?: string) =>
   `whatsapp://send?phone=${WHATSAPP_NUMBER}${text ? `&text=${encodeURIComponent(text)}` : ''}`
 
+// Android: the app through an intent (WhatsApp or WhatsApp Business, whichever handles
+// whatsapp://), from the current tab, so the page stays where it is. Only when no WhatsApp is
+// installed does the browser go to the wa.me page instead. A plain wa.me link opened in a new tab
+// often stopped at WhatsApp's web page ("Continue to chat") in QR-scanner and in-app browsers.
+export const whatsappAndroid = (text?: string) =>
+  `intent://send?phone=${WHATSAPP_NUMBER}${text ? `&text=${encodeURIComponent(text)}` : ''}` +
+  `#Intent;scheme=whatsapp;S.browser_fallback_url=${encodeURIComponent(whatsapp(text))};end`
+
 // The same number written for people, e.g. 971507487220 -> "+971 50 748 7220"
 export const WHATSAPP_DISPLAY = WHATSAPP_NUMBER.replace(/^971(\d{2})(\d{3})(\d{4})$/, '+971 $1 $2 $3')

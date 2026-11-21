@@ -6,7 +6,7 @@ import { ChevronDown, ChevronsDown, ChevronsUp, Fish, Flag, Gift, Loader2, Locat
 import type { Race, RaceState } from "./race";
 import { CAUSES } from "./sim";
 import { checkNumberToday, devGameCode, getClaim, keepClaimScore, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
-import { whatsapp, whatsappApp, WHATSAPP_DISPLAY } from "@/lib/whatsapp";
+import { whatsapp, whatsappAndroid, whatsappApp, WHATSAPP_DISPLAY } from "@/lib/whatsapp";
 import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, CLAIM_VALID_HOURS, checkSpot, DISCOUNT_TIERS, LOCATION_REQUIRED, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, PLAY_AREA, RULES, type ClaimView, type PlayerSpot } from "@/lib/game-claims";
 import { dubaiNow } from "@/lib/bookings";
 import { COUNTRIES, fullNumber } from "@/lib/phone-countries";
@@ -187,8 +187,8 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
   // Step 1: name and number are checked, then WhatsApp opens with "GET OTP" typed, to send to us.
   // Our reply in that chat is the code (src/lib/game-otp.ts). Opened during the click, so the
   // browser doesn't block it as a popup
-  // A browser that blocks the new tab (after the number check, or an in-app browser) goes to
-  // WhatsApp in this tab instead
+  // Computers: a new tab (wa.me); a browser that blocks it goes to WhatsApp in this tab instead.
+  // Android: an intent link in this tab (whatsappAndroid), so the app opens and the game stays.
   // iPhone/iPad: only the app link (whatsapp://), in this tab, which stays on the game. No wa.me
   // fallback: while iOS shows its own "Open in WhatsApp / WA Business?" box the page still counts
   // as visible, so a timed fallback fired behind it and left the player on an api.whatsapp.com
@@ -200,6 +200,12 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
       window.location.href = whatsappApp(OTP_REQUEST_TEXT);
       return;
     }
+    // Android: the app straight away, the game stays open in this tab (no WhatsApp web page)
+    if (/Android/i.test(navigator.userAgent)) {
+      window.location.href = whatsappAndroid(OTP_REQUEST_TEXT);
+      return;
+    }
+    // Computers: WhatsApp Web / Desktop in a new tab
     const tab = window.open(url, "_blank");
     if (tab) tab.opener = null;
     else window.location.href = url;
