@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ShoppingBag, Plus, Minus, X, Check, Utensils, Truck, Tag, ChevronLeft, ChevronRight } from "lucide-react";
+import { TABLE_AREAS, TABLES, tableLabel } from "@/lib/bookings";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FlipBookPopup from "@/components/FlipBookPopup";
@@ -23,7 +24,7 @@ const MENU_PAGE_SIZE = 9;
 // tableNumber = ?table= from the QR code on the restaurant table. openOffers = ?offers (from the
 // homepage offers popup): start on the Offers tab.
 export default function MenuClient({ initialItems, tableNumber, openOffers = false }: { initialItems: MenuItem[]; tableNumber: string | null; openOffers?: boolean }) {
-  const { cart, addToCart, updateQuantity, cartTotal, cartCount, isCartOpen, setIsCartOpen } = useCart();
+  const { cart, addToCart, updateQuantity, clearCart, cartTotal, cartCount, isCartOpen, setIsCartOpen } = useCart();
   const hero = useSection("menu_hero").fields;
   const hasOffers = initialItems.some((item) => item.discount);
   const categories = hasOffers ? ["All", OFFERS_TAB, ...MENU_CATEGORIES] : ["All", ...MENU_CATEGORIES];
@@ -121,12 +122,15 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
       return;
     }
 
+    // Order sent: the form starts empty again (name, number, table) and the cart is emptied
     try {
-      localStorage.setItem("order-customer", JSON.stringify({ name: customer.name.trim(), phone: customer.phone.trim() }));
+      localStorage.removeItem("order-customer");
     } catch {}
     setOrderStatus('complete');
-    // Clear cart after order is complete would be good, but let's keep it simple for now as per current logic
     setTimeout(() => {
+      setCustomer({ name: "", phone: "" });
+      setTypedTable("");
+      clearCart();
       setIsConfirming(false);
       setOrderStatus('idle');
       setIsCartOpen(false);
@@ -466,9 +470,19 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
                       {!tableNumber && (
                         <div>
                           <label htmlFor="o-table" className="block text-[9px] tracking-[2px] uppercase font-bold text-navy/70 mb-1.5">
-                            Table Number <span className="normal-case tracking-normal font-normal">(leave empty for takeaway)</span>
+                            Table Number
                           </label>
-                          <input id="o-table" type="text" maxLength={10} value={typedTable} onChange={(e) => setTypedTable(e.target.value.replace(/[^A-Za-z0-9 -]/g, ""))} placeholder="e.g. 5" className="w-full border border-navy/20 rounded-lg px-3.5 py-2.5 text-[16px] text-navy bg-white placeholder:text-navy/30 focus:border-navy focus:ring-2 focus:ring-ocean/40 outline-none" />
+                          {/* The restaurant's tables (src/lib/bookings.ts); the kitchen sees e.g. "Table Outside 6" */}
+                          <select id="o-table" value={typedTable} onChange={(e) => setTypedTable(e.target.value)} className="w-full border border-navy/20 rounded-lg px-3.5 py-2.5 text-[16px] text-navy bg-white focus:border-navy focus:ring-2 focus:ring-ocean/40 outline-none">
+                            <option value="">Takeaway (no table)</option>
+                            {TABLE_AREAS.map((a) => (
+                              <optgroup key={a.area} label={a.label}>
+                                {TABLES.filter((t) => t.area === a.area).map((t) => (
+                                  <option key={t.id} value={tableLabel(t.id)}>{tableLabel(t.id)}</option>
+                                ))}
+                              </optgroup>
+                            ))}
+                          </select>
                         </div>
                       )}
                       {orderError && <p role="alert" className="text-[13px] text-offer font-semibold">{orderError}</p>}

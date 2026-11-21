@@ -13,7 +13,7 @@ import { MENU_TAG } from '@/lib/menu-data'
 import { MENU_CATEGORIES } from '@/data/menu'
 import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/offers'
 import { markPlayed } from '@/lib/game-played'
-import { confirmationMessage, dubaiNow, whatsappDigits, type BookingStatus, type BookingType, type PreorderItem } from '@/lib/bookings'
+import { ANY_TABLE, confirmationMessage, dubaiNow, formatDate, formatTime, tableLabel, visitDate, whatsappDigits, type BookingStatus, type BookingType, type PreorderItem } from '@/lib/bookings'
 import { broadcastOffer, offerBroadcastReady, subscriberCount } from '@/lib/offer-broadcast'
 import { sendConfirmation, whatsappApiReady } from '@/lib/whatsapp-api'
 import type { ClaimStatus, RaceScore } from '@/lib/game-claims'
@@ -644,6 +644,9 @@ export type OrderRow = Plain<{
   total: number
   status: 'pending' | 'completed' | 'cancelled'
   timestamp: string
+  source?: 'booking' | null // a confirmed booking's pre-order (otherwise the website menu)
+  booking_date?: string | null // when the guests come, e.g. "Fri, 20 Nov 2026"
+  booking_time?: string | null
 }>
 
 // ---------- Bookings (table reservations + fish preparation, from /book) ----------
@@ -711,13 +714,53 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
     const bookings = db.collection<IdDoc>('bookings')
     const before = await bookings.findOneAndUpdate({ _id: String(id) }, { $set: { status, updated_at: new Date() } })
     if (!before) fail('This item no longer exists. Please refresh.')
+    const row = toPlain(before) as unknown as BookingRow
+
+    // Pre-ordered dishes go to the kitchen screen when the booking is confirmed (once), and leave it
+    // again if the booking is cancelled before they are cooked
+    if (status === 'confirmed' && row.items?.length) await sendPreorderToKitchen(db, row)
+    if (status === 'cancelled')
+      await db.collection('orders').updateMany({ booking_id: row.id, status: 'pending' }, { $set: { status: 'cancelled' } })
 
     // Confirming sends the customer a WhatsApp message from the restaurant's number (once). It never
     // goes from a staff member's own phone: until Wati can send it, the booking says it wasn't sent
     // and "Send WhatsApp" (resendBookingConfirmation) tries again later
     if (status !== 'confirmed' || before.status === 'confirmed') return { whatsapp: 'off' }
-    return sendBookingConfirmation(db, toPlain(before) as unknown as BookingRow)
+    return sendBookingConfirmation(db, row)
   })
+}
+
+// A confirmed booking's pre-order as a kitchen order (source 'booking', with when the guests come).
+// Keyed by the booking, so confirming again never adds it twice; a cancelled one comes back, a
+// completed one (already cooked) stays done.
+async function sendPreorderToKitchen(db: Db, b: BookingRow) {
+  const items = b.items ?? []
+  const orders = db.collection<IdDoc>('orders')
+  const id = `booking-${b.id}`
+  const existing = await orders.findOne({ _id: id }, { projection: { status: 1 } })
+  if (existing) {
+    if (existing.status === 'cancelled') await orders.updateOne({ _id: id }, { $set: { status: 'pending', timestamp: new Date() } })
+    return
+  }
+  await orders.updateOne(
+    { _id: id },
+    {
+      $set: { status: 'pending' },
+      $setOnInsert: {
+        booking_id: b.id,
+        source: 'booking',
+        table: b.table && b.table !== ANY_TABLE ? tableLabel(b.table) : 'Booking',
+        name: b.name,
+        phone: b.phone,
+        items: items.map((i) => ({ name: i.name, quantity: i.quantity })),
+        total: b.items_total ?? Math.round(items.reduce((s, i) => s + i.price * i.quantity, 0) * 100) / 100,
+        booking_date: formatDate(visitDate(b.date, b.time)),
+        booking_time: formatTime(b.time),
+        timestamp: new Date(),
+      },
+    },
+    { upsert: true }
+  )
 }
 
 const NOT_SET_UP = "Sending from Boat's WhatsApp number isn't set up yet (an approved Wati template is needed)."

@@ -6,16 +6,16 @@ import { actionFailed, confirmDialog } from "./client-helpers";
 import { toast } from "./Toaster";
 import Pagination from "./Pagination";
 import BookingOrders from "./BookingOrders";
-import { TrendingUp, Utensils, DollarSign, Clock, Check, AlertCircle, RefreshCw, BellOff, ChevronDown, ChevronUp, User, Phone, Trash2, X } from "lucide-react";
+import { TrendingUp, Utensils, DollarSign, Clock, Check, AlertCircle, RefreshCw, BellOff, ChevronDown, ChevronUp, User, Phone, Trash2, X, CalendarDays } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 
 // Orders per page (2 rows of 4 on wide screens)
 const ORDERS_PAGE_SIZE = 8;
 
-// The live feed shows only the table bookings. true = the menu orders' tabs come back too
-// (All / Pending / Completed / Cancelled, with Complete, Cancel and Delete on each order)
-const MENU_ORDERS_FEED = false;
+// true = the live feed shows the website orders (All / Pending / Completed / Cancelled, with
+// Complete, Cancel and Delete on each order) next to the table bookings; false = bookings only
+const MENU_ORDERS_FEED = true;
 
 // The tabs: orders by status, and the upcoming table bookings (with their pre-ordered food)
 type Tab = OrderFilter | "bookings";
@@ -47,6 +47,9 @@ interface Order {
   total: number;
   timestamp: string;
   status: 'pending' | 'completed' | 'cancelled';
+  source?: 'booking' | null; // a confirmed booking's pre-order
+  booking_date?: string | null;
+  booking_time?: string | null;
 }
 
 export default function AdminDashboard() {
@@ -301,6 +304,11 @@ export default function AdminDashboard() {
                         <span className="min-w-0">{order.name || <span className="text-gray-400 font-normal italic text-base">No name given</span>}</span>
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {order.source === "booking" && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">
+                            <CalendarDays size={11} aria-hidden /> Booking {order.booking_date}{order.booking_time ? `, ${order.booking_time}` : ""}
+                          </span>
+                        )}
                         {order.table && order.table !== "Takeaway" && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-navy text-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">
                             <Utensils size={11} aria-hidden /> Table {order.table}
