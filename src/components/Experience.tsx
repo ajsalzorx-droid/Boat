@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { ArrowRight, Anchor, Fish, Users, ChefHat } from "lucide-react";
 import { useSection } from "@/context/ContentContext";
-import { Heading } from "./ContentText";
+import { Heading, StyledHeading } from "./ContentText";
 
 // Icons stay fixed by position; the text comes from the SEO Studio
 const icons = [Anchor, Fish, Users, ChefHat];
@@ -44,9 +44,9 @@ export default function Experience() {
               <span className="w-6.5 h-[1px] bg-ocean shrink-0"></span>
               {c.fields.eyebrow}
             </span>
-            <h2 className="font-playfair font-bold leading-[1.07] text-white text-[clamp(32px,3.6vw,54px)] mb-6.5 drop-shadow-sm">
+            <StyledHeading as="h2" choice={c.fields.title_style} className="font-playfair font-bold leading-[1.07] text-white text-[clamp(32px,3.6vw,54px)] mb-6.5 drop-shadow-sm">
               <Heading c={c} emClassName="italic text-ocean" />
-            </h2>
+            </StyledHeading>
             <p className="text-[14px] leading-[2.1] text-white/70 font-medium max-w-[400px] mb-12.5">
               {c.fields.body}
             </p>
@@ -64,9 +64,9 @@ export default function Experience() {
               >
                 <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-ocean scale-x-0 origin-left transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100"></div>
                 <feature.icon className="w-6.5 h-6.5 text-ocean mb-3.5" strokeWidth={1.3} />
-                <h3 className="font-playfair text-[15px] font-normal text-white mb-2">
+                <StyledHeading as="h3" choice={c.fields.item_title_style} className="font-playfair text-[15px] font-normal text-white mb-2">
                   {feature.title}
-                </h3>
+                </StyledHeading>
                 <div className="text-[11px] text-white/35 leading-[1.9] font-light">
                   {feature.description}
                 </div>

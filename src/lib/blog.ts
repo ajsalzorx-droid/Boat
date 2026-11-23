@@ -1,12 +1,18 @@
 // Blog posts: shared by the SEO Studio editor (/seo/blog) and the public pages (/blog).
 // Safe in client components; the cached database reads are in src/lib/blog-data.ts.
+import { isHeadingTag, type HeadingTag } from '@/lib/heading-style'
+
 export const BLOG_TAG = 'blog'
+
+export type BlogLevel = Exclude<HeadingTag, 'p'>
+export const isBlogLevel = (v: unknown): v is BlogLevel => isHeadingTag(v) && v !== 'p'
 
 // One piece of a post's body, in reading order
 export type BlogBlock =
-  | { type: 'heading'; text: string }
+  // level = H1–H6 (H2 when missing); size = the font size of another level (missing = the level's own)
+  | { type: 'heading'; text: string; level?: BlogLevel; size?: HeadingTag }
   // Text; a blank line starts a new paragraph. Links: [link text](https://example.com)
-  | { type: 'paragraph'; text: string }
+  | { type: 'paragraph'; text: string; size?: HeadingTag }
   | { type: 'image'; src: string; alt: string; caption: string }
   // A button-style link to another site (or a page on this one)
   | { type: 'link'; label: string; url: string; nofollow: boolean }

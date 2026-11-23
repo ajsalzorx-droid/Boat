@@ -1,5 +1,6 @@
 "use client";
 
+import { cdn } from "@/lib/cdn";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, ChevronsDown, ChevronsUp, Fish, Flag, Gift, Loader2, LocateFixed, MapPin, MessageCircle, Play, RotateCcw, ShieldCheck, Ticket, Trophy, X } from "lucide-react";
@@ -466,7 +467,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
             className="kb:hidden absolute right-4 bottom-[max(1.25rem,env(safe-area-inset-bottom))] w-16 h-16 rounded-full shadow-[0_6px_18px_-6px_rgba(0,48,73,0.6)] active:scale-95 transition-transform touch-none"
           >
             {/* the restaurant's hook-and-fish artwork: a white disc in a navy ring */}
-            <img src="/catbo/fish-hook.webp" alt="" width={64} height={64} draggable={false} className="w-full h-full pointer-events-none select-none" />
+            <img src={cdn("/catbo/fish-hook.webp")} alt="" width={64} height={64} draggable={false} className="w-full h-full pointer-events-none select-none" />
           </button>
         )}
 
@@ -517,7 +518,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                   <section>
                     <p className="font-bold text-navy text-[11px] uppercase tracking-[2px] mb-1.5">How to play</p>
                     <ul className="space-y-2">
-                      <GuideRow pics={<img src="/race/catbo-surf.webp" alt="" className="h-10 w-auto" draggable={false} />} tag="Jump" tagClass="bg-navy text-cream">
+                      <GuideRow pics={<img src={cdn("/race/catbo-surf.webp")} alt="" className="h-10 w-auto" draggable={false} />} tag="Jump" tagClass="bg-navy text-cream">
                         This is Catbo. <span className="hidden md:inline">Click or press Space</span>
                         <span className="md:hidden">Tap the screen</span> to jump.
                       </GuideRow>
@@ -548,8 +549,8 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                       <GuideRow
                         pics={
                           <>
-                            <img src="/race/fish.webp" alt="" className="h-7 w-auto" draggable={false} />
-                            <img src="/catbo/fish-hook.webp" alt="" className="h-9 w-9 kb:hidden" draggable={false} />
+                            <img src={cdn("/race/fish.webp")} alt="" className="h-7 w-auto" draggable={false} />
+                            <img src={cdn("/catbo/fish-hook.webp")} alt="" className="h-9 w-9 kb:hidden" draggable={false} />
                             <kbd className="hidden kb:inline-flex h-8 min-w-8 items-center justify-center rounded-md border border-navy/25 bg-white px-2 text-[15px] font-bold text-navy shadow-sm">↓</kbd>
                           </>
                         }

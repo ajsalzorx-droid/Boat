@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSection } from "@/context/ContentContext";
 import { cdn } from "@/lib/cdn";
+import { StyledHeading } from "./ContentText";
 
 export default function Footer() {
   const f = useSection("footer").fields;
@@ -33,7 +34,7 @@ export default function Footer() {
         </div>
 
         <nav aria-label="Footer">
-          <h2 className="text-[11px] tracking-[4px] uppercase text-[#C49A3C] mb-8 font-medium">{f.col_navigate}</h2>
+          <StyledHeading as="h2" choice={f.col_navigate_style} className="text-[11px] tracking-[4px] uppercase text-[#C49A3C] mb-8 font-medium">{f.col_navigate}</StyledHeading>
           <ul className="flex flex-col gap-4 list-none p-0 m-0">
             <li><Link href="/menu" className="text-[15px] font-light text-white/60 hover:text-white hover:translate-x-1 transition-all duration-300 inline-block">{f.link_menu}</Link></li>
             <li><Link href="/offer" className="text-[15px] font-light text-white/60 hover:text-white hover:translate-x-1 transition-all duration-300 inline-block">{f.link_offers}</Link></li>
@@ -52,7 +53,7 @@ export default function Footer() {
         </nav>
 
         <div>
-          <h2 className="text-[11px] tracking-[4px] uppercase text-[#C49A3C] mb-8 font-medium">{f.col_dining}</h2>
+          <StyledHeading as="h2" choice={f.col_dining_style} className="text-[11px] tracking-[4px] uppercase text-[#C49A3C] mb-8 font-medium">{f.col_dining}</StyledHeading>
           <ul className="flex flex-col gap-4 list-none p-0 m-0">
             <li><a href={f.review_url} target="_blank" rel="noopener noreferrer" className="text-[15px] font-light text-white/60 hover:text-white hover:translate-x-1 transition-all duration-300 inline-block">{f.link_review}</a></li>
             <li><Link href="/events" className="text-[15px] font-light text-white/60 hover:text-white hover:translate-x-1 transition-all duration-300 inline-block">{f.link_events}</Link></li>
@@ -66,7 +67,7 @@ export default function Footer() {
         </div>
 
         <div>
-          <h2 className="text-[11px] tracking-[4px] uppercase text-[#C49A3C] mb-8 font-medium">{f.col_contact}</h2>
+          <StyledHeading as="h2" choice={f.col_contact_style} className="text-[11px] tracking-[4px] uppercase text-[#C49A3C] mb-8 font-medium">{f.col_contact}</StyledHeading>
           <address className="not-italic">
             <ul className="flex flex-col gap-5 list-none p-0 m-0">
               <li>

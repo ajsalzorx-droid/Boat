@@ -1,5 +1,6 @@
 "use client";
 
+import { cdn } from "@/lib/cdn";
 import { MessageCircle, Home } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
@@ -14,12 +15,12 @@ import CatFishGrab from "@/components/CatFishGrab";
 const CatboRace = dynamic(() => import("@/components/catbo-race/CatboRace"), { ssr: false });
 
 // MenuIcon-02 split in two layers: the plate (circle, fork, knife) and the fish Catbo steals
-const FISH_SRC = "/MenuIcon-fish.webp";
+const FISH_SRC = cdn("/MenuIcon-fish.webp");
 
 const MenuIcon = ({ size = 24, alt, fishGone }: { size?: number; alt: string; fishGone: boolean }) => (
   <span className="relative block w-full h-full">
     <Image
-      src="/MenuIcon-plate.webp"
+      src={cdn("/MenuIcon-plate.webp")}
       alt={alt}
       width={size}
       height={size}

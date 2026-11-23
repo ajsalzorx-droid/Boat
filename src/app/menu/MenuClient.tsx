@@ -12,6 +12,7 @@ import { MENU_CATEGORIES, type MenuItem } from "@/data/menu";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { useSection } from "@/context/ContentContext";
+import { StyledHeading } from "@/components/ContentText";
 import { placeOrder, type PlaceOrderResult } from "./actions";
 import { formatPrice, unitPrice } from "@/lib/offers";
 
@@ -168,9 +169,9 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
                   </div>
                 )}
               </div>
-              <h1 className="font-playfair text-[clamp(40px,6vw,84px)] font-bold leading-none mb-6">
+              <StyledHeading as="h1" choice={hero.title_style} className="font-playfair text-[clamp(40px,6vw,84px)] font-bold leading-none mb-6">
                 {hero.title}
-              </h1>
+              </StyledHeading>
               <p className="text-[15px] text-white/60 max-w-xl leading-relaxed font-light">
                 {tableNumber
                   ? hero.body_table
@@ -252,9 +253,9 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
                 </div>
 
                 <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-playfair text-2xl font-bold text-navy leading-tight">
+                  <StyledHeading as="h3" choice={hero.dish_style} className="font-playfair text-2xl font-bold text-navy leading-tight">
                     {item.name}
-                  </h3>
+                  </StyledHeading>
                   {item.discount ? (
                     <span className="flex flex-col items-end shrink-0 pl-3">
                       <span className="font-jost text-[13px] text-navy/45 line-through">AED {item.price}</span>

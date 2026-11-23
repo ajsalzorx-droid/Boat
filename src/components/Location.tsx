@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { ArrowRight, MapPin, Clock, Phone } from "lucide-react";
 import { useSection } from "@/context/ContentContext";
-import { Heading, Lines } from "./ContentText";
+import { Heading, Lines, StyledHeading } from "./ContentText";
 
 export default function Location() {
   const c = useSection("location");
@@ -19,9 +19,9 @@ export default function Location() {
           <span className="w-6.5 h-[1px] bg-ocean-light shrink-0"></span>
           {c.fields.eyebrow}
         </span>
-        <h2 className="font-playfair font-normal leading-[1.07] text-white text-[clamp(30px,3.4vw,50px)] mb-9.5">
+        <StyledHeading as="h2" choice={c.fields.title_style} className="font-playfair font-normal leading-[1.07] text-white text-[clamp(30px,3.4vw,50px)] mb-9.5">
           <Heading c={c} emClassName="italic text-ocean-light" />
-        </h2>
+        </StyledHeading>
 
         <div className="flex flex-col gap-6.5 mb-12">
           <div className="grid grid-cols-[18px_1fr] gap-4.5 items-start">

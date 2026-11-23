@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Star, Quote } from "lucide-react";
 import { useSection } from "@/context/ContentContext";
-import { Heading } from "./ContentText";
+import { Heading, StyledHeading } from "./ContentText";
 
 const RATING = 5;
 
@@ -31,9 +31,9 @@ export default function Testimonials() {
           <span className="inline-flex items-center gap-3 text-[10px] tracking-[5px] uppercase text-ocean font-bold mb-6">
             {c.fields.eyebrow}
           </span>
-          <h2 className="font-playfair text-[clamp(36px,4.5vw,64px)] font-bold text-white leading-tight">
+          <StyledHeading as="h2" choice={c.fields.title_style} className="font-playfair text-[clamp(36px,4.5vw,64px)] font-bold text-white leading-tight">
             <Heading c={c} emClassName="italic text-ocean" />
-          </h2>
+          </StyledHeading>
         </motion.div>
       </div>
 

@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, Eye, EyeOff, RotateCcw, Search, Monitor, Smartphone } from "lucide-react";
+import { ExternalLink, AlertTriangle, Eye, Newspaper, EyeOff, RotateCcw, Search, Monitor, Smartphone } from "lucide-react";
 import { saveContentSection, resetContentSection, saveSeoPage } from "@/app/admin/actions";
 import { actionFailed, uploadAdminImage } from "@/app/admin/client-helpers";
-import { defaultSection, STUDIO_PAGES, type SectionDef, type StudioPageSlug } from "@/lib/content";
+import { countH1, defaultSection, STUDIO_PAGES, type SectionDef, type StudioPageSlug } from "@/lib/content";
 import { DEFAULT_BUSINESS } from "@/lib/seo";
 import { DESC_LIMIT, TITLE_LIMIT, sectionsFor } from "../../use-studio-data";
 import { useStudio } from "../../studio-context";
+import BlogPostList from "../../blog/BlogPostList";
 import {
   Counter,
   FieldInput,
@@ -23,6 +24,7 @@ import {
 } from "../../fields";
 
 const SEO_ANCHOR = "seo-settings";
+const POSTS_ANCHOR = "blog-posts";
 
 export default function PageEditor({ slug }: { slug: StudioPageSlug }) {
   const page = STUDIO_PAGES.find((p) => p.slug === slug)!;
@@ -44,6 +46,10 @@ export default function PageEditor({ slug }: { slug: StudioPageSlug }) {
   const dirtySections = sections.filter((s) => studio.isSectionDirty(s.id));
   const seoDirty = !!seoPath && studio.isSeoDirty(seoPath);
   const dirtyCount = dirtySections.length + (seoDirty ? 1 : 0);
+
+  const h1Count = countH1(slug, data.content);
+  // /profile is a fixed page (its H1 is built in); Header & Footer is not a page
+  const h1Problem = slug !== "site" && slug !== "menu-book" && h1Count !== 1;
 
   const markJustSaved = (id: string) => setJustSaved((prev) => new Set(prev).add(id));
   const refreshPreview = () => setPreviewVersion((v) => v + 1);
@@ -140,6 +146,11 @@ export default function PageEditor({ slug }: { slug: StudioPageSlug }) {
 
         {/* Jump to section */}
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+          {slug === "blog" && (
+            <JumpChip onClick={() => jumpTo(POSTS_ANCHOR)}>
+              <Newspaper size={12} /> Blog posts
+            </JumpChip>
+          )}
           {seoPath && (
             <JumpChip dirty={seoDirty} onClick={() => jumpTo(SEO_ANCHOR)}>
               <Search size={12} /> Google &amp; sharing
@@ -166,6 +177,22 @@ export default function PageEditor({ slug }: { slug: StudioPageSlug }) {
               <p className="text-sm text-gray-500 bg-white border border-gray-100 rounded-xl p-4">
                 The header and footer appear on every page. Changes here show everywhere on the site.
               </p>
+            )}
+
+            {h1Problem && (
+              <p className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                {h1Count === 0
+                  ? "This page has no H1 heading. Set one heading's tag to H1."
+                  : `This page has ${h1Count} H1 headings. Google works best with exactly one, so change the others to H2 or H3.`}
+              </p>
+            )}
+
+            {/* Every blog post: add as many as needed */}
+            {slug === "blog" && (
+              <Card id={POSTS_ANCHOR} title="Blog posts">
+                <BlogPostList />
+              </Card>
             )}
 
             {/* Google & sharing */}
@@ -434,7 +461,7 @@ function CardFooter({ children }: { children: React.ReactNode }) {
   );
 }
 
-function JumpChip({ dirty, onClick, children }: { dirty: boolean; onClick: () => void; children: React.ReactNode }) {
+function JumpChip({ dirty, onClick, children }: { dirty?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       type="button"

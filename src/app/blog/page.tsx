@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Heading } from "@/components/ContentText";
+import { Heading, StyledHeading } from "@/components/ContentText";
 import { paragraphsOf, readingMinutes } from "@/lib/blog";
 import { getPublishedPosts } from "@/lib/blog-data";
 import { getBusinessInfo, getSeoPages, pageMetadata } from "@/lib/seo-data";
@@ -52,9 +52,9 @@ export default async function BlogIndexPage() {
                 {hero.fields.eyebrow}
               </span>
             )}
-            <h1 className="font-playfair text-[clamp(40px,6vw,84px)] font-bold leading-none mb-6">
+            <StyledHeading as="h1" choice={hero.fields.title_style} className="font-playfair text-[clamp(40px,6vw,84px)] font-bold leading-none mb-6">
               <Heading c={hero} emClassName="italic text-ocean" />
-            </h1>
+            </StyledHeading>
             {hero.fields.body && <p className="text-[15px] text-white/60 max-w-xl leading-relaxed font-light">{hero.fields.body}</p>}
           </div>
         </section>
@@ -75,7 +75,7 @@ export default async function BlogIndexPage() {
               )}
               {(intro.title || intro.paragraphs.length > 0) && (
                 <div>
-                  {intro.title && <h2 className="font-playfair text-3xl md:text-4xl font-bold text-navy mb-5 leading-tight">{intro.title}</h2>}
+                  {intro.title && <StyledHeading as="h2" choice={f.title_style} className="font-playfair text-3xl md:text-4xl font-bold text-navy mb-5 leading-tight">{intro.title}</StyledHeading>}
                   <div className="space-y-4 text-[17px] leading-[1.85] text-navy/75 font-light">
                     {intro.paragraphs.map((p, n) => (
                       <p key={n} className="whitespace-pre-line">
@@ -110,7 +110,7 @@ export default async function BlogIndexPage() {
                     <div className="text-[10px] tracking-[3px] uppercase text-ocean font-bold mb-3">
                       <time dateTime={p.published_at ?? undefined}>{dateText(p.published_at)}</time> · {readTime(readingMinutes(p.blocks))}
                     </div>
-                    <h2 className="font-playfair text-2xl font-bold text-navy mb-3 group-hover:text-ocean transition-colors leading-snug">{p.title}</h2>
+                    <StyledHeading as="h2" choice={hero.fields.post_style} className="font-playfair text-2xl font-bold text-navy mb-3 group-hover:text-ocean transition-colors leading-snug">{p.title}</StyledHeading>
                     <p className="text-navy/60 text-[15px] leading-relaxed font-light line-clamp-3">{p.description}</p>
                   </Link>
                 </article>

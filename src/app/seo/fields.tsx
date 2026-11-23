@@ -2,6 +2,15 @@
 
 import { Upload, X, Check, Globe, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import type { ListFieldDef, SectionDef } from "@/lib/content";
+import {
+  HEADING_SIZE_NAMES,
+  HEADING_TAG_NAMES,
+  HEADING_TAGS,
+  formatHeadingStyle,
+  isHeadingTag,
+  parseHeadingStyle,
+  type HeadingTag,
+} from "@/lib/heading-style";
 import { lengthStatus } from "./use-studio-data";
 
 export const inputClass =
@@ -87,6 +96,74 @@ export function UploadButton({
   );
 }
 
+// Dropdown of heading tags or font sizes; `empty` = the text of the "not chosen" option
+export function HeadingSelect({
+  label,
+  kind,
+  value,
+  empty,
+  options = HEADING_TAGS,
+  onChange,
+}: {
+  label: string;
+  kind: "tag" | "size";
+  value: HeadingTag | "";
+  empty?: string;
+  options?: readonly HeadingTag[];
+  onChange: (value: HeadingTag | "") => void;
+}) {
+  const names = kind === "tag" ? HEADING_TAG_NAMES : HEADING_SIZE_NAMES;
+  return (
+    <label className="block min-w-0">
+      <span className="block text-xs text-gray-500 mb-1">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(isHeadingTag(e.target.value) ? e.target.value : "")}
+        className={`${inputClass} text-sm cursor-pointer`}
+      >
+        {empty !== undefined && <option value="">{empty}</option>}
+        {options.map((t) => (
+          <option key={t} value={t}>
+            {names[t]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+// Heading tag (what Google reads) + font size (what visitors see) of one heading
+function HeadingStyleInput({ field, value, onChange }: { field: ListFieldDef; value: string; onChange: (value: string) => void }) {
+  const style = parseHeadingStyle(value);
+  const def = field.heading!;
+  return (
+    <fieldset className="border border-gray-200 rounded-lg p-4 bg-gray-50/60">
+      <legend className="sr-only">{field.label}</legend>
+      <Label>{field.label}</Label>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+        <HeadingSelect
+          label="Heading tag (read by Google)"
+          kind="tag"
+          value={style.tag}
+          empty={`Original (${def.tag === "blockquote" ? "quote" : def.tag.toUpperCase()})`}
+          onChange={(tag) => onChange(formatHeadingStyle({ ...style, tag }))}
+        />
+        {def.hidden ? (
+          <p className="text-xs text-gray-400 self-center">This heading is hidden on the page, so it has no font size.</p>
+        ) : (
+          <HeadingSelect
+            label="Font size (seen by visitors)"
+            kind="size"
+            value={style.size}
+            empty="Original size"
+            onChange={(size) => onChange(formatHeadingStyle({ ...style, size }))}
+          />
+        )}
+      </div>
+    </fieldset>
+  );
+}
+
 // One content field. `context` gives an alt field the image it describes.
 export function FieldInput({
   field,
@@ -103,6 +180,8 @@ export function FieldInput({
   onChange: (value: string) => void;
   onUpload: (file: File) => void;
 }) {
+  if (field.type === "heading" && field.heading) return <HeadingStyleInput field={field} value={value} onChange={onChange} />;
+
   if (field.type === "image") {
     return (
       <div>

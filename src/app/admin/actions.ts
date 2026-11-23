@@ -6,8 +6,9 @@ import { refreshSite } from '@/lib/site-refresh'
 import { AuthError, verifyAdmin } from '@/lib/auth'
 import { newId, toPlain, type IdDoc, type Plain } from '@/lib/mongodb'
 import { DEFAULT_BUSINESS, SEO_PAGES, SEO_TAG, type BusinessInfo } from '@/lib/seo'
+import { formatHeadingStyle, isHeadingTag, parseHeadingStyle } from '@/lib/heading-style'
 import { CONTENT_TAG, getSectionDef, type FieldType, type SectionData } from '@/lib/content'
-import { BLOG_LIMITS, BLOG_TAG, publishProblems, SLUG_RE, type BlogBlock, type BlogPostInput, type BlogStatus } from '@/lib/blog'
+import { BLOG_LIMITS, BLOG_TAG, isBlogLevel, publishProblems, SLUG_RE, type BlogBlock, type BlogPostInput, type BlogStatus } from '@/lib/blog'
 import { toPost } from '@/lib/blog-data'
 import { MENU_TAG } from '@/lib/menu-data'
 import { MENU_CATEGORIES } from '@/data/menu'
@@ -358,7 +359,7 @@ export async function saveBusinessInfo(input: BusinessInfo) {
 
 // ---------- Page content ----------
 
-const CONTENT_MAX: Record<FieldType, number> = { text: 200, textarea: 2000, image: 1000, link: 1000, alt: 250 }
+const CONTENT_MAX: Record<FieldType, number> = { text: 200, textarea: 2000, image: 1000, link: 1000, alt: 250, heading: 10 }
 const LINK_PREFIXES = ['/', '#', 'https://', 'tel:', 'mailto:']
 
 function contentValue(value: unknown, label: string, type: FieldType) {
@@ -366,6 +367,7 @@ function contentValue(value: unknown, label: string, type: FieldType) {
   const s = typeof value === 'string' ? value.replace(/\r\n/g, '\n').replace(/^[ \t]+|[ \t]+$/g, '') : ''
   if (s.length > CONTENT_MAX[type]) fail(`${label} is too long (max ${CONTENT_MAX[type]} characters).`)
   if (type === 'image') return imageUrl(s)
+  if (type === 'heading') return formatHeadingStyle(parseHeadingStyle(s)) // unknown tags / sizes are dropped
   if (type === 'link' && s && !LINK_PREFIXES.some((p) => s.startsWith(p)))
     fail(`${label} must start with /, https://, tel: or mailto:`)
   if (type === 'alt' && s.includes('\n')) fail(`${label} must be a single line.`)
@@ -420,11 +422,16 @@ function blogBlocks(value: unknown): BlogBlock[] {
     const n = `Block ${i + 1}`
     switch (b?.type) {
       case 'heading':
-        return { type: 'heading', text: text(b.text, `${n} heading`, BLOG_LIMITS.heading) }
+        return {
+          type: 'heading',
+          text: text(b.text, `${n} heading`, BLOG_LIMITS.heading),
+          ...(isBlogLevel(b.level) && { level: b.level }),
+          ...(isHeadingTag(b.size) && { size: b.size }),
+        }
       case 'paragraph': {
         const s = typeof b.text === 'string' ? b.text.replace(/\r\n/g, '\n').trim() : ''
         if (s.length > BLOG_LIMITS.paragraph) fail(`${n} text is too long (max ${BLOG_LIMITS.paragraph} characters).`)
-        return { type: 'paragraph', text: s }
+        return { type: 'paragraph', text: s, ...(isHeadingTag(b.size) && { size: b.size }) }
       }
       case 'image':
         return {

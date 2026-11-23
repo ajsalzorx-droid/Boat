@@ -1,5 +1,6 @@
 "use client";
 
+import { cdn } from "@/lib/cdn";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Hand, Maximize, Minimize, Mouse } from "lucide-react";
 import "@photo-sphere-viewer/core/index.css";
@@ -51,7 +52,7 @@ const LEFT_BUTTON = 0;
 
 // Phones get lighter photos (3072 px, not 5120)
 const isSmallScreen = () => window.innerWidth < 768;
-const photo = (id: string, small: boolean) => `/images/360/${id}${small ? "-small" : ""}.webp`;
+const photo = (id: string, small: boolean) => cdn(`/images/360/${id}${small ? "-small" : ""}.webp`);
 
 const spread = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
 

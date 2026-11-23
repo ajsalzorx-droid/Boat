@@ -1,5 +1,6 @@
 "use client";
 
+import { cdn } from "@/lib/cdn";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -206,7 +207,7 @@ export default function CatboLive({ data, onClose }: { data: CatboData; onClose:
         <header className="flex items-center gap-3 px-4 md:px-5 py-3 border-b border-navy/10 bg-[#f7e6d5]">
           <span className="relative w-11 h-11 rounded-full bg-white overflow-hidden shrink-0 border-2 border-white shadow-sm">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/catbo/catbo.webp" alt="" className="absolute w-[150%] max-w-none -left-[25%] -top-[8%]" />
+            <img src={cdn("/catbo/catbo.webp")} alt="" className="absolute w-[150%] max-w-none -left-[25%] -top-[8%]" />
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-navy font-bold text-[15px] leading-tight">Catbo</p>

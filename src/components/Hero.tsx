@@ -5,7 +5,7 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useSection } from "@/context/ContentContext";
 import { cdnVideo } from "@/lib/cdn";
-import { Heading } from "./ContentText";
+import { Heading, StyledHeading } from "./ContentText";
 
 export default function Hero() {
   const c = useSection("hero");
@@ -51,14 +51,15 @@ export default function Hero() {
 
         {/* Heading and intro stay visible from the first paint (only slide up): they are the page's
             main content for Google and its largest text, so they must not wait for JavaScript */}
-        <motion.h1
-          initial={{ y: 30 }}
-          animate={{ y: 0 }}
-          transition={{ duration: 1.1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="font-playfair text-[clamp(30px,4vw,56px)] font-bold leading-[0.98] text-white mb-6 drop-shadow-xl"
-        >
-          <Heading c={c} emClassName="italic text-ocean block font-semibold" />
-        </motion.h1>
+        <motion.div initial={{ y: 30 }} animate={{ y: 0 }} transition={{ duration: 1.1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}>
+          <StyledHeading
+            as="h1"
+            choice={c.fields.title_style}
+            className="font-playfair text-[clamp(30px,4vw,56px)] font-bold leading-[0.98] text-white mb-6 drop-shadow-xl"
+          >
+            <Heading c={c} emClassName="italic text-ocean block font-semibold" />
+          </StyledHeading>
+        </motion.div>
 
         <motion.p
           initial={{ y: 30 }}
