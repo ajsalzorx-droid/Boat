@@ -17,6 +17,10 @@ const CatboRace = dynamic(() => import("@/components/catbo-race/CatboRace"), { s
 // MenuIcon-02 split in two layers: the plate (circle, fork, knife) and the fish Catbo steals
 const FISH_SRC = cdn("/MenuIcon-fish.webp");
 
+// Catbo's face: the way into the game that is always there. The peeking cat is a video, which some
+// phones never play (Reduce Motion, Low Power Mode, a slow connection)
+const CATBO_SRC = cdn("/catbo/catbo.webp");
+
 const MenuIcon = ({ size = 24, alt, fishGone }: { size?: number; alt: string; fishGone: boolean }) => (
   <span className="relative block w-full h-full">
     <Image
@@ -71,7 +75,7 @@ export default function FloatingActions() {
 
   return (
     <>
-    <div className={`fixed right-4 md:right-8 z-40 flex flex-col items-end gap-2.5 md:gap-3 transition-all duration-500 ${
+    <div className={`fixed right-4 md:right-8 z-40 flex flex-col items-end gap-2.5 md:gap-3 short:gap-2 transition-all duration-500 ${
       cartCount > 0 ? "bottom-32 md:bottom-8" : "bottom-5 md:bottom-8"
     }`}>
 
@@ -106,9 +110,27 @@ export default function FloatingActions() {
         <MessageCircle size={32} className="shrink-0 w-6 h-6 md:w-8 md:h-8" />
       </a>
 
+      {/* Catbo Racing, on every device (same pages as the peeking cat) */}
+      {!isMenuPage && (
+        <button
+          type="button"
+          onClick={() => setRacing(true)}
+          aria-label="Play Catbo Racing"
+          title="Play Catbo Racing"
+          className="relative w-11 h-11 md:w-14 md:h-14 rounded-full bg-cream shadow-2xl border border-navy/20 cursor-pointer transition-transform duration-300 hover:scale-105 active:scale-95"
+        >
+          <span className="absolute inset-0 rounded-full overflow-hidden">
+            <Image src={CATBO_SRC} alt="" width={64} height={61} className="absolute max-w-none w-[112%] h-auto left-[-6%] top-[8%]" />
+          </span>
+          <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-navy text-cream px-1.5 md:px-2 py-0.5 text-[9px] md:text-[10px] leading-none font-bold uppercase tracking-[1px]">
+            Play
+          </span>
+        </button>
+      )}
+
     </div>
     {/* Not on /menu: the button shows Home there, there is no fish */}
-    {/* Not while the race is open: no "Click to play" over the game */}
+    {/* Not while the race is open: no cat over the game */}
     {!isMenuPage && !racing && <CatFishGrab target={menuRef} fishSrc={FISH_SRC} onFishGone={setFishGone} onPlay={() => setRacing(true)} />}
     {racing && <CatboRace onClose={() => setRacing(false)} />}
     </>

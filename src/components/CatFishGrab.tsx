@@ -1,6 +1,5 @@
 "use client";
 
-import { cdn } from "@/lib/cdn";
 import { useEffect, useRef, type RefObject } from "react";
 
 // Catbo peeks in from the right edge, swipes the fish off the View Menu button and runs off with it.
@@ -24,8 +23,8 @@ const LOAD_MS = 1000; // start downloading the clip once the page has settled
 const FIRST_RUN_MS = 3000;
 const REPEAT_MS = 7000; // pause after the cat has left before it comes again
 const FISH_AWAY_MS = 3000;
-// While the cat is in view, a round "Click to play" bubble sits by its head, and the head can be pressed
-// too: both open Catbo Racing. In the clip's pixels: the head's box, and when it is in view (s)
+const STUCK_MS = 6000; // the clip has not moved on for this long (slow network, paused by the phone): give up, try again later
+// While the cat is in view its head can be pressed: it opens Catbo Racing. In the clip's pixels: the head's box, and when it is in view (s)
 const HEAD = { l: 110, t: 30, r: 470, b: 380 };
 const PLAY_FROM = 0.45;
 const PLAY_TO = 6.4;
@@ -68,7 +67,16 @@ export default function CatFishGrab({
     let running = false;
     let grabbed = false;
     let keyedTime = -1;
+    let seenTime = -1; // the clip's time, and when it last moved on
+    let seenAt = 0;
     const timeouts: number[] = [];
+    // iOS lets a clip play by itself only when these are set on the element itself (React sets
+    // "muted" as a property only)
+    video.muted = true;
+    video.defaultMuted = true;
+    video.setAttribute("muted", "");
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
 
     const stop = () => {
       running = false;
@@ -80,8 +88,18 @@ export default function CatFishGrab({
     const frame = () => {
       if (!running) return;
       raf = requestAnimationFrame(frame);
+      if (video.currentTime !== seenTime) {
+        seenTime = video.currentTime;
+        seenAt = performance.now();
+      } else if (performance.now() - seenAt > STUCK_MS) {
+        stop();
+        return next();
+      }
       const btn = target.current?.getBoundingClientRect();
-      if (!btn || !btn.width) return stop();
+      if (!btn || !btn.width) {
+        stop();
+        return next();
+      }
 
       // Paw at the grab lands on the button centre
       const toEdge = window.innerWidth - (btn.left + btn.width / 2);
@@ -93,7 +111,7 @@ export default function CatFishGrab({
       canvas.style.width = `${cssW}px`;
       canvas.style.height = `${cssH}px`;
 
-      // The head, to press, with its bubble, while the cat is in view
+      // The head, to press, while the cat is in view
       if (play) {
         const inView = video.currentTime > PLAY_FROM && video.currentTime < PLAY_TO;
         play.style.display = inView ? "block" : "none";
@@ -159,19 +177,52 @@ export default function CatFishGrab({
       if (running) return;
       // Background tab or button not shown: try again later
       if (document.hidden || !target.current?.offsetWidth) return next();
+      if (!video.src || video.error) video.src = CLIP; // (again, after a failed download)
       running = true;
       grabbed = false;
+      seenTime = -1;
+      seenAt = performance.now();
       video.currentTime = 0;
+      // play() may never answer (no network, the phone saving power)
+      let answered = false;
+      timeouts.push(
+        window.setTimeout(() => {
+          if (answered) return;
+          answered = true;
+          stop();
+          next();
+        }, STUCK_MS),
+      );
       video
         .play()
         .then(() => {
+          if (answered) return;
+          answered = true;
+          if (!running) return;
           box.style.display = "block";
+          seenAt = performance.now();
           frame();
         })
-        .catch(() => {
+        .catch((e: unknown) => {
+          if (answered) return;
+          answered = true;
           stop();
-          next();
+          // An iPhone in Low Power Mode plays nothing by itself: the cat comes at the next tap
+          if (e instanceof DOMException && e.name === "NotAllowedError") waitForTap();
+          else next();
         });
+    };
+    const onTap = () => {
+      stopWaiting();
+      run();
+    };
+    const stopWaiting = () => {
+      document.removeEventListener("touchend", onTap);
+      document.removeEventListener("click", onTap);
+    };
+    const waitForTap = () => {
+      document.addEventListener("touchend", onTap, { passive: true });
+      document.addEventListener("click", onTap);
     };
     const next = () => {
       timeouts.push(window.setTimeout(run, REPEAT_MS));
@@ -191,6 +242,7 @@ export default function CatFishGrab({
 
     return () => {
       timeouts.forEach(clearTimeout);
+      stopWaiting();
       stop();
       video.onended = null;
       onFishGoneRef.current(false);
@@ -206,34 +258,21 @@ export default function CatFishGrab({
             ref={playRef}
             type="button"
             onClick={onPlay}
-            aria-label="Click to play Catbo Racing"
-            className="absolute pointer-events-auto cursor-pointer bg-transparent group"
+            aria-label="Play Catbo Racing"
+            className="absolute pointer-events-auto cursor-pointer bg-transparent"
             style={{ display: "none" }}
-          >
-            {/* A round "Click to play" speech bubble (the restaurant's own artwork), its tail at the
-                bottom right toward the cat. The button's aria-label says what it does */}
-            <span className="absolute right-full top-[30%] -translate-y-1/2 mr-1 block w-[76px] h-[76px] md:w-[88px] md:h-[88px] motion-safe:animate-[catbo-nudge_1.6s_ease-in-out_infinite]">
-              <img
-                src={cdn("/catbo/click-to-play.webp")}
-                loading="lazy"
-                alt=""
-                width={88}
-                height={88}
-                draggable={false}
-                className="w-full h-full drop-shadow-[0_6px_10px_rgba(0,48,73,0.45)] transition-transform duration-200 group-hover:scale-105"
-              />
-            </span>
-          </button>
+          />
         )}
       </div>
-      {/* Decoding needs the video on the page (iOS skips hidden ones); it is 1px and invisible */}
+      {/* Decoding needs the video on the page and inside the screen (iOS skips hidden ones, and the
+          bottom edge can lie under its toolbar); it is 2px and all but invisible */}
       <video
         ref={videoRef}
         muted
         playsInline
         preload="none"
         aria-hidden
-        className="fixed bottom-0 right-0 w-px h-px opacity-0 pointer-events-none"
+        className="fixed top-1/2 right-0 w-0.5 h-0.5 opacity-[0.01] pointer-events-none"
       />
     </>
   );
