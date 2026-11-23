@@ -13,7 +13,7 @@ import { dubaiNow } from "@/lib/bookings";
 import { COUNTRIES, fullNumber } from "@/lib/phone-countries";
 import { Buoy, Dolphin, ElectricEel, Gull, Jelly, Octopus } from "./GuideArt";
 
-// The Catbo Racing popup, opened from the peeking cat's "Click to play" (CatFishGrab.tsx). It is
+// The Catbo Racing popup, opened from the Play button or the peeking cat (FloatingActions.tsx, CatFishGrab.tsx). It is
 // loaded only then, with the game (race.ts) and its pictures (/public/race), so the pages carry
 // none of it. A tap, a click or Space jumps; Escape or X closes.
 //
@@ -401,10 +401,12 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
       role="dialog"
       aria-modal="true"
       aria-label="Catbo Racing"
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-navy/60 backdrop-blur-sm p-0 md:p-6 font-jost"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-navy/60 backdrop-blur-sm p-0 md:p-6 short:p-0 font-jost"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full mx-3 h-[78dvh] rounded-3xl md:mx-0 md:h-auto md:max-w-5xl md:aspect-video overflow-hidden bg-[#f7e6d5] shadow-2xl">
+      {/* Phones upright: most of the screen. Tablets upright: tall. Wide screens: 16:9, never taller
+          than the screen. Short screens (a phone turned sideways): the whole screen */}
+      <div className="relative w-full mx-3 h-[78dvh] rounded-3xl md:mx-0 md:h-auto md:max-w-5xl md:aspect-video md:max-h-[calc(100dvh-3rem)] md:portrait:aspect-auto md:portrait:h-[72dvh] short:mx-0 short:h-dvh short:max-h-none short:max-w-none short:aspect-auto short:rounded-none overflow-hidden bg-[#f7e6d5] shadow-2xl">
         <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full touch-none select-none"
@@ -519,8 +521,8 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                     <p className="font-bold text-navy text-[11px] uppercase tracking-[2px] mb-1.5">How to play</p>
                     <ul className="space-y-2">
                       <GuideRow pics={<img src={cdn("/race/catbo-surf.webp")} alt="" className="h-10 w-auto" draggable={false} />} tag="Jump" tagClass="bg-navy text-cream">
-                        This is Catbo. <span className="hidden md:inline">Click or press Space</span>
-                        <span className="md:hidden">Tap the screen</span> to jump.
+                        This is Catbo. <span className="hidden kb:inline">Click or press Space</span>
+                        <span className="kb:hidden">Tap the screen</span> to jump.
                       </GuideRow>
                       <GuideRow
                         pics={

@@ -1,4 +1,4 @@
-// Catbo Racing: the game, drawn on a canvas. Loaded only when a visitor presses "Click to play" on
+// Catbo Racing: the game, drawn on a canvas. Loaded only when a visitor opens it, from the Play button or
 // the peeking cat (see CatboRace.tsx), so none of it weighs on the pages until then.
 //
 // Catbo surfs across the sea on his board, fishing rod in paw, ever faster. A tap, a click or Space
