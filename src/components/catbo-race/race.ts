@@ -16,6 +16,7 @@
 // server, which works out the score itself (claims.ts). The world fits the screen when a race
 // starts: at least MIN_W units wide and MIN_H tall; on a tall phone the extra height is sky.
 
+import { cdn } from "@/lib/cdn";
 import { BOAT, CAST_INPUT, CAUSES, JUMP_INPUT, LEVELS, MIN_H, MIN_W, PIC, GULL, Sim, STEP, UNITS_PER_METRE, GRAVITY, type Input, type Swimmer, type Thing } from "./sim";
 
 export type RaceState = {
@@ -54,11 +55,11 @@ const mix = (a: string, b: string, k: number, alpha = 1) => {
 };
 
 const ART = {
-  cat: "/race/catbo-surf.webp",
-  fish: "/race/fish.webp",
-  cloudA: "/race/cloud-a.webp",
-  cloudB: "/race/cloud-b.webp",
-  cloudC: "/race/cloud-c.webp",
+  cat: cdn("/race/catbo-surf.webp"),
+  fish: cdn("/race/fish.webp"),
+  cloudA: cdn("/race/cloud-a.webp"),
+  cloudB: cdn("/race/cloud-b.webp"),
+  cloudC: cdn("/race/cloud-c.webp"),
 };
 
 type Cloud = { img: HTMLImageElement; x: number; y: number; w: number; h: number; speed: number };

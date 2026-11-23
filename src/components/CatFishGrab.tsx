@@ -1,5 +1,6 @@
 "use client";
 
+import { cdn } from "@/lib/cdn";
 import { useEffect, useRef, type RefObject } from "react";
 
 // Catbo peeks in from the right edge, swipes the fish off the View Menu button and runs off with it.
@@ -213,7 +214,7 @@ export default function CatFishGrab({
                 bottom right toward the cat. The button's aria-label says what it does */}
             <span className="absolute right-full top-[30%] -translate-y-1/2 mr-1 block w-[76px] h-[76px] md:w-[88px] md:h-[88px] motion-safe:animate-[catbo-nudge_1.6s_ease-in-out_infinite]">
               <img
-                src="/catbo/click-to-play.webp"
+                src={cdn("/catbo/click-to-play.webp")}
                 loading="lazy"
                 alt=""
                 width={88}

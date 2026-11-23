@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import type { MenuItem } from "@/data/menu";
 import { useSection } from "@/context/ContentContext";
+import { StyledHeading } from "./ContentText";
 import { formatPrice, unitPrice } from "@/lib/offers";
 
 // Desktop grid is 4 columns x 2 rows = 8 cells: 2 tall cards (2 cells each) + 4 normal = 8
@@ -33,7 +34,7 @@ export default function MenuShowcase({ items }: { items: MenuItem[] }) {
 
   return (
     <section className="bg-cream pt-12 pb-0" id="menu" aria-labelledby="menu-showcase-title">
-      <h2 id="menu-showcase-title" className="sr-only">{c.fields.title}</h2>
+      <StyledHeading as="h2" choice={c.fields.title_style} id="menu-showcase-title" className="sr-only">{c.fields.title}</StyledHeading>
 
       <div className="grid grid-cols-1 md:grid-cols-[1.35fr_1fr_1fr_1.35fr] md:grid-rows-[480px_310px] md:grid-flow-dense gap-[3px]">
         {menuItems.map((item) => (
@@ -60,9 +61,9 @@ export default function MenuShowcase({ items }: { items: MenuItem[] }) {
               <span className="block text-[8px] tracking-[4px] uppercase text-navy/70 font-medium mb-2">
                 {item.tag}
               </span>
-              <h3 className="font-playfair text-[22px] font-semibold text-navy leading-[1.22] mb-2.5 whitespace-pre-line drop-shadow-sm">
+              <StyledHeading as="h3" choice={c.fields.dish_style} className="font-playfair text-[22px] font-semibold text-navy leading-[1.22] mb-2.5 whitespace-pre-line drop-shadow-sm">
                 {item.name}
-              </h3>
+              </StyledHeading>
               {/* Prices only for dishes on offer: the old one crossed out, then the offer price */}
               {item.discount ? (
                 <p className="flex items-baseline gap-2.5 mb-2.5 font-jost">

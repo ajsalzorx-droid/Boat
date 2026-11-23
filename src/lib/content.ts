@@ -1,5 +1,6 @@
 import { cdn } from '@/lib/cdn'
 import { whatsapp } from '@/lib/whatsapp'
+import { parseHeadingStyle, type HeadingTag } from '@/lib/heading-style'
 
 // Editable page text, images, alt text and lists (edited in the SEO Studio at /seo, stored in
 // site_content). The defaults below are the original site text: they are shown until a section
@@ -10,7 +11,13 @@ import { whatsapp } from '@/lib/whatsapp'
 export const CONTENT_TAG = 'content'
 
 // 'alt' = alt text for the image in field `image` (same section/list item) or a fixed `src`
-export type FieldType = 'text' | 'textarea' | 'image' | 'link' | 'alt'
+// 'heading' = heading tag and font size of a heading (src/lib/heading-style.ts), shown by <StyledHeading>
+export type FieldType = 'text' | 'textarea' | 'image' | 'link' | 'alt' | 'heading'
+
+// tag = what the design uses until the SEO specialist picks another; textKey = the field with the
+// heading's text; list = one choice for every item of the list (or every dish / post);
+// hidden = never visible, so no font size
+export type HeadingDef = { tag: HeadingTag | 'blockquote'; textKey: string; list?: boolean; hidden?: boolean }
 
 export type FieldDef = {
   key: string
@@ -19,6 +26,7 @@ export type FieldDef = {
   hint?: string
   image?: string
   src?: string
+  heading?: HeadingDef
   default: string
 }
 
@@ -74,11 +82,24 @@ const link = (key: string, label: string, value: string): FieldDef => ({
 const eyebrow = (value: string): FieldDef => text('eyebrow', 'Small label above heading', value)
 const body = (value: string, label = 'Paragraph'): FieldDef => area('body', label, value)
 
+// Heading tag + font size choice for the heading in field `key` (saved as `<key>_style`)
+const headingStyle = (key: string, label: string, tag: HeadingDef['tag'], opts: Partial<HeadingDef> = {}): FieldDef => ({
+  key: `${key}_style`,
+  label: `${label} – tag & font size`,
+  type: 'heading',
+  heading: { tag, textKey: key, ...opts },
+  default: '',
+})
+// One choice for every item of the section's list, or (with a key) for every dish / post shown there
+const itemHeading = (label: string, tag: HeadingTag, key = 'item_title'): FieldDef =>
+  headingStyle(key, label, tag, { list: true })
+
 // Headings are "Heading" + "Highlighted words" (shown in italic colour after it).
 // A new line in the heading becomes a line break on the site.
-const heading = (title: string, highlight: string): FieldDef[] => [
+const heading = (title: string, highlight: string, tag: HeadingDef['tag'] = 'h2'): FieldDef[] => [
   area('title', 'Heading', title, 'Press Enter for a new line. End with a new line to put the highlighted words on their own line.'),
   text('highlight', 'Highlighted words', highlight, 'Shown in italic colour after the heading.'),
+  headingStyle('title', 'Heading', tag),
 ]
 
 const NAME_HINT = 'Read by Google and screen readers, and shown as a tooltip on hover.'
@@ -104,10 +125,9 @@ const listImage: ListFieldDef[] = [
   { key: 'alt', label: 'Photo alt text', type: 'alt', image: 'image', hint: 'Leave empty to use the title.' },
 ]
 
-const pexels = (id: string, w = 800) =>
-  `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=${w}&q=80&fm=webp`
-const SOUP_BOWL =
-  'https://images.pexels.com/photos/20814983/pexels-photo-20814983/free-photo-of-steaming-seafood-bowl.jpeg?auto=compress&cs=tinysrgb&w=800&q=80&fm=webp'
+// Stock photos, copied to Cloudinary by scripts/upload-public-images.mjs
+const pexels = (id: string, w = 800) => cdn(`/images/pexels/${id}-${w}.webp`)
+const SOUP_BOWL = pexels('20814983')
 const WHATSAPP = whatsapp()
 // Online booking form (/book); ?type=fish opens the fish-preparation tab
 const BOOK_FISH = '/book?type=fish'
@@ -181,6 +201,7 @@ export const CONTENT_SECTIONS = [
       fixedAlt('logo_alt', 'Logo – alt text', cdn('/logo.webp'), 'Boat Seafood'),
       area('about', 'About text', "Premium seafood dining at the heart of Dubai's Waterfront Market. Where the ocean meets the city. Freshness, quality, and an unforgettable atmosphere."),
       text('col_navigate', 'Column heading 1', 'Navigate'),
+      headingStyle('col_navigate', 'Column heading 1', 'h2'),
       text('link_menu', 'Link – The Menu', 'The Menu'),
       text('link_offers', 'Link – Special Offers', 'Special Offers'),
       text('link_events', 'Link – Events', 'Events'),
@@ -188,10 +209,12 @@ export const CONTENT_SECTIONS = [
       text('link_location', 'Link – Location', 'Location'),
       text('link_qr', 'Link – QR Links', 'QR Links'),
       text('col_dining', 'Column heading 2', 'Dining'),
+      headingStyle('col_dining', 'Column heading 2', 'h2'),
       text('link_review', 'Link – Review Us', 'Review Us'),
       link('review_url', 'Review Us link', 'https://share.google/6sDV8BO7ZwyKB4VK0'),
       text('link_fresh', 'Link – Fresh Catch', 'Fresh Catch'),
       text('col_contact', 'Column heading 3', 'Contact'),
+      headingStyle('col_contact', 'Column heading 3', 'h2'),
       text('label_phone', 'Phone label', 'Phone'),
       text('phone', 'Phone', '+971 4 324 7998'),
       link('phone_link', 'Phone link', 'tel:+97143247998'),
@@ -213,7 +236,7 @@ export const CONTENT_SECTIONS = [
     label: 'Top section (video)',
     fields: [
       eyebrow('Est. 2021 · Waterfront Market · Dubai, UAE'),
-      ...heading('Where the\nOcean Meets', 'the City.'),
+      ...heading('Where the\nOcean Meets', 'the City.', 'h1'),
       body("Seafood is not just food — it is an experience, a story, and a connection to the sea. Crafted daily at Dubai's finest waterfront.", 'Sub text'),
       text('cta', 'Main button', 'Order Online'),
       text('cta2', 'Second button', 'Find Us'),
@@ -263,6 +286,7 @@ export const CONTENT_SECTIONS = [
       ...heading("Today's", 'Catch'),
       body('Our selection changes every morning based on what the ocean provides. Hand-picked at the Waterfront Market at dawn.'),
       text('cta', 'Link text', 'View Market Menu'),
+      itemHeading('Catch names', 'h3', 'catch'),
     ],
   },
   {
@@ -273,6 +297,7 @@ export const CONTENT_SECTIONS = [
       eyebrow('Brand Manifesto'),
       area('title', 'Quote', 'Seafood is not just food — it is an experience, a story, and a'),
       text('highlight', 'Highlighted end of quote', 'connection to the sea.'),
+      headingStyle('title', 'Quote', 'blockquote'),
       text('cite', 'Quote by', '— Boat Seafood, Dubai'),
       ...image(cdn('/images/custom/menu_seafood_tower_platter_1777327161161.webp'), 'Seafood tower platter with lobster, prawns and oysters'),
     ],
@@ -283,6 +308,8 @@ export const CONTENT_SECTIONS = [
     label: 'Dish photo grid',
     fields: [
       text('title', 'Section heading (hidden – read by Google and screen readers)', 'Signature Seafood Dishes'),
+      headingStyle('title', 'Section heading', 'h2', { hidden: true }),
+      itemHeading('Dish names', 'h3', 'dish'),
       text('cta', 'Button', 'View Full Menu'),
     ],
   },
@@ -293,6 +320,7 @@ export const CONTENT_SECTIONS = [
     fields: [
       eyebrow('The Experience'),
       ...heading('Premium — Not Just\nin What We', 'Serve'),
+      itemHeading('Feature titles', 'h3'),
       body('Every detail is considered long before a dish reaches your table — from the sourcing of the catch to the moment your plate arrives. Calm, unhurried, and deeply satisfying.'),
       text('cta', 'Button', 'Get Directions'),
       ...image(cdn('/images/custom/experience_plating_chef_1777327114148.webp'), 'Chef plating a seafood dish at Boat Seafood'),
@@ -402,6 +430,8 @@ export const CONTENT_SECTIONS = [
     fields: [
       text('back', 'Back link', 'Back to Home'),
       text('title', 'Heading', 'Menu'),
+      headingStyle('title', 'Heading', 'h1'),
+      itemHeading('Dish names', 'h3', 'dish'),
       area('body', 'Text (delivery / online visitors)', 'Explore our premium seafood selection for home delivery. Caught daily, delivered with care across Dubai.'),
       area('body_table', 'Text (guests ordering at a table via QR)', 'Enjoy our curated restaurant selection, prepared fresh and served directly to your table at the Waterfront Market.'),
       ...image(cdn('/images/custom/hero_waterfront_dubai_1777327086914.webp'), 'Boat Seafood restaurant at Waterfront Market, Dubai', 'Background image'),
@@ -415,7 +445,7 @@ export const CONTENT_SECTIONS = [
     label: 'Top section',
     fields: [
       eyebrow('Events & Gatherings'),
-      ...heading('Unforgettable', 'Moments'),
+      ...heading('Unforgettable', 'Moments', 'h1'),
       body('From intimate private dinners to festive celebrations, Boat Seafood provides the perfect waterfront backdrop for your special occasions.'),
       ...image(pexels('331107', 1260), 'Private event at Boat Seafood Dubai', 'Background image'),
     ],
@@ -424,7 +454,7 @@ export const CONTENT_SECTIONS = [
     id: 'events_list',
     page: 'events',
     label: 'Special Events',
-    fields: [eyebrow('Upcoming'), text('title', 'Heading', 'Special Events'), text('cta', 'Card link text', 'Inquire Now'), link('cta_link', 'Card link', WHATSAPP)],
+    fields: [eyebrow('Upcoming'), text('title', 'Heading', 'Special Events'), headingStyle('title', 'Heading', 'h2'), itemHeading('Event names', 'h3'), text('cta', 'Card link text', 'Inquire Now'), link('cta_link', 'Card link', WHATSAPP)],
     list: {
       label: 'Events',
       itemLabel: 'Event',
@@ -450,6 +480,7 @@ export const CONTENT_SECTIONS = [
     fields: [
       eyebrow('Past Memories'),
       ...heading('Event', 'Galleries'),
+      itemHeading('Gallery titles', 'h3'),
       body("A glimpse into the celebrations and experiences we've hosted at Boat Seafood."),
       text('cta', 'Button', 'Book Your Event'),
       link('cta_link', 'Button link', WHATSAPP),
@@ -479,7 +510,7 @@ export const CONTENT_SECTIONS = [
     label: 'Top section',
     fields: [
       eyebrow('Exclusive Rewards'),
-      ...heading('Taste the', 'Savings'),
+      ...heading('Taste the', 'Savings', 'h1'),
       body('Explore our range of seasonal promotions and daily specials designed to make your dining experience at Boat Seafood even more memorable.'),
       ...image(pexels('1267320', 1260), 'Seafood offers at Boat Seafood Dubai', 'Background image'),
     ],
@@ -488,7 +519,7 @@ export const CONTENT_SECTIONS = [
     id: 'offers_list',
     page: 'offers',
     label: 'Special Promotions',
-    fields: [eyebrow('Limited Time'), text('title', 'Heading', 'Special Promotions')],
+    fields: [eyebrow('Limited Time'), text('title', 'Heading', 'Special Promotions'), headingStyle('title', 'Heading', 'h2'), itemHeading('Offer names', 'h3')],
     list: {
       label: 'Offers',
       itemLabel: 'Offer',
@@ -516,6 +547,8 @@ export const CONTENT_SECTIONS = [
     fields: [
       eyebrow('Complimentary'),
       text('title', 'Heading', 'Diner Benefits'),
+      headingStyle('title', 'Heading', 'h2'),
+      itemHeading('Benefit titles', 'h3'),
       body('Every visit to Boat Seafood comes with special perks for our regular guests. Show your market shopping receipt or join our loyalty circle.'),
       text('cta', 'Button', 'Join Member Circle'),
       link('cta_link', 'Button link', WHATSAPP),
@@ -543,7 +576,7 @@ export const CONTENT_SECTIONS = [
     label: 'Top section',
     fields: [
       eyebrow('Your Fish, We Prepare'),
-      ...heading('At Boat Seafood, your catch becomes your', 'perfect meal.'),
+      ...heading('At Boat Seafood, your catch becomes your', 'perfect meal.', 'h1'),
       body('Bring your fresh fish directly from the market or the sea, and our chefs will prepare it exactly the way you love it — full of authentic flavor, fresh ingredients, and coastal tradition.'),
       text('cta', 'Main button', 'Book a Table'),
       link('cta_link', 'Main button link', BOOK_FISH),
@@ -559,7 +592,7 @@ export const CONTENT_SECTIONS = [
     id: 'fish_steps',
     page: 'your-fish',
     label: 'How It Works',
-    fields: [eyebrow('Simple & Transparent'), text('title', 'Heading', 'How It Works'), body('From fresh catch to perfect plate in 3 simple steps.')],
+    fields: [eyebrow('Simple & Transparent'), text('title', 'Heading', 'How It Works'), headingStyle('title', 'Heading', 'h2'), itemHeading('Step titles', 'h3'), body('From fresh catch to perfect plate in 3 simple steps.')],
     list: {
       label: 'Steps',
       itemLabel: 'Step',
@@ -583,6 +616,8 @@ export const CONTENT_SECTIONS = [
     fields: [
       eyebrow('Choose Your Favorite Style'),
       text('title', 'Heading', 'Prepared Just The Way You Love It'),
+      headingStyle('title', 'Heading', 'h2'),
+      itemHeading('Style names', 'h3'),
       body('Explore some of the ways our chefs can prepare your fish — each method crafted to bring out the best in every catch.'),
       text('cta', 'Button', 'And Much More'),
     ],
@@ -632,6 +667,7 @@ export const CONTENT_SECTIONS = [
     fields: [
       eyebrow('Ready to Dive In?'),
       text('title', 'Heading', 'Ready to turn your fresh catch into the perfect meal?'),
+      headingStyle('title', 'Heading', 'h2'),
       body('Bring your fish, choose your style, and let our chefs do the rest.'),
       text('cta', 'Main button', 'Book a Table'),
       link('cta_link', 'Main button link', BOOK_FISH),
@@ -649,7 +685,8 @@ export const CONTENT_SECTIONS = [
     label: 'Top of page (above the book)',
     fields: [
       eyebrow('Boat Seafood · Menu Book'),
-      ...heading('Our Seafood', 'Menu Book'),
+      // This text is not on /profile now (the Heyzine book fills it), so no tag / size choice
+      ...heading('Our Seafood', 'Menu Book').filter((f) => f.type !== 'heading'),
       body('Turn the pages of our menu — fresh catch, signature platters and coastal classics, cooked daily at Waterfront Market, Dubai.'),
       text('hint', 'Help text under the book', 'Drag a page corner, swipe, or use the arrows to turn the pages.'),
     ],
@@ -700,6 +737,7 @@ export const CONTENT_SECTIONS = [
     label: 'Links page',
     fields: [
       text('title', 'Page heading (hidden – read by Google and screen readers)', 'Boat Seafood Restaurant Dubai – Menu, Reviews & Links'),
+      headingStyle('title', 'Page heading', 'h1', { hidden: true }),
       fixedAlt('logo_alt', 'Logo – alt text', cdn('/logo.webp'), 'Boat Seafood Restaurant'),
       text('tagline', 'Tagline', 'Seafood Restaurant'),
       text('location', 'Location', 'Dubai · Waterfront Market'),
@@ -725,7 +763,8 @@ export const CONTENT_SECTIONS = [
     label: 'Top section',
     fields: [
       eyebrow('Stories from the market'),
-      ...heading('The Boat', 'Journal'),
+      ...heading('The Boat', 'Journal', 'h1'),
+      itemHeading('Post titles in the list', 'h2', 'post'),
       body(
         'Stories, recipes and tips from Boat Seafood, Waterfront Market, Dubai: fresh fish, seasonal catch, cooking styles and what is new at the restaurant.'
       ),
@@ -743,6 +782,7 @@ export const CONTENT_SECTIONS = [
     fields: [
       ...image('', '', 'Photo (empty = the share image)'),
       text('title', 'Heading (optional)', ''),
+      headingStyle('title', 'Heading', 'h2'),
       area('body', 'Text (empty = the meta description)', '', 'A blank line starts a new paragraph.'),
     ],
   },
@@ -785,3 +825,18 @@ export function mergeAll(rows: { section: string; data: SectionData }[] | null |
   return Object.fromEntries(ALL_SECTIONS.map((def) => [def.id, mergeSection(def, saved.get(def.id))])) as SiteContent
 }
 
+// How many H1 a page has with the choices made in the studio (Google expects one). Titles of a list
+// count once per item; dishes and posts, which are not a list here, count as one.
+export function countH1(page: string, content: SiteContent): number {
+  let n = 0
+  for (const def of ALL_SECTIONS) {
+    if (def.page !== page) continue
+    const data = content[def.id as SectionId]
+    for (const f of def.fields) {
+      if (!f.heading || (parseHeadingStyle(data.fields[f.key]).tag || f.heading.tag) !== 'h1') continue
+      if (f.heading.list) n += f.heading.textKey === 'item_title' ? data.items.length : 1
+      else if (data.fields[f.heading.textKey]?.trim()) n += 1
+    }
+  }
+  return n
+}

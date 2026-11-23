@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Calendar, MapPin, ArrowRight, Camera } from "lucide-react";
 import Link from "next/link";
 import { useSection } from "@/context/ContentContext";
-import { Heading } from "@/components/ContentText";
+import { Heading, StyledHeading } from "@/components/ContentText";
 
 export default function EventsPage() {
   const hero = useSection("events_hero");
@@ -37,9 +37,9 @@ export default function EventsPage() {
                 <span className="w-8 h-[1px] bg-ocean shrink-0"></span>
                 {hero.fields.eyebrow}
               </span>
-              <h1 className="font-playfair text-[clamp(40px,6vw,84px)] font-bold leading-none mb-6">
+              <StyledHeading as="h1" choice={hero.fields.title_style} className="font-playfair text-[clamp(40px,6vw,84px)] font-bold leading-none mb-6">
                 <Heading c={hero} emClassName="italic text-ocean" />
-              </h1>
+              </StyledHeading>
               <p className="text-[15px] text-white/60 max-w-xl leading-relaxed font-light">
                 {hero.fields.body}
               </p>
@@ -51,7 +51,7 @@ export default function EventsPage() {
         <section className="py-24 px-8 md:px-20">
           <div className="mb-16">
             <span className="text-[9px] tracking-[4px] uppercase text-ocean font-bold block mb-4">{list.fields.eyebrow}</span>
-            <h2 className="font-playfair text-4xl md:text-5xl font-bold text-navy">{list.fields.title}</h2>
+            <StyledHeading as="h2" choice={list.fields.title_style} className="font-playfair text-4xl md:text-5xl font-bold text-navy">{list.fields.title}</StyledHeading>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
@@ -74,7 +74,7 @@ export default function EventsPage() {
                   <div className="flex items-center gap-2 text-[10px] tracking-[2px] uppercase text-ocean font-bold">
                     <Calendar size={14} /> {event.date}
                   </div>
-                  <h3 className="font-playfair text-2xl font-bold text-navy">{event.title}</h3>
+                  <StyledHeading as="h3" choice={list.fields.item_title_style} className="font-playfair text-2xl font-bold text-navy">{event.title}</StyledHeading>
                   <p className="text-[14px] leading-relaxed text-navy/70 font-light italic">&ldquo;{event.description}&rdquo;</p>
                   <Link href={list.fields.cta_link} className="group/btn inline-flex items-center gap-3 text-[10px] tracking-[3px] uppercase text-navy font-bold mt-4">
                     {list.fields.cta} <ArrowRight size={16} className="transition-transform group-hover/btn:translate-x-1" />
@@ -97,9 +97,9 @@ export default function EventsPage() {
               <span className="inline-flex items-center gap-3 text-[10px] tracking-[5px] uppercase text-ocean font-bold mb-6">
                 <Camera size={16} /> {galleries.fields.eyebrow}
               </span>
-              <h2 className="font-playfair text-[clamp(40px,5vw,72px)] font-bold text-white leading-none">
+              <StyledHeading as="h2" choice={galleries.fields.title_style} className="font-playfair text-[clamp(40px,5vw,72px)] font-bold text-white leading-none">
                 <Heading c={galleries} emClassName="italic text-ocean" />
-              </h2>
+              </StyledHeading>
             </motion.div>
           
             <motion.p
@@ -127,7 +127,7 @@ export default function EventsPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-navy/90 via-navy/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
                 <div className="absolute inset-0 flex flex-col justify-end p-8 translate-y-4 group-hover:translate-y-0 transition-transform">
                   <span className="text-[8px] tracking-[3px] uppercase text-ocean font-bold mb-2">{gallery.count}</span>
-                  <h3 className="font-playfair text-xl font-bold text-white">{gallery.title}</h3>
+                  <StyledHeading as="h3" choice={galleries.fields.item_title_style} className="font-playfair text-xl font-bold text-white">{gallery.title}</StyledHeading>
                 </div>
               </motion.article>
             ))}

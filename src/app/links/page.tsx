@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSection } from "@/context/ContentContext";
+import { StyledHeading } from "@/components/ContentText";
 import { cdn } from "@/lib/cdn";
 import { whatsapp } from "@/lib/whatsapp";
 
@@ -102,7 +103,7 @@ export default function LinksPage() {
       `}</style>
 
       <main className="relative z-10 w-full max-auto max-w-[420px] px-7 py-12 md:py-16 flex flex-col items-center text-center">
-        <h1 className="sr-only">{c.title}</h1>
+        <StyledHeading as="h1" choice={c.title_style} className="sr-only">{c.title}</StyledHeading>
 
         {/* Logo */}
         <motion.div

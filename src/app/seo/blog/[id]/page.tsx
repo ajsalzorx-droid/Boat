@@ -24,6 +24,7 @@ import {
   BLOG_LIMITS,
   blogTitle,
   emptyPost,
+  isBlogLevel,
   isExternal,
   publishProblems,
   slugify,
@@ -32,16 +33,18 @@ import {
   type BlogBlock,
   type BlogPostInput,
 } from "@/lib/blog";
+import { HEADING_TAGS, type HeadingTag } from "@/lib/heading-style";
 import { DEFAULT_BUSINESS } from "@/lib/seo";
 import { DESC_LIMIT, TITLE_LIMIT, lengthStatus } from "../../use-studio-data";
 import { useStudio } from "../../studio-context";
-import { AltStatus, Counter, GooglePreview, Label, Thumb, UploadButton, inputClass, siteOrigin } from "../../fields";
+import { AltStatus, Counter, GooglePreview, HeadingSelect, Label, Thumb, UploadButton, inputClass, siteOrigin } from "../../fields";
 import BlogPreview from "../BlogPreview";
+import { NewPostLink } from "../BlogPostList";
 
 const card = "bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6";
 
 const NEW_BLOCKS: Record<BlogBlock["type"], () => BlogBlock> = {
-  heading: () => ({ type: "heading", text: "" }),
+  heading: () => ({ type: "heading", text: "", level: "h2" }),
   paragraph: () => ({ type: "paragraph", text: "" }),
   image: () => ({ type: "image", src: "", alt: "", caption: "" }),
   link: () => ({ type: "link", label: "", url: "", nofollow: false }),
@@ -170,10 +173,15 @@ export default function BlogPostEditor() {
                 View on website <ExternalLink size={12} />
               </a>
             )}
+            {!isNew && (
+              <span className="ml-auto" onClickCapture={(e) => dirty && !confirm("This post has unsaved changes. Leave without saving?") && e.preventDefault()}>
+                <NewPostLink label="Add another blog" />
+              </span>
+            )}
             <button
               type="button"
               onClick={() => setPreviewing(true)}
-              className="ml-auto flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider"
+              className={`${isNew ? "ml-auto " : ""}flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider`}
             >
               <Eye size={14} /> Preview
             </button>
@@ -254,7 +262,7 @@ export default function BlogPostEditor() {
           <div>
             <h2 className="font-playfair text-lg font-bold text-navy">Content</h2>
             <p className="text-xs text-gray-400">
-              Add text, headings, photos and links in reading order. Inside text, write a link as{" "}
+              Add text, headings, photos and links in reading order. Pick H1–H6 and the font size above each text or heading. Inside text, write a link as{" "}
               <code className="font-mono bg-gray-100 px-1 rounded">[link text](https://example.com)</code>. A blank line starts a new paragraph.
             </p>
           </div>
@@ -427,24 +435,30 @@ function BlockFields({
 }) {
   if (b.type === "heading")
     return (
-      <input
-        value={b.text}
-        maxLength={BLOG_LIMITS.heading}
-        onChange={(e) => onChange({ ...b, text: e.target.value })}
-        className={`${inputClass} font-playfair text-lg font-bold`}
-        placeholder="Section heading (shown as H2)"
-      />
+      <div className="space-y-3">
+        <TextStyle block={b} onChange={onChange} />
+        <input
+          value={b.text}
+          maxLength={BLOG_LIMITS.heading}
+          onChange={(e) => onChange({ ...b, text: e.target.value })}
+          className={`${inputClass} font-playfair text-lg font-bold`}
+          placeholder="Section heading"
+        />
+      </div>
     );
   if (b.type === "paragraph")
     return (
-      <textarea
-        value={b.text}
-        maxLength={BLOG_LIMITS.paragraph}
-        onChange={(e) => onChange({ ...b, text: e.target.value })}
-        rows={6}
-        className={`${inputClass} resize-y leading-relaxed`}
-        placeholder="Write here…"
-      />
+      <div className="space-y-3">
+        <TextStyle block={b} onChange={onChange} />
+        <textarea
+          value={b.text}
+          maxLength={BLOG_LIMITS.paragraph}
+          onChange={(e) => onChange({ ...b, text: e.target.value })}
+          rows={6}
+          className={`${inputClass} resize-y leading-relaxed`}
+          placeholder="Write here…"
+        />
+      </div>
     );
   if (b.type === "image")
     return (
@@ -491,6 +505,42 @@ function BlockFields({
   );
 }
 
+type TextBlock = Extract<BlogBlock, { type: "heading" | "paragraph" }>;
+// Normal text first, then H1–H6 (like the style list in a word processor)
+const TEXT_STYLES: HeadingTag[] = ["p", ...HEADING_TAGS.filter(isBlogLevel)];
+
+// Text or heading, which heading, and its font size. Switching between them keeps the words.
+function TextStyle({ block: b, onChange }: { block: TextBlock; onChange: (b: BlogBlock) => void }) {
+  const tag: HeadingTag = b.type === "heading" ? (b.level ?? "h2") : "p";
+  const size = b.size && { size: b.size };
+
+  const setTag = (next: HeadingTag | "") => {
+    if (isBlogLevel(next)) {
+      const text = b.type === "heading" ? b.text : b.text.replace(/\s*\n\s*/g, " ").trim();
+      if (text.length > BLOG_LIMITS.heading) return alert(`A heading can have at most ${BLOG_LIMITS.heading} characters. Shorten this text first.`);
+      onChange({ type: "heading", text, level: next, ...size });
+    } else onChange({ type: "paragraph", text: b.text, ...size });
+  };
+  const setSize = (next: HeadingTag | "") => {
+    const rest = { ...b };
+    delete rest.size;
+    onChange(next ? { ...rest, size: next } : rest);
+  };
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <HeadingSelect label="Text style (heading tag)" kind="tag" value={tag} options={TEXT_STYLES} onChange={setTag} />
+      <HeadingSelect
+        label="Font size"
+        kind="size"
+        value={b.size ?? ""}
+        empty={`Automatic (${tag === "p" ? "normal text" : tag.toUpperCase()})`}
+        onChange={setSize}
+      />
+    </div>
+  );
+}
+
 function IconBtn({ label, disabled, danger, onClick, children }: { label: string; disabled?: boolean; danger?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
@@ -513,6 +563,11 @@ function seoChecks(p: BlogPostInput) {
     b.type === "link" ? [b.url] : b.type === "paragraph" ? [...b.text.matchAll(/\]\(([^)\s]+)\)/g)].map((m) => m[1]) : []
   );
   const title = blogTitle(p);
+  const headings = p.blocks.filter((b): b is Extract<BlogBlock, { type: "heading" }> => b.type === "heading" && !!b.text.trim());
+  const extraH1 = headings.filter((b) => b.level === "h1").length;
+  // The title is the H1; each heading may go at most one level deeper than the one before (H2 -> H3)
+  const levels = headings.map((b) => Number((b.level ?? "h2")[1]));
+  const skipped = levels.some((n, i) => n > (i ? levels[i - 1] : 1) + 1);
   return [
     { label: "Title added", ok: !!p.title.trim(), required: true },
     { label: "Web address set", ok: SLUG_RE.test(p.slug), required: true },
@@ -521,7 +576,9 @@ function seoChecks(p: BlogPostInput) {
     { label: "Cover photo (used when the link is shared)", ok: !!p.cover_image },
     { label: "Every photo has alt text", ok: (!p.cover_image || !!p.cover_alt.trim()) && images.every((b) => b.alt.trim()), required: true },
     { label: `${words} words (aim for 300 or more)`, ok: words >= 300 },
-    { label: "At least one heading to split the text", ok: p.blocks.some((b) => b.type === "heading" && b.text.trim()) },
+    { label: "At least one heading to split the text", ok: headings.length > 0 },
+    { label: extraH1 ? `The title is already the H1: change ${extraH1} H1 heading(s) in the content to H2` : "Only one H1 (the title)", ok: !extraH1 },
+    { label: "Headings in order (H2, then H3 inside it), no level skipped", ok: !skipped },
     { label: "Links to a page on this site (e.g. /menu or /book)", ok: links.some((u) => u.startsWith("/")) },
     { label: `${links.filter(isExternal).length} external link(s)`, ok: true },
   ];

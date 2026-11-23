@@ -16,7 +16,7 @@ import { restaurantJsonLd } from "@/lib/seo";
 import { getSiteContent } from "@/lib/content-data";
 import { getActiveMenuItems, getAvailableCatch, getLiveOffers, offerBanners, withOffers } from "@/lib/menu-data";
 import OfferBanners from "@/components/OfferBanners";
-import { Heading } from "@/components/ContentText";
+import { Heading, StyledHeading } from "@/components/ContentText";
 
 export const generateMetadata = () => pageMetadata("/");
 
@@ -73,9 +73,9 @@ export default async function Home() {
               <span className="w-8 h-[1px] bg-ocean shrink-0"></span>
               {manifesto.fields.eyebrow}
             </span>
-            <blockquote className="font-cormorant italic text-[clamp(28px,3.5vw,52px)] font-bold text-white leading-[1.35] mb-8">
+            <StyledHeading as="blockquote" choice={manifesto.fields.title_style} className="font-cormorant italic text-[clamp(28px,3.5vw,52px)] font-bold text-white leading-[1.35] mb-8">
               &ldquo;<Heading c={manifesto} emClassName="not-italic text-ocean" />&rdquo;
-            </blockquote>
+            </StyledHeading>
             <figcaption className="text-[11px] tracking-[3px] uppercase text-white/50 font-semibold not-italic">
               {manifesto.fields.cite}
             </figcaption>
@@ -114,9 +114,9 @@ export default async function Home() {
             {/* Headline */}
             <div className="text-center mb-9">
               <p className="text-[11px] tracking-[6px] uppercase text-ocean font-semibold mb-3">{visit.fields.eyebrow}</p>
-              <h2 className="font-playfair text-[clamp(38px,5vw,68px)] font-bold text-white leading-[1.05] drop-shadow-xl">
+              <StyledHeading as="h2" choice={visit.fields.title_style} className="font-playfair text-[clamp(38px,5vw,68px)] font-bold text-white leading-[1.05] drop-shadow-xl">
                 <Heading c={visit} emClassName="italic text-ocean" />
-              </h2>
+              </StyledHeading>
             </div>
 
             {/* Glass info card */}

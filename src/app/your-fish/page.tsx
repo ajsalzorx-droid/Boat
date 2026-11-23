@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { useSection } from "@/context/ContentContext";
-import { Heading } from "@/components/ContentText";
+import { Heading, StyledHeading } from "@/components/ContentText";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 // Text, photos and lists come from the SEO Studio; the icons stay fixed by position.
@@ -112,14 +112,15 @@ export default function YourFishPage() {
               </motion.div>
 
               {/* Headline */}
-              <motion.h1
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.85, delay: 0.1 }}
-                className="font-playfair text-[clamp(34px,5vw,66px)] font-semibold text-[#0E2A47] leading-[1.1] mb-7"
-              >
-                <Heading c={heroSection}emClassName="text-[#C89B4B] not-italic font-normal" />
-              </motion.h1>
+              <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.85, delay: 0.1 }}>
+                <StyledHeading
+                  as="h1"
+                  choice={heroSection.fields.title_style}
+                  className="font-playfair text-[clamp(34px,5vw,66px)] font-semibold text-[#0E2A47] leading-[1.1] mb-7"
+                >
+                  <Heading c={heroSection} emClassName="text-[#C89B4B] not-italic font-normal" />
+                </StyledHeading>
+              </motion.div>
 
               {/* Body */}
               <motion.p
@@ -206,9 +207,9 @@ export default function YourFishPage() {
               <span className="font-jost text-[10px] tracking-[5px] uppercase text-[#C89B4B] font-semibold block mb-4">
                 {how.fields.eyebrow}
               </span>
-              <h2 className="font-playfair text-[clamp(28px,4vw,52px)] font-semibold text-[#0E2A47] mb-5">
+              <StyledHeading as="h2" choice={how.fields.title_style} className="font-playfair text-[clamp(28px,4vw,52px)] font-semibold text-[#0E2A47] mb-5">
                 {how.fields.title}
-              </h2>
+              </StyledHeading>
               <p className="font-jost text-[15px] text-[#0E2A47]/55 font-light max-w-md mx-auto leading-relaxed">
                 {how.fields.body}
               </p>
@@ -238,9 +239,9 @@ export default function YourFishPage() {
                   </div>
                   {/* Text */}
                   <div className="p-7">
-                    <h3 className="font-playfair text-xl font-semibold text-[#0E2A47] mb-3 leading-snug">
+                    <StyledHeading as="h3" choice={how.fields.item_title_style} className="font-playfair text-xl font-semibold text-[#0E2A47] mb-3 leading-snug">
                       {step.title}
-                    </h3>
+                    </StyledHeading>
                     <p className="font-jost text-[13.5px] text-[#0E2A47]/60 leading-relaxed font-light">
                       {step.description}
                     </p>
@@ -267,9 +268,9 @@ export default function YourFishPage() {
                 </span>
                 <span className="w-14 h-[1px] bg-[#C89B4B]/50" />
               </div>
-              <h2 className="font-playfair text-[clamp(26px,4vw,50px)] font-semibold text-[#0E2A47] mb-5">
+              <StyledHeading as="h2" choice={stylesSection.fields.title_style} className="font-playfair text-[clamp(26px,4vw,50px)] font-semibold text-[#0E2A47] mb-5">
                 {stylesSection.fields.title}
-              </h2>
+              </StyledHeading>
               <p className="font-jost text-[14.5px] text-[#0E2A47]/55 font-light max-w-lg mx-auto leading-relaxed">
                 {stylesSection.fields.body}
               </p>
@@ -297,9 +298,9 @@ export default function YourFishPage() {
                   </div>
                   {/* Label */}
                   <div className="px-4 py-4">
-                    <h3 className="font-playfair text-[15px] font-semibold text-[#0E2A47] mb-1">
+                    <StyledHeading as="h3" choice={stylesSection.fields.item_title_style} className="font-playfair text-[15px] font-semibold text-[#0E2A47] mb-1">
                       {s.title}
-                    </h3>
+                    </StyledHeading>
                     <p className="font-jost text-[11.5px] text-[#0E2A47]/50 font-light leading-relaxed">
                       {s.description}
                     </p>
@@ -333,9 +334,9 @@ export default function YourFishPage() {
               <span className="font-jost text-[10px] tracking-[5px] uppercase text-[#C89B4B] font-semibold block mb-5">
                 {story.fields.eyebrow}
               </span>
-              <h2 className="font-playfair text-[clamp(26px,3.5vw,46px)] font-semibold text-[#0E2A47] leading-[1.2] mb-7">
+              <StyledHeading as="h2" choice={story.fields.title_style} className="font-playfair text-[clamp(26px,3.5vw,46px)] font-semibold text-[#0E2A47] leading-[1.2] mb-7">
                 <Heading c={story} emClassName="italic font-normal" />
-              </h2>
+              </StyledHeading>
               <p className="font-jost text-[15px] text-[#0E2A47]/60 leading-[1.85] font-light mb-10">
                 {story.fields.body}
               </p>
@@ -411,9 +412,9 @@ export default function YourFishPage() {
               <span className="font-jost text-[10px] tracking-[5px] uppercase text-[#C89B4B] font-semibold block mb-6">
                 {cta.eyebrow}
               </span>
-              <h2 className="font-playfair text-[clamp(28px,4.5vw,56px)] font-semibold text-white leading-[1.15] mb-6">
+              <StyledHeading as="h2" choice={cta.title_style} className="font-playfair text-[clamp(28px,4.5vw,56px)] font-semibold text-white leading-[1.15] mb-6">
                 {cta.title}
-              </h2>
+              </StyledHeading>
               <p className="font-jost text-[15px] text-white/55 font-light leading-relaxed mb-10 max-w-xl mx-auto">
                 {cta.body}
               </p>

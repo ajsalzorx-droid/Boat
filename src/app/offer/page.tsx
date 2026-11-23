@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Tag, Clock, ArrowRight, Gift, Percent } from "lucide-react";
 import Link from "next/link";
 import { useSection } from "@/context/ContentContext";
-import { Heading } from "@/components/ContentText";
+import { Heading, StyledHeading } from "@/components/ContentText";
 
 // Icons stay fixed by position; the text comes from the SEO Studio
 const perkIcons = [Gift, Percent, Clock];
@@ -47,9 +47,9 @@ export default function OfferPage() {
                 <span className="w-8 h-[1px] bg-ocean shrink-0"></span>
                 {hero.fields.eyebrow}
               </span>
-              <h1 className="font-playfair text-[clamp(40px,6vw,84px)] font-bold leading-none mb-6">
+              <StyledHeading as="h1" choice={hero.fields.title_style} className="font-playfair text-[clamp(40px,6vw,84px)] font-bold leading-none mb-6">
                 <Heading c={hero} emClassName="italic text-ocean" />
-              </h1>
+              </StyledHeading>
               <p className="text-[15px] text-white/60 max-w-xl leading-relaxed font-light">
                 {hero.fields.body}
               </p>
@@ -62,7 +62,7 @@ export default function OfferPage() {
           <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
             <div>
               <span className="text-[9px] tracking-[4px] uppercase text-ocean font-bold block mb-4">{list.fields.eyebrow}</span>
-              <h2 className="font-playfair text-4xl md:text-5xl font-bold text-navy">{list.fields.title}</h2>
+              <StyledHeading as="h2" choice={list.fields.title_style} className="font-playfair text-4xl md:text-5xl font-bold text-navy">{list.fields.title}</StyledHeading>
             </div>
             <div className="hidden md:block w-24 h-[1px] bg-navy/10 mb-4"></div>
           </div>
@@ -87,7 +87,7 @@ export default function OfferPage() {
                   <span className="text-[10px] tracking-[2px] uppercase text-ocean font-bold flex items-center gap-2">
                     <Tag size={12} /> {offer.subtitle}
                   </span>
-                  <h3 className="font-playfair text-2xl font-bold text-navy">{offer.title}</h3>
+                  <StyledHeading as="h3" choice={list.fields.item_title_style} className="font-playfair text-2xl font-bold text-navy">{offer.title}</StyledHeading>
                   <p className="text-[14px] leading-relaxed text-navy/70 font-light italic">&ldquo;{offer.description}&rdquo;</p>
                   <div className="mt-auto pt-6">
                     <Link href={offer.link || "/menu"} className="group/btn inline-flex items-center gap-3 text-[10px] tracking-[3px] uppercase text-navy font-bold">
@@ -108,7 +108,7 @@ export default function OfferPage() {
           <div className="relative z-10 max-w-6xl mx-auto">
             <div className="text-center mb-20">
               <span className="text-[9px] tracking-[5px] uppercase text-ocean font-bold block mb-4">{perks.fields.eyebrow}</span>
-              <h2 className="font-playfair text-4xl md:text-6xl font-bold text-white mb-6">{perks.fields.title}</h2>
+              <StyledHeading as="h2" choice={perks.fields.title_style} className="font-playfair text-4xl md:text-6xl font-bold text-white mb-6">{perks.fields.title}</StyledHeading>
               <p className="text-white/50 max-w-2xl mx-auto font-light leading-relaxed">
                 {perks.fields.body}
               </p>
@@ -127,7 +127,7 @@ export default function OfferPage() {
                   <div className="w-14 h-14 bg-ocean text-navy rounded-full flex items-center justify-center mb-8 mx-auto md:mx-0 group-hover:scale-110 transition-transform">
                     {perk.icon}
                   </div>
-                  <h3 className="font-playfair text-2xl font-bold mb-4">{perk.title}</h3>
+                  <StyledHeading as="h3" choice={perks.fields.item_title_style} className="font-playfair text-2xl font-bold mb-4">{perk.title}</StyledHeading>
                   <p className="text-white/50 font-light text-[14px] leading-relaxed italic">
                     {perk.description}
                   </p>

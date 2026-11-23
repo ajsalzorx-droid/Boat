@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useSection } from "@/context/ContentContext";
-import { Heading } from "./ContentText";
+import { Heading, StyledHeading } from "./ContentText";
 
 export default function Origin() {
   const c = useSection("origin");
@@ -25,9 +25,9 @@ export default function Origin() {
             <span className="w-6.5 h-[1px] bg-ocean shrink-0"></span>
             {c.fields.eyebrow}
           </span>
-          <h2 className="font-playfair font-normal leading-[1.07] text-navy text-[clamp(34px,3.8vw,58px)] mb-7.5">
+          <StyledHeading as="h2" choice={c.fields.title_style} className="font-playfair font-normal leading-[1.07] text-navy text-[clamp(34px,3.8vw,58px)] mb-7.5">
             <Heading c={c} emClassName="italic text-ocean" />
-          </h2>
+          </StyledHeading>
           <p className="text-[16px] leading-[2.1] text-navy/90 font-light max-w-[400px] mb-12">
             {c.fields.body}
           </p>

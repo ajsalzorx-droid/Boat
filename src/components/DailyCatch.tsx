@@ -5,7 +5,7 @@ import { ArrowRight, Waves } from "lucide-react";
 import Link from "next/link";
 import { useSection } from "@/context/ContentContext";
 import type { DailyCatchItem } from "@/lib/menu-data";
-import { Heading } from "./ContentText";
+import { Heading, StyledHeading } from "./ContentText";
 
 // `items` = available catch, loaded on the server (src/lib/menu-data.ts) so it is in the HTML
 export default function DailyCatch({ items: dailyCatch }: { items: DailyCatchItem[] }) {
@@ -23,9 +23,9 @@ export default function DailyCatch({ items: dailyCatch }: { items: DailyCatchIte
           <span className="inline-flex items-center gap-3 text-[10px] tracking-[5px] uppercase text-ocean font-bold mb-6">
             <Waves size={16} /> {c.fields.eyebrow}
           </span>
-          <h2 className="font-playfair text-[clamp(40px,5vw,72px)] font-bold text-navy leading-none">
+          <StyledHeading as="h2" choice={c.fields.title_style} className="font-playfair text-[clamp(40px,5vw,72px)] font-bold text-navy leading-none">
             <Heading c={c} emClassName="italic text-ocean" />
-          </h2>
+          </StyledHeading>
         </motion.div>
         
         <motion.div
@@ -63,7 +63,7 @@ export default function DailyCatch({ items: dailyCatch }: { items: DailyCatchIte
             </div>
             <div className="flex flex-col items-center text-center px-1 md:px-4">
               <span className="text-[8px] md:text-[9px] tracking-[2px] md:tracking-[4px] uppercase text-ocean font-bold mb-2 md:mb-3">{item.origin}</span>
-              <h3 className="font-playfair text-base md:text-2xl font-bold text-navy mb-2 md:mb-4 leading-tight md:leading-normal">{item.name}</h3>
+              <StyledHeading as="h3" choice={c.fields.catch_style} className="font-playfair text-base md:text-2xl font-bold text-navy mb-2 md:mb-4 leading-tight md:leading-normal">{item.name}</StyledHeading>
               <p className="text-[12px] md:text-[14px] leading-relaxed text-navy/80 font-light italic line-clamp-2 md:line-clamp-none">&ldquo;{item.description}&rdquo;</p>
             </div>
           </motion.article>

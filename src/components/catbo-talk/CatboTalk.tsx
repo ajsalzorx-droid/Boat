@@ -1,5 +1,6 @@
 "use client";
 
+import { cdn } from "@/lib/cdn";
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { MessageCircleHeart, Sparkles } from "lucide-react";
@@ -40,7 +41,7 @@ function Stage({ onWake, waking }: { onWake?: () => void; waking?: boolean }) {
       <div className="relative mx-auto w-full max-w-[300px] md:max-w-[420px] aspect-[1284/1225]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/catbo/catbo.webp"
+          src={cdn("/catbo/catbo.webp")}
           alt="Catbo, a blue and white cat in a striped sailor's scarf"
           width={720}
           height={687}

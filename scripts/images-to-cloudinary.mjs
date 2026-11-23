@@ -61,6 +61,10 @@ async function moveImage(url, folder) {
   const webpPath = clean.replace(IMAGE_EXT, ".webp");
   if (url.startsWith("/") && publicMap[webpPath]) return (map[url] = publicMap[webpPath]);
   if (url.startsWith("/") && isWebp(clean) && publicMap[clean]) return (map[url] = publicMap[clean]);
+  // Pexels photo already copied by upload-public-images.mjs
+  const stock = url.match(/pexels\.com\/photos\/(\d+)\/.*[?&]w=(\d+)/);
+  const copied = stock && publicMap[`/images/pexels/${stock[1]}-${stock[2]}.webp`];
+  if (copied) return (map[url] = copied);
   if (dryRun) return `(Cloudinary WebP) ${url}`;
   let res;
   if (onCloudinary(url)) {
