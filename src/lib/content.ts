@@ -686,7 +686,7 @@ export const CONTENT_SECTIONS = [
     label: 'Top of page (above the book)',
     fields: [
       eyebrow('Boat Seafood · Menu Book'),
-      // This text is not on /menu-book now (the Heyzine book fills it), so no tag / size choice
+      // This text is not on /menu-book now (the book fills it), so no tag / size choice
       ...heading('Our Seafood', 'Menu Book').filter((f) => f.type !== 'heading'),
       body('Turn the pages of our menu — fresh catch, signature platters and coastal classics, cooked daily at Waterfront Market, Dubai.'),
       text('hint', 'Help text under the book', 'Drag a page corner, swipe, or use the arrows to turn the pages.'),
