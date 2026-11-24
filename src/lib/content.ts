@@ -48,7 +48,8 @@ export const STUDIO_PAGES = [
   { slug: 'offers', name: 'Offers', href: '/offer', seoPath: '/offer' },
   { slug: 'your-fish', name: 'Your Fish', href: '/your-fish', seoPath: '/your-fish' },
   { slug: 'links', name: 'Links (QR page)', href: '/links', seoPath: '/links' },
-  { slug: 'menu-book', name: 'Menu Book', href: '/profile', seoPath: '/profile' },
+  { slug: 'menu-book', name: 'Menu Book', href: '/menu-book', seoPath: '/menu-book' },
+  { slug: 'profile', name: 'Company Profile', href: '/profile', seoPath: '/profile' },
   { slug: 'blog', name: 'Blog', href: '/blog', seoPath: '/blog' },
   { slug: 'site', name: 'Header & Footer', href: '/', seoPath: null },
 ] as const
@@ -677,7 +678,7 @@ export const CONTENT_SECTIONS = [
     ],
   },
 
-  // ================= Menu Book (/profile) =================
+  // ================= Menu Book (/menu-book) =================
   // Dish pages are built from the menu in Admin → Menu; these are the fixed pages around them.
   {
     id: 'book_intro',
@@ -685,7 +686,7 @@ export const CONTENT_SECTIONS = [
     label: 'Top of page (above the book)',
     fields: [
       eyebrow('Boat Seafood · Menu Book'),
-      // This text is not on /profile now (the Heyzine book fills it), so no tag / size choice
+      // This text is not on /menu-book now (the Heyzine book fills it), so no tag / size choice
       ...heading('Our Seafood', 'Menu Book').filter((f) => f.type !== 'heading'),
       body('Turn the pages of our menu — fresh catch, signature platters and coastal classics, cooked daily at Waterfront Market, Dubai.'),
       text('hint', 'Help text under the book', 'Drag a page corner, swipe, or use the arrows to turn the pages.'),

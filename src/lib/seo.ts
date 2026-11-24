@@ -60,8 +60,15 @@ export const SEO_PAGES = [
       'See Boat Seafood Restaurant in 360° at Waterfront Market, Deira, Dubai. Walk the promenade, the terrace and the dining hall before you visit.',
   },
   {
+    path: '/menu-book',
+    label: 'Menu Book',
+    title: 'Seafood Menu Book | Boat Seafood Dubai',
+    description:
+      'Flip through the Boat Seafood menu book: soups, salads, rice, pasta and fresh seafood dishes with prices, at Waterfront Market, Deira, Dubai.',
+  },
+  {
     path: '/profile',
-    label: 'Flipbook',
+    label: 'Company Profile',
     title: 'Company Profile Flipbook | Boat Seafood Dubai',
     description:
       'Flip through the BOAT Seafood Restaurant book: authentic Arabic and Indian seafood, your fish our preparation, and waterfront hospitality at Waterfront Market, Dubai.',
