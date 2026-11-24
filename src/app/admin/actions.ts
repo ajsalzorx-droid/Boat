@@ -14,6 +14,7 @@ import { MENU_TAG } from '@/lib/menu-data'
 import { MENU_CATEGORIES } from '@/data/menu'
 import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/offers'
 import { markPlayed } from '@/lib/game-played'
+import { isGameTablet, setGameTablet } from '@/lib/game-tablet'
 import { ANY_TABLE, confirmationMessage, dubaiNow, formatDate, formatTime, tableLabel, visitDate, whatsappDigits, type BookingStatus, type BookingType, type PreorderItem } from '@/lib/bookings'
 import { broadcastOffer, offerBroadcastReady, subscriberCount } from '@/lib/offer-broadcast'
 import { sendConfirmation, whatsappApiReady } from '@/lib/whatsapp-api'
@@ -952,6 +953,17 @@ export async function applyGameClaim(id: string, billNo: string, billAmount: num
     }
     if (!updated) fail('This claim was just used. Please refresh.')
     return claimRow(updated)
+  })
+}
+
+// Is this browser the restaurant's game tablet, and making it so (src/lib/game-tablet.ts)
+export async function getGameTablet() {
+  return withAdmin<boolean>(() => isGameTablet())
+}
+export async function switchGameTablet(on: boolean) {
+  return withAdmin<boolean>(async (db) => {
+    await setGameTablet(db, on === true)
+    return on === true
   })
 }
 

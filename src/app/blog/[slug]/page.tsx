@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import BlogContent from "@/components/BlogContent";
+import BlogArticle from "@/components/BlogArticle";
 import { blogTitle, plainText, readingMinutes, wordCount, type BlogPost } from "@/lib/blog";
-import { findPublishedPost } from "@/lib/blog-data";
+import { findPublishedPost, getPublishedPosts } from "@/lib/blog-data";
 import { blogSection } from "@/lib/blog-content";
 import { getBusinessInfo } from "@/lib/seo-data";
 import { FALLBACK_SHARE_IMAGE, siteUrl, type BusinessInfo } from "@/lib/seo";
@@ -93,11 +91,12 @@ const dateText = (iso: string | null) =>
 
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params;
-  const [found, business, hero] = await Promise.all([findPublishedPost(slug), getBusinessInfo(), blogSection()]);
+  const [found, business, hero, posts] = await Promise.all([findPublishedPost(slug), getBusinessInfo(), blogSection(), getPublishedPosts()]);
   if (!found) notFound();
   // The post moved to a new address: send visitors and Google there (301)
   if (found.redirect) permanentRedirect(`/blog/${found.post.slug}`);
   const p = found.post;
+  const more = posts.filter((o) => o.id !== p.id && !o.noindex).slice(0, 3);
 
   return (
     <>
@@ -108,37 +107,15 @@ export default async function BlogPostPage({ params }: Props) {
       />
       <Navbar />
       <main className="bg-cream min-h-screen">
-        <header className="relative pt-44 pb-16 px-8 md:px-20 bg-navy text-white">
-          <div className="max-w-3xl mx-auto">
-            <nav aria-label="Breadcrumb" className="mb-8">
-              <Link href="/blog" className="inline-flex items-center gap-2 text-[10px] tracking-[4px] uppercase text-ocean font-bold hover:text-white transition-colors">
-                <ArrowLeft size={14} aria-hidden /> Blog
-              </Link>
-            </nav>
-            <h1 className="font-playfair text-[clamp(34px,5vw,64px)] font-bold leading-[1.05] mb-6">{p.title}</h1>
-            <div className="text-[11px] tracking-[3px] uppercase text-white/50">
-              <time dateTime={p.published_at ?? undefined}>{dateText(p.published_at)}</time> · {(hero.fields.read_time || "{n} min read").replaceAll("{n}", String(readingMinutes(p.blocks)))}
-            </div>
-          </div>
-        </header>
-
-        <article className="px-6 md:px-20 py-16">
-          <div className="max-w-3xl mx-auto">
-            {p.cover_image && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={p.cover_image} alt={p.cover_alt} fetchPriority="high" decoding="async" className="w-full h-auto mb-12 -mt-28 md:-mt-32 relative shadow-xl" />
-            )}
-            <BlogContent blocks={p.blocks} />
-            <div className="mt-16 pt-10 border-t border-navy/10 flex flex-wrap gap-4">
-              <Link href="/book" className="bg-navy text-cream px-6 py-3.5 text-[11px] tracking-[3px] uppercase font-bold hover:bg-ocean transition-colors">
-                Book a table
-              </Link>
-              <Link href="/menu" className="border border-navy/20 text-navy px-6 py-3.5 text-[11px] tracking-[3px] uppercase font-bold hover:border-ocean hover:text-ocean transition-colors">
-                See the menu
-              </Link>
-            </div>
-          </div>
-        </article>
+        <BlogArticle
+          post={p}
+          date={dateText(p.published_at)}
+          dateTime={p.published_at ?? undefined}
+          readTime={(hero.fields.read_time || "{n} min read").replaceAll("{n}", String(readingMinutes(p.blocks)))}
+          url={`${siteUrl(business).origin}/blog/${p.slug}`}
+          more={more}
+          moreDates={more.map((o) => dateText(o.published_at))}
+        />
       </main>
       <Footer />
     </>

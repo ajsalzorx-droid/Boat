@@ -3,14 +3,15 @@
 import { cdn } from "@/lib/cdn";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronsDown, ChevronsUp, Fish, Flag, Gift, Loader2, LocateFixed, MapPin, MessageCircle, Play, RotateCcw, ShieldCheck, Ticket, Trophy, X } from "lucide-react";
+import { ChevronDown, ChevronsDown, ChevronsUp, Fish, Flag, Gift, Loader2, LocateFixed, MapPin, MessageCircle, Play, QrCode, RotateCcw, ShieldCheck, Ticket, Trophy, UserPlus, X } from "lucide-react";
 import type { Race, RaceState } from "./race";
 import { CAUSES } from "./sim";
-import { checkNumberToday, devGameCode, getClaim, keepClaimScore, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
+import { checkNumberToday, devGameCode, getClaim, keepClaimScore, leaveClaim, onGameTablet, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
 import { whatsapp, whatsappAndroid, whatsappApp, WHATSAPP_DISPLAY } from "@/lib/whatsapp";
 import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, CLAIM_VALID_HOURS, checkSpot, DISCOUNT_TIERS, LOCATION_REQUIRED, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, PLAY_AREA, RULES, type ClaimView, type PlayerSpot } from "@/lib/game-claims";
 import { dubaiNow } from "@/lib/bookings";
 import { COUNTRIES, fullNumber } from "@/lib/phone-countries";
+import { WhatsAppQr } from "./WhatsAppQr";
 import { Buoy, Dolphin, ElectricEel, Gull, Jelly, Octopus } from "./GuideArt";
 
 // The Catbo Racing popup, opened from the Play button or the peeking cat (FloatingActions.tsx, CatFishGrab.tsx). It is
@@ -19,7 +20,8 @@ import { Buoy, Dolphin, ElectricEel, Gull, Jelly, Octopus } from "./GuideArt";
 //
 // First the visitor chooses: play free (as often as they like), or play for a discount on their
 // bill (rules: src/lib/game-claims.ts): a short form (name, phone), then they send "GET OTP" to our
-// WhatsApp and type back the code it replies with (proving the number is theirs), then their race(s) for the day (CLAIM_CHANCES), the latest
+// WhatsApp (a button opens it here, or a QR code opens it on the phone that scans it) and type back
+// the code it replies with (proving the number is theirs), then their race(s) for the day (CLAIM_CHANCES), the latest
 // score counting, and a code to show at the till. The claim is remembered on this device for the
 // day, so closing the game and coming back carries on with it.
 
@@ -28,6 +30,7 @@ import { Buoy, Dolphin, ElectricEel, Gull, Jelly, Octopus } from "./GuideArt";
 type Mode = "rules" | "choose" | "free" | "register" | "claim";
 const CLAIM_KEY = "catbo-claim"; // this device's claim today: { id, day }
 const ZAP_MS = 1600; // the shock plays this long before the race-over card shows
+const TABLET_IDLE_MS = 180_000; // the restaurant's tablet, left alone this long: ready for the next customer
 const RESEND_WAIT_S = 30; // before "Resend code" can be used again
 
 const readStoredClaim = () => {
@@ -76,6 +79,14 @@ const storeClaim = (id: string) => {
     localStorage.setItem(CLAIM_KEY, JSON.stringify({ id, day: dubaiNow().date }));
   } catch {}
 };
+// For buttons: short enough to fit
+const firstName = (name: string) => name.trim().split(/\s+/)[0].slice(0, 14);
+const forgetClaim = () => {
+  try {
+    localStorage.removeItem(CLAIM_KEY);
+  } catch {}
+};
+
 export default function CatboRace({ onClose }: { onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const raceRef = useRef<Race | null>(null);
@@ -98,6 +109,8 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const sentChance = useRef<number | null>(null);
+  const [tablet, setTablet] = useState(false); // the restaurant's tablet: no customer is remembered for the next
+  const [way, setWay] = useState<"app" | "qr">("app"); // how the code is asked for: WhatsApp here, or the QR code
   // "Resend code": open again after RESEND_WAIT_S (the server allows 3 codes a number per 15 min)
   const [resendAt, setResendAt] = useState(0);
   const [clock, setClock] = useState(0);
@@ -114,8 +127,19 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
 
   // A claim this device registered earlier today comes back (its chances, or its code)
   useEffect(() => {
-    const id = readStoredClaim();
-    if (id) getClaim(id).then((res) => res.ok && setClaim(res.claim)).catch(() => {});
+    let gone = false;
+    onGameTablet()
+      .catch(() => false)
+      .then((isTablet) => {
+        if (gone) return;
+        setTablet(isTablet);
+        if (isTablet) return forgetClaim();
+        const id = readStoredClaim();
+        if (id) getClaim(id).then((res) => !gone && res.ok && setClaim(res.claim)).catch(() => {});
+      });
+    return () => {
+      gone = true;
+    };
   }, []);
 
   // Hooked an electric eel: the race-over card waits ZAP_MS, so Catbo's shock (race.ts) is seen
@@ -261,8 +285,52 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     openWhatsApp();
     startResendWait();
   };
-  const getCode = async (e?: React.FormEvent) => {
-    e?.preventDefault();
+  // "New player": everything about this customer goes from this device (their claim too, on the
+  // server: leaveClaim), and the game is ready for the next, from the rules on
+  const [askNew, setAskNew] = useState(false); // asking first: a claim is open here
+  const nextPlayer = () => {
+    if (claim) leaveClaim(claim.claimId).catch(() => {}); // best effort: this device forgets it anyway
+    forgetClaim();
+    setAskNew(false);
+    setClaim(null);
+    setName("");
+    setPhone("");
+    setCountry(COUNTRIES[0][0]);
+    setOffers(false);
+    setOtp("");
+    setSentTo(null);
+    setWay("app");
+    setResendAt(0);
+    setPendingChance(null);
+    setError(null);
+    setBusy(false);
+    sentChance.current = null;
+    numberCheck.current = null;
+    setAccepted(false);
+    setMode("rules");
+  };
+  const newPlayer = () => (claim ? setAskNew(true) : nextPlayer());
+  const racing = state?.phase === "racing";
+  // The restaurant's tablet, left alone with somebody's details or claim on it: the same, by itself
+  const inUse = !!claim || !!sentTo || !!name || !!phone;
+  useEffect(() => {
+    if (!tablet || racing || busy || checking || !inUse) return;
+    let timer = setTimeout(nextPlayer, TABLET_IDLE_MS);
+    const again = () => {
+      clearTimeout(timer);
+      timer = setTimeout(nextPlayer, TABLET_IDLE_MS);
+    };
+    window.addEventListener("pointerdown", again);
+    window.addEventListener("keydown", again);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("pointerdown", again);
+      window.removeEventListener("keydown", again);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nextPlayer: the one of this claim
+  }, [tablet, racing, busy, checking, inUse, claim]);
+  // by: WhatsApp opens on this device, or the QR code shows, to scan with another phone
+  const getCode = async (by: "app" | "qr") => {
     const number = fullNumber(country, phone);
     const problem = checkPlayer({ name, phone: number, offers });
     if (problem) return setError(problem);
@@ -275,10 +343,11 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
       setChecking(false);
     }
     if (blocked) return setError(blocked);
-    openWhatsApp();
+    if (by === "app") openWhatsApp();
+    setWay(by);
     setOtp("");
     setSentTo(number.replace(/\s+/g, " "));
-    startResendWait();
+    if (by === "app") startResendWait();
     devGameCode(number).catch(() => {}); // on a developer's computer only: the code shows in the terminal
   };
   // Step 2: the code typed back opens the claim
@@ -290,7 +359,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
       const spot = LOCATION_REQUIRED ? await locate() : undefined;
       const res = await inTime(verifyClaimCode({ name, phone: fullNumber(country, phone), offers }, otp, { hp: website, ms: Date.now() - formOpenedAt.current }, spot));
       if (!res.ok) return setError(res.error);
-      storeClaim(res.claim.claimId);
+      if (!tablet) storeClaim(res.claim.claimId);
       setClaim(res.claim);
       setSentTo(null);
       setMode("claim");
@@ -504,7 +573,25 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
             className={`absolute inset-0 flex items-center justify-center bg-navy/30 p-3 sm:p-4 overflow-y-auto ${mode === "free" ? "cursor-pointer" : ""}`}
             onClick={() => mode === "free" && raceRef.current?.jump()}
           >
-            {mode === "rules" && (
+            {/* "New player" while somebody's claim is open: asked first */}
+            {askNew && claim && (
+              <div className={card} role="alertdialog" aria-labelledby="new-player-title">
+                <p id="new-player-title" className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-2">Start with a new player?</p>
+                <p className="text-navy/75 text-[12.5px] sm:text-[13px] leading-snug mb-4">
+                  {claim.name}&rsquo;s game will be cancelled on this device. Their races left and any discount stay with their phone number: a new WhatsApp code brings them back.
+                </p>
+                <div className="flex flex-col gap-2.5">
+                  <button type="button" className={button} onClick={nextPlayer}>
+                    <UserPlus size={16} aria-hidden /> Yes, new player
+                  </button>
+                  <button type="button" autoFocus className={buttonAlt} onClick={() => setAskNew(false)}>
+                    Go back
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!askNew && mode === "rules" && (
               // Fits the game box at any size: the heading, the tick and the button always show,
               // only the guide in between scrolls (with a thin scrollbar)
               <div className={`${card} text-left max-h-full flex flex-col pb-6 sm:pb-7 md:pb-8`} role="document" aria-labelledby="rules-title">
@@ -626,11 +713,19 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                 <button type="button" disabled={!accepted} className={`${button} shrink-0 w-full mt-3 disabled:opacity-40 disabled:pointer-events-none`} onClick={() => setMode("choose")}>
                   <ShieldCheck size={16} aria-hidden /> Accept &amp; continue
                 </button>
+                {claim && (
+                  <p className="shrink-0 mt-2.5 text-center text-[12px] leading-snug text-navy/70">
+                    {claim.name}&rsquo;s game is open on this device.{" "}
+                    <button type="button" className="font-semibold text-navy underline underline-offset-2 hover:text-ocean" onClick={newPlayer}>
+                      Not you? New player
+                    </button>
+                  </p>
+                )}
               </div>
             )}
 
             {/* also after a free race, when "Play for a discount" brings the player here to check their location */}
-            {mode === "choose" && (state.phase === "ready" || state.phase === "over") && (
+            {!askNew && mode === "choose" && (state.phase === "ready" || state.phase === "over") && (
               <div className={card} role="status">
                 {closeX}
                 <p className="text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-ocean font-bold mb-2">Catbo Racing</p>
@@ -645,7 +740,12 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                   </button>
                   {!LOCATION_REQUIRED && (
                     <button type="button" className={buttonAlt} onClick={chooseClaim}>
-                      <Gift size={16} aria-hidden /> {claim ? "My discount claim" : "Play for a discount"}
+                      <Gift size={16} aria-hidden /> {claim ? `Continue as ${firstName(claim.name)}` : "Play for a discount"}
+                    </button>
+                  )}
+                  {claim && (
+                    <button type="button" className={buttonAlt} onClick={newPlayer}>
+                      <UserPlus size={16} aria-hidden /> New player
                     </button>
                   )}
                   {/* The discount game: only at the restaurant. Locked until the location is checked */}
@@ -694,8 +794,8 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
-            {mode === "register" && !sentTo && (
-              <form className={`${card} text-left`} onSubmit={getCode} noValidate>
+            {!askNew && mode === "register" && !sentTo && (
+              <form className={`${card} text-left md:max-w-xl`} onSubmit={(e) => { e.preventDefault(); getCode("app"); }} noValidate>
                 {closeX}
                 <p className="text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-ocean font-bold mb-2 text-center">Play for a discount</p>
                 <p className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-2 text-center">Register to play</p>
@@ -752,66 +852,104 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                 </p>
                 {error && <p role="alert" className="mt-3 text-[13px] text-offer font-semibold">{error}</p>}
                 <div className="flex flex-col gap-2 mt-5">
-                  <button type="submit" disabled={busy || checking} className={`${button} disabled:opacity-60`}>
-                    {checking ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <MessageCircle size={16} aria-hidden />} Get code on WhatsApp
-                  </button>
-                  <p className="text-[12px] text-navy/60 text-center leading-snug">WhatsApp opens with &ldquo;{OTP_REQUEST_TEXT}&rdquo; ready: send it to us from this number, and we reply with your code.</p>
+                  {/* Two ways to the code: WhatsApp on this device, or a QR code for another phone */}
+                  <div className="grid gap-2 md:grid-cols-2 md:gap-3">
+                    <button type="submit" disabled={busy || checking} className={`${button} md:px-3 md:tracking-[1px] disabled:opacity-60`}>
+                      {checking ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <MessageCircle size={16} aria-hidden />} Get code on WhatsApp
+                    </button>
+                    <button type="button" onClick={() => getCode("qr")} disabled={busy || checking} className={`${buttonAlt} md:px-3 md:tracking-[1px]`}>
+                      <QrCode size={16} aria-hidden /> Scan QR code
+                    </button>
+                  </div>
+                  <p className="text-[12px] text-navy/60 text-center leading-snug">
+                    The button opens WhatsApp on this device. Playing on our tablet or a computer? Scan the QR code with your own phone. Send &ldquo;{OTP_REQUEST_TEXT}&rdquo; from this number, and we reply with your code.
+                  </p>
                   <button type="button" className="text-[12px] text-navy/60 underline underline-offset-2 hover:text-navy" onClick={() => { setError(null); setMode("choose"); }}>
                     Back
                   </button>
+                  {(name || phone) && (
+                    <button type="button" disabled={busy || checking} className="text-[12px] text-navy/60 underline underline-offset-2 hover:text-navy" onClick={newPlayer}>
+                      New player: clear these details
+                    </button>
+                  )}
                 </div>
               </form>
             )}
 
-            {/* Step 2: the code from WhatsApp */}
-            {mode === "register" && sentTo && (
-              <form className={card} onSubmit={verify} noValidate>
+            {/* Step 2: the code from WhatsApp. Phones: the way chosen, one above the other (the other way is
+                a tap away). Tablets and computers: the QR code and the button beside the code box */}
+            {!askNew && mode === "register" && sentTo && (
+              <form className={`${card} md:max-w-2xl`} onSubmit={verify} noValidate>
                 {closeX}
                 <p className="text-[10px] tracking-[3px] sm:tracking-[4px] uppercase text-ocean font-bold mb-2">Play for a discount</p>
-                <p className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-2">Enter your code</p>
-                <ol className="text-navy/75 text-[12.5px] sm:text-[13px] leading-snug mb-4 text-left list-decimal pl-5 space-y-1">
-                  <li>
-                    In WhatsApp, send <b>{OTP_REQUEST_TEXT}</b> to Boat Seafood{WHATSAPP_DISPLAY ? <> (<span className="whitespace-nowrap">{WHATSAPP_DISPLAY}</span>)</> : null} from <b className="whitespace-nowrap">{sentTo}</b>.
-                  </li>
-                  <li>We reply with a 6-digit code. Type it here.</li>
-                </ol>
-                <label htmlFor="c-otp" className="sr-only">6-digit code</label>
-                <input
-                  id="c-otp"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  pattern="[0-9]*"
-                  placeholder="Enter the code"
-                  maxLength={6}
-                  autoFocus
-                  className={`${field} text-center text-[24px] tracking-[10px] font-semibold placeholder:text-[15px] placeholder:tracking-normal placeholder:font-normal`}
-                />
-                {error && <p role="alert" className="mt-3 text-[13px] text-offer font-semibold">{error}</p>}
-                <div className="flex flex-col gap-2 mt-5">
-                  <button type="submit" disabled={busy || otp.length !== 6} className={`${button} disabled:opacity-60`}>
-                    {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ShieldCheck size={16} aria-hidden />} Verify and play
-                  </button>
-                  <p className="text-[12px] text-navy/60 mt-1">Didn&rsquo;t get a code?</p>
-                  <div className="flex items-center justify-center gap-4 text-[12px]">
+                <p className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-3">Enter your code</p>
+                <div className="md:grid md:grid-cols-2 md:gap-6 md:items-center">
+                  <div className="mb-4 md:mb-0 md:border-r md:border-navy/15 md:pr-6">
+                    <p className="text-[12.5px] sm:text-[13px] leading-snug text-navy/75 mb-3">
+                      <b className="text-navy">1.</b> Send <b>{OTP_REQUEST_TEXT}</b> to us on WhatsApp{WHATSAPP_DISPLAY ? <> (<span className="whitespace-nowrap">{WHATSAPP_DISPLAY}</span>)</> : null} from <b className="whitespace-nowrap">{sentTo}</b>.
+                    </p>
+                    <div className={way === "qr" ? "block" : "hidden md:block"}>
+                      <WhatsAppQr className="mx-auto w-40 sm:w-44 short:w-28" />
+                      <p className="mt-1.5 text-[12px] leading-snug text-navy/60">Scan with your phone&rsquo;s camera</p>
+                    </div>
+                    <p aria-hidden className="hidden md:flex items-center gap-3 my-2.5 text-[11px] uppercase tracking-[2px] text-navy/45 before:h-px before:flex-1 before:bg-navy/15 after:h-px after:flex-1 after:bg-navy/15">or</p>
+                    <div className={way === "app" ? "block" : "hidden md:block"}>
+                      <button
+                        type="button"
+                        disabled={busy || resendIn > 0}
+                        onClick={() => { setWay("app"); resendCode(); }}
+                        className={`${buttonAlt} w-full md:px-3 md:tracking-[1px]`}
+                      >
+                        <MessageCircle size={16} aria-hidden /> {resendIn > 0 ? `Open WhatsApp again (${resendIn}s)` : "Open WhatsApp"}
+                      </button>
+                    </div>
                     <button
                       type="button"
-                      disabled={busy || resendIn > 0}
-                      onClick={resendCode}
-                      className="inline-flex items-center gap-1.5 font-semibold text-navy underline underline-offset-2 hover:text-ocean disabled:no-underline disabled:font-normal disabled:text-navy/45"
+                      onClick={() => setWay(way === "qr" ? "app" : "qr")}
+                      className="md:hidden mt-2.5 text-[12px] text-navy/70 underline underline-offset-2 hover:text-navy"
                     >
-                      <RotateCcw size={13} aria-hidden /> {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
+                      {way === "qr" ? "Open WhatsApp on this device instead" : "Show a QR code for another phone instead"}
                     </button>
-                    <button type="button" disabled={busy} onClick={() => { setError(null); setSentTo(null); setOtp(""); }} className="text-navy/70 underline underline-offset-2 hover:text-navy">
+                  </div>
+                  <div>
+                    <p className="text-[12.5px] sm:text-[13px] leading-snug text-navy/75 mb-2">
+                      <b className="text-navy">2.</b> We reply with a 6-digit code. Type it here.
+                    </p>
+                    <label htmlFor="c-otp" className="sr-only">6-digit code</label>
+                    <input
+                      id="c-otp"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      pattern="[0-9]*"
+                      placeholder="Enter the code"
+                      maxLength={6}
+                      autoFocus={way === "app"} // with the QR code the keyboard would cover it on a phone or tablet
+                      className={`${field} text-center text-[24px] tracking-[10px] font-semibold placeholder:text-[15px] placeholder:tracking-normal placeholder:font-normal`}
+                    />
+                    {error && <p role="alert" className="mt-3 text-[13px] text-offer font-semibold">{error}</p>}
+                    <button type="submit" disabled={busy || otp.length !== 6} className={`${button} w-full mt-4 disabled:opacity-60`}>
+                      {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ShieldCheck size={16} aria-hidden />} Verify and play
+                    </button>
+                    <p className="text-[12px] leading-snug text-navy/60 mt-3">Didn&rsquo;t get a code? Send {OTP_REQUEST_TEXT} again: we reply with a new one.</p>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => { setError(null); setSentTo(null); setOtp(""); setResendAt(0); }}
+                      className="mt-2 text-[12px] text-navy/70 underline underline-offset-2 hover:text-navy"
+                    >
                       Change number
+                    </button>
+                    <button type="button" disabled={busy} onClick={newPlayer} className="mt-2 ml-4 text-[12px] text-navy/70 underline underline-offset-2 hover:text-navy">
+                      New player
                     </button>
                   </div>
                 </div>
               </form>
             )}
 
-            {mode === "claim" && claim && <ClaimCard claim={claim} busy={busy || pendingChance !== null} error={error} raceOver={state.phase === "over"} onStart={startChance} onKeep={keepScore} onFree={playFree} card={card} button={button} buttonAlt={buttonAlt} closeX={closeX} />}
+            {!askNew && mode === "claim" && claim && <ClaimCard claim={claim} busy={busy || pendingChance !== null} error={error} raceOver={state.phase === "over"} onStart={startChance} onKeep={keepScore} onFree={playFree} onNext={tablet ? nextPlayer : undefined} onNew={newPlayer} card={card} button={button} buttonAlt={buttonAlt} closeX={closeX} />}
 
             {mode === "free" && state.phase === "over" && (
               <div className={card} role="status">
@@ -858,6 +996,8 @@ function ClaimCard({
   onStart,
   onKeep,
   onFree,
+  onNext,
+  onNew,
   card,
   button,
   buttonAlt,
@@ -870,6 +1010,8 @@ function ClaimCard({
   onStart: () => void;
   onKeep: (chance?: number) => void;
   onFree: () => void;
+  onNext?: () => void; // on the restaurant's tablet: done, the next customer's turn
+  onNew: () => void; // cancels this player here, finished or not (asks first)
   card: string;
   button: string;
   buttonAlt: string;
@@ -1008,9 +1150,29 @@ function ClaimCard({
         </>
       )}
       {error && <p role="alert" className="mt-3 text-[13px] text-offer font-semibold">{error}</p>}
-      <button type="button" className="mt-4 text-[12px] text-navy/60 underline underline-offset-2 hover:text-navy" onClick={onFree} disabled={busy}>
-        Play free instead
-      </button>
+      {onNext ? (
+        <>
+          {finished && c.percent > 0 && c.status === "open" && <p className="mt-3 text-[12px] text-navy/70">Take a photo of your code. Staff can also find it by your phone number.</p>}
+          {finished || nothing ? (
+            <button type="button" className={`${button} w-full mt-4`} onClick={onNext} disabled={busy}>
+              Finish: next player
+            </button>
+          ) : (
+            <button type="button" className={`${buttonAlt} w-full mt-4`} onClick={onNew} disabled={busy}>
+              <UserPlus size={16} aria-hidden /> New player
+            </button>
+          )}
+        </>
+      ) : (
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+          <button type="button" className="text-[12px] text-navy/60 underline underline-offset-2 hover:text-navy" onClick={onFree} disabled={busy}>
+            Play free instead
+          </button>
+          <button type="button" className="text-[12px] text-navy/60 underline underline-offset-2 hover:text-navy" onClick={onNew} disabled={busy}>
+            Not {firstName(c.name)}? New player
+          </button>
+        </div>
+      )}
     </div>
   );
 }

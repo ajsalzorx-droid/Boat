@@ -6,6 +6,7 @@ import { getDb, newId } from '@/lib/mongodb'
 import { clientIp, hit, hits, looksLikeBot, type FormGuard } from '@/lib/rate-limit'
 import { randomInt } from 'node:crypto'
 import { checkOtp, issueOtp, OTP_DIGITS } from '@/lib/game-otp'
+import { isGameTablet } from '@/lib/game-tablet'
 import { dropIfNoDiscount, playedToday } from '@/lib/game-played'
 import { MIN_H, MIN_W, replayRace, STEP, type Input } from './sim'
 import { dubaiNow, whatsappDigits } from '@/lib/bookings'
@@ -83,6 +84,7 @@ const WINDOW_MS = 10 * 60_000
 const MAX_REGISTER_SITE = 300
 // Codes typed in the game: tries per network (each code also allows only a few wrong tries)
 const VERIFY_PER_IP = 30
+const VERIFY_PER_TABLET = 200 // the restaurant's tablet
 const VERIFY_WINDOW_MS = 15 * 60_000
 // New claims (different numbers) a day: per device, and per network. The restaurant's Wi-Fi is one
 // network for every guest, so that limit is kept high; the device one does the work
@@ -177,7 +179,11 @@ export async function verifyClaimCode(input: ClaimPlayerInput, code: string, gua
   const phone = whatsappDigits(input.phone.trim())
   try {
     const ip = await clientIp()
-    const [overIp, overSite] = await Promise.all([hit(`otp-verify-ip:${ip}`, VERIFY_PER_IP, VERIFY_WINDOW_MS), hit('claim-site', MAX_REGISTER_SITE, WINDOW_MS)])
+    const tablet = await isGameTablet()
+    const [overIp, overSite] = await Promise.all([
+      tablet ? hit(`otp-verify-tablet:${await deviceId()}`, VERIFY_PER_TABLET, VERIFY_WINDOW_MS) : hit(`otp-verify-ip:${ip}`, VERIFY_PER_IP, VERIFY_WINDOW_MS),
+      hit('claim-site', MAX_REGISTER_SITE, WINDOW_MS),
+    ])
     if (overIp || overSite) return { ok: false, error: 'Too many tries right now. Please wait a few minutes.' }
     const check = await checkOtp(phone, typed)
     if (!check.ok) return check
@@ -185,6 +191,16 @@ export async function verifyClaimCode(input: ClaimPlayerInput, code: string, gua
   } catch (e) {
     console.error('verifyClaimCode failed:', e)
     return { ok: false, error: GENERIC_ERROR }
+  }
+}
+
+// Is the game running on the restaurant's tablet (src/lib/game-tablet.ts)?
+export async function onGameTablet(): Promise<boolean> {
+  try {
+    return await isGameTablet()
+  } catch (e) {
+    console.error('onGameTablet failed:', e)
+    return false
   }
 }
 
@@ -213,6 +229,7 @@ export async function checkNumberToday(phoneTyped: string): Promise<{ error: str
     const day = dubaiNow().date
     if (await (await claims()).findOne({ phone, day }, { projection: { _id: 1 } })) return { error: null } // today's claim comes back
     if (await playedToday(phone, day)) return { error: PLAYED_TODAY }
+    if (await isGameTablet()) return { error: null } // many customers, one device
     const [deviceCount, ipCount] = await Promise.all([hits(`claim-new-device:${await deviceId()}`, DAY_MS), hits(`claim-new-ip:${await clientIp()}`, DAY_MS)])
     if (deviceCount >= NEW_CLAIMS_PER_DEVICE || ipCount >= NEW_CLAIMS_PER_IP) return { error: OTHER_NUMBER_TODAY }
     return { error: null }
@@ -235,8 +252,9 @@ async function claimFor(phone: string, otp: Player): Promise<ClaimResult> {
     return { ok: false, error: PLAYED_TODAY }
   if (!doc) {
     const ip = await clientIp()
+    const tablet = await isGameTablet() // many customers, one device: no limit per device or network
     const [deviceCount, ipCount] = await Promise.all([hits(`claim-new-device:${device}`, DAY_MS), hits(`claim-new-ip:${ip}`, DAY_MS)])
-    if (deviceCount >= NEW_CLAIMS_PER_DEVICE || ipCount >= NEW_CLAIMS_PER_IP)
+    if (!tablet && (deviceCount >= NEW_CLAIMS_PER_DEVICE || ipCount >= NEW_CLAIMS_PER_IP))
       return { ok: false, error: OTHER_NUMBER_TODAY }
     for (let tries = 0; !doc && tries < 5; tries++) {
       const fresh: ClaimDoc = {
@@ -270,7 +288,7 @@ async function claimFor(phone: string, otp: Player): Promise<ClaimResult> {
       }
     }
     if (!doc) return { ok: false, error: GENERIC_ERROR }
-    await Promise.all([hit(`claim-new-device:${device}`, NEW_CLAIMS_PER_DEVICE, DAY_MS), hit(`claim-new-ip:${ip}`, NEW_CLAIMS_PER_IP, DAY_MS)])
+    if (!tablet) await Promise.all([hit(`claim-new-device:${device}`, NEW_CLAIMS_PER_DEVICE, DAY_MS), hit(`claim-new-ip:${ip}`, NEW_CLAIMS_PER_IP, DAY_MS)])
   }
 
   // The number joins the customer list; agreeing to offers only if they ticked the box now
@@ -301,6 +319,23 @@ export async function getClaim(claimId: string): Promise<ClaimResult> {
   } catch (e) {
     console.error('getClaim failed:', e)
     return { ok: false, error: GENERIC_ERROR }
+  }
+}
+
+// "New player": the customer before left, finished or not. This device can no longer play or see
+// their claim. Nothing of theirs is lost: their races left and their discount stay with their number,
+// and a new WhatsApp code brings the claim back, on this device or their own phone
+const RELEASED = 'released' // never a device's id (those are longer)
+export async function leaveClaim(claimId: string): Promise<{ ok: boolean }> {
+  try {
+    const col = await claims()
+    const doc = await col.findOne({ _id: String(claimId) })
+    if (!doc || !(await onThisDevice(doc))) return { ok: false }
+    await col.updateOne({ _id: doc._id }, { $set: { device_id: RELEASED } })
+    return { ok: true }
+  } catch (e) {
+    console.error('leaveClaim failed:', e)
+    return { ok: false }
   }
 }
 
