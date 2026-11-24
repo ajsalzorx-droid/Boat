@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { loadFlipSounds, playFlipSound } from "@/lib/flip-sound";
+import { wheelTurner } from "@/lib/wheel-turn";
 
 /**
  * Magazine-style flip book (3D page curl, shadows, swipe), like a Heyzine flipbook, but the
@@ -62,9 +63,11 @@ export default function FlipBook({
   const jumpRef = useRef(false); // the next turn skips pages (contents list): longer sound
 
   const pageRef = useRef<number | null>(null); // last page shown, to reopen there after a rebuild
+  const targetRef = useRef<number | null>(null); // page a jump is turning to
 
   const [ready, setReady] = useState(false);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(0); // page open, or being turned to
+  const [settled, setSettled] = useState(0); // page open once the turn has ended
   // Two pages side by side on a screen wider than tall (desktop, tablet or phone turned sideways),
   // one page on an upright phone or tablet. null on the server, before the screen is known.
   const twoPages = useSyncExternalStore(subscribeResize, () => window.innerWidth > window.innerHeight, () => null);
@@ -140,7 +143,7 @@ export default function FlipBook({
       const bookWidth = mountRef.current.clientWidth || 1;
       const minWidth = twoPages ? Math.min(100, bookWidth) : Math.ceil(bookWidth * 0.55);
 
-      book = new PageFlip(root, {
+      const instance = new PageFlip(root, {
         startPage,
         size: "stretch",
         width: Math.round(560 * pageRatio),
@@ -160,15 +163,32 @@ export default function FlipBook({
         showPageCorners: true,
       });
 
-      book.on("init", (e) => {
+      book = instance;
+
+      instance.on("init", (e) => {
         void loadFlipSounds();
         setPage(e.data.page);
+        setSettled(e.data.page);
         pageRef.current = e.data.page;
+
+        // As a turn starts, the page it leads to: a closed book slides to / from the middle together
+        // with the turn (page-flip itself only reports the page once the turn has ended)
+        const flip = instance.getFlipController();
+        const animate = flip.animateFlippingTo.bind(flip);
+        flip.animateFlippingTo = (from, to, isTurned, needReset) => {
+          if (isTurned) {
+            const back = flip.getCalculation()?.getDirection() === 1;
+            setPage(targetRef.current ?? pageBeside(pageRef.current ?? 0, back ? -1 : 1, pages.length, twoPages));
+            targetRef.current = null;
+          }
+          animate(from, to, isTurned, needReset);
+        };
+
         setReady(true);
       });
       // Sound as the page starts to move (button, key, click or a released drag), and a quiet
       // rustle when the mouse lifts a page corner
-      book.on("changeState", (e) => {
+      instance.on("changeState", (e) => {
         if (!soundRef.current) return;
         if (e.data === "flipping") {
           void playFlipSound(jumpRef.current ? "lg" : "md");
@@ -177,9 +197,10 @@ export default function FlipBook({
           void playFlipSound("sm");
         }
       });
-      book.on("flip", (e) => {
+      instance.on("flip", (e) => {
         setZoomed(false); // a new page opens at normal size
         setPage(e.data);
+        setSettled(e.data);
         pageRef.current = e.data;
         // #page-N for pages after the cover (shareable); the cover keeps a clean address
         if (!controlsRef.current.pageLink) return;
@@ -188,12 +209,13 @@ export default function FlipBook({
           window.history.replaceState(null, "", hash || window.location.pathname + window.location.search);
       });
 
-      book.loadFromHTML(pages);
-      bookRef.current = book;
+      instance.loadFromHTML(pages);
+      bookRef.current = instance;
     });
 
     return () => {
       cancelled = true;
+      targetRef.current = null;
       book?.destroy();
       bookRef.current = null;
     };
@@ -222,43 +244,24 @@ export default function FlipBook({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Scrolling turns the pages: mouse wheel or trackpad, up/down or sideways. Down or right is the
-  // next page. One gesture turns one page: a trackpad keeps sending scroll events while it coasts,
-  // so the next page needs a new scroll after a short pause.
+  // Scrolling turns the pages: mouse wheel or trackpad, up/down or sideways
   useEffect(() => {
-    let total = 0; // scroll distance gathered in this gesture
-    let lastEvent = 0;
-    let turnedInGesture = false;
-
+    const turner = wheelTurner({
+      isTurning: () => ["flipping", "user_fold"].includes(bookRef.current?.getState() ?? ""),
+      turn: (direction) => (direction > 0 ? bookRef.current?.flipNext() : bookRef.current?.flipPrev()),
+    });
     const onWheel = (e: WheelEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (e.ctrlKey || target?.closest("[data-own-scroll]")) return; // pinch zoom, the contents list
+      if (e.ctrlKey || (e.target instanceof Element && e.target.closest("[data-own-scroll]"))) return; // pinch zoom, the contents list
       if (!controlsRef.current.wheel) return; // turned off in the Controls panel: the page scrolls
       e.preventDefault(); // no page scroll, and no browser back/forward swipe
       if (zoomedRef.current) return; // zoomed in: the pointer pans, the wheel does not turn pages
-
-      const now = performance.now();
-      if (now - lastEvent > 250) {
-        // A new gesture after a pause
-        total = 0;
-        turnedInGesture = false;
-      }
-      lastEvent = now;
-      if (turnedInGesture) return;
-
-      const lineHeight = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
-      const delta = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * lineHeight;
-      total += delta;
-      if (Math.abs(total) < 60) return;
-
-      if (total > 0) bookRef.current?.flipNext();
-      else bookRef.current?.flipPrev();
-      total = 0;
-      turnedInGesture = true;
+      turner.onWheel(e);
     };
-
     window.addEventListener("wheel", onWheel, { passive: false });
-    return () => window.removeEventListener("wheel", onWheel);
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      turner.stop();
+    };
   }, []);
 
   useEffect(() => {
@@ -377,7 +380,9 @@ export default function FlipBook({
     setShowSearch(false);
     // More than one spread away: the turn gets the longer "riffle" sound
     jumpRef.current = Math.abs(index - (pageRef.current ?? 0)) > (orientation === "landscape" ? 2 : 1);
+    targetRef.current = orientation === "landscape" ? firstOfSpread(index) : index;
     bookRef.current?.flip(index);
+    targetRef.current = null; // used as the turn started; not kept if there was nothing to turn
   };
 
   // "Pages 4–5" in a two-page spread, "Page 4" otherwise
@@ -394,12 +399,17 @@ export default function FlipBook({
   const backOnly = landscape && page > 0 && page === total - 1;
   const shift = coverOnly ? -25 : backOnly ? 25 : 0;
 
-  // Paper edges along the outer sides, for the pages under the open ones
-  const leftShown = landscape ? page > 0 : true;
-  const rightShown = landscape ? !backOnly : true;
-  const lastShown = landscape && spread ? page + 1 : page;
-  const pagesLeft = leftShown ? page : 0;
-  const pagesRight = rightShown ? total - 1 - lastShown : 0;
+  // Paper edges along the outer sides, for the pages under the open ones. During a turn, only on a
+  // side covered both before and after it, so none hang in the air.
+  const under = (p: number) => {
+    const alone = landscape && (p === 0 || p >= total - 1);
+    return {
+      left: landscape && p === 0 ? 0 : p,
+      right: landscape && p > 0 && p === total - 1 ? 0 : total - 1 - (landscape && !alone ? p + 1 : p),
+    };
+  };
+  const pagesLeft = Math.min(under(page).left, under(settled).left);
+  const pagesRight = Math.min(under(page).right, under(settled).right);
 
   return (
     <div
@@ -995,6 +1005,18 @@ function Choice<T extends string>({
       </div>
     </div>
   );
+}
+
+// The first page of the spread a page is in. Two pages: cover, 2–3, 4–5, …
+const firstOfSpread = (page: number) => (page === 0 || page % 2 ? page : page - 1);
+
+// The page (the first of its spread) one turn after or before this one
+function pageBeside(page: number, direction: 1 | -1, total: number, twoPages: boolean) {
+  const last = total - 1;
+  if (!twoPages) return Math.min(Math.max(page + direction, 0), last);
+  const first = firstOfSpread(page);
+  if (direction > 0) return first === 0 ? Math.min(1, last) : first + 2 <= last ? first + 2 : first;
+  return first <= 1 ? 0 : first - 2;
 }
 
 function subscribeResize(onChange: () => void) {

@@ -9,6 +9,7 @@ import { PagesPanel, SearchPanel, SharePanel } from "@/components/MenuBookPanels
 import { MENU_BOOK_PAGES } from "@/data/menu-book";
 import { loadFlipSounds, playFlipSound } from "@/lib/flip-sound";
 import { MENU_BOOK_PAGE_COUNT, MENU_BOOK_PDF_NAME, MENU_BOOK_PDF_URL, MENU_BOOK_RATIO, menuBookImage, menuBookViews } from "@/lib/menu-book";
+import { wheelTurner } from "@/lib/wheel-turn";
 import { whatsapp } from "@/lib/whatsapp";
 
 /**
@@ -225,29 +226,22 @@ export default function MenuBook() {
     return () => window.removeEventListener("keydown", onKey);
   }, [next, prev]);
 
-  // The mouse wheel turns one page per gesture (a trackpad keeps sending events while it coasts)
+  // Scrolling turns the pages: mouse wheel or trackpad
   useEffect(() => {
     const stage = stageRef.current;
-    let gathered = 0;
-    let last = 0;
-    let turned = false;
+    const turner = wheelTurner({
+      isTurning: () => ["flipping", "user_fold"].includes(bookRef.current?.getState() ?? ""),
+      turn: (direction) => (direction > 0 ? next() : prev()),
+    });
     const onWheel = (e: WheelEvent) => {
       if (zoomed || e.ctrlKey || (e.target instanceof Element && e.target.closest("[data-own-scroll]"))) return;
-      const now = performance.now();
-      if (now - last > 250) {
-        gathered = 0;
-        turned = false;
-      }
-      last = now;
-      if (turned) return;
-      gathered += (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * (e.deltaMode === 1 ? 16 : 1);
-      if (Math.abs(gathered) < 60) return;
-      if (gathered > 0) next();
-      else prev();
-      turned = true;
+      turner.onWheel(e);
     };
     stage?.addEventListener("wheel", onWheel, { passive: true });
-    return () => stage?.removeEventListener("wheel", onWheel);
+    return () => {
+      stage?.removeEventListener("wheel", onWheel);
+      turner.stop();
+    };
   }, [next, prev, zoomed]);
 
   useEffect(() => {
