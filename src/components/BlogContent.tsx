@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { isExternal, parseInline } from "@/lib/blog";
-import type { BlogPiece } from "@/lib/blog-layout";
+import { blogSrc, blogSrcSet, type BlogPiece } from "@/lib/blog-layout";
 import type { HeadingTag } from "@/lib/heading-style";
 
 // A blog post's body (server component). Text is rendered as React text, never as HTML, so
@@ -109,7 +109,7 @@ export default function BlogContent({ pieces }: { pieces: BlogPiece[] }) {
           return (
             <figure key={i} className="py-3 md:py-5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.src} alt={p.alt} loading="lazy" decoding="async" className="block w-auto h-auto max-w-full max-h-[70vh] md:max-h-[640px] mx-auto rounded-2xl shadow-lg" />
+              <img src={blogSrc(p.src, 1200)} srcSet={blogSrcSet(p.src)} sizes="(min-width: 1024px) 700px, 100vw" alt={p.alt} loading="lazy" decoding="async" className="block w-auto h-auto max-w-full max-h-[70vh] md:max-h-[640px] mx-auto rounded-2xl shadow-lg" />
               {p.caption && <figcaption className="mt-3 text-sm text-navy/60 text-center italic">{p.caption}</figcaption>}
             </figure>
           );

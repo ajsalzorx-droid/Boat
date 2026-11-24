@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, CalendarDays, Clock, Utensils } from "lucide-react";
 import BlogContent from "@/components/BlogContent";
 import BlogShare from "@/components/BlogShare";
-import { blogContents, blogPieces } from "@/lib/blog-layout";
+import { blogContents, blogPieces, blogSrc, blogSrcSet } from "@/lib/blog-layout";
 import type { BlogPost, BlogPostInput } from "@/lib/blog";
 
 // A blog post's page: on the site (src/app/blog/[slug]/page.tsx) and in the studio's preview
@@ -96,7 +96,9 @@ export default function BlogArticle({ post, date, dateTime, readTime, url, more 
             <div className="hidden lg:block">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={cover}
+                src={blogSrc(cover, 1200)}
+                srcSet={blogSrcSet(cover)}
+                sizes="(min-width: 1024px) 480px, 100vw"
                 alt={post.cover_alt}
                 fetchPriority="high"
                 decoding="async"
@@ -112,7 +114,9 @@ export default function BlogArticle({ post, date, dateTime, readTime, url, more 
         {cover && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={cover}
+            src={blogSrc(cover, 1200)}
+            srcSet={blogSrcSet(cover)}
+            sizes="(min-width: 1024px) 480px, 100vw"
             alt={post.cover_alt}
             decoding="async"
             className="lg:hidden relative -mt-14 sm:-mt-20 aspect-[4/3] sm:aspect-[16/9] w-full rounded-2xl sm:rounded-3xl object-cover shadow-xl"
@@ -185,7 +189,7 @@ export default function BlogArticle({ post, date, dateTime, readTime, url, more 
                   <div className="aspect-[4/3] overflow-hidden rounded-2xl bg-navy/10 mb-4">
                     {m.cover_image && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.cover_image} alt={m.cover_alt} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                      <img src={blogSrc(m.cover_image, 800)} srcSet={blogSrcSet(m.cover_image)} sizes="(min-width: 1024px) 350px, (min-width: 640px) 50vw, 100vw" alt={m.cover_alt} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                     )}
                   </div>
                   <p className="text-[12px] text-navy/60 mb-1.5">{moreDates[i]}</p>
