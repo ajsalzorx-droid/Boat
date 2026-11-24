@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Clock } from "lucide-react";
+import { ArrowRight, CalendarDays, Clock, Fish } from "lucide-react";
 import BlogContent from "@/components/BlogContent";
+import BlogGrid from "@/components/BlogGrid";
 import { Heading, StyledHeading } from "@/components/ContentText";
 import { blogPieces, blogSrc, blogSrcSet } from "@/lib/blog-layout";
 import { readingMinutes, type BlogPost } from "@/lib/blog";
 import type { SectionData } from "@/lib/content";
 
-// The blog's front page (src/app/blog/page.tsx): title and photo, the newest post large, the others
-// as cards, then the rest of the page's text. The texts come from SEO Studio -> Pages -> Blog.
+// The blog's front page (src/app/blog/page.tsx): title and photo, the posts, then the rest of the page's text. The texts come from SEO Studio -> Pages -> Blog.
 
 type Intro = { image: string; alt: string; title: string; titleStyle?: string; body: string };
 type Props = { hero: SectionData; intro: Intro; posts: BlogPost[]; dateText: (iso: string | null) => string };
@@ -35,10 +35,14 @@ export default function BlogIndex({ hero, intro, posts, dateText }: Props) {
   const lead = pieces[0]?.type === "paragraph" ? pieces[0].text : "";
   const rest = lead ? pieces.slice(1) : pieces;
   const introPieces = blogPieces(intro.body ? [{ type: "paragraph", text: intro.body }] : []);
-  const [first, ...others] = posts;
+  // One post: a wide card. Two: side by side. More: the newest wide, the others as cards under it
+  const wide = posts.length === 2 ? null : posts[0];
+  const cards = wide ? posts.slice(1) : posts;
+  const twoColumns = cards.length === 2 || cards.length === 4; // rows without gaps
+  const lift = "-mt-10 md:-mt-14"; // over the edge of the title area
 
-  const meta = (p: BlogPost, dark = false) => (
-    <div className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] ${dark ? "text-white/70" : "text-navy/65"}`}>
+  const meta = (p: BlogPost) => (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] font-normal text-navy/70">
       {p.published_at && (
         <span className="inline-flex items-center gap-1.5">
           <CalendarDays size={14} className="text-ocean" aria-hidden /> <time dateTime={p.published_at}>{dateText(p.published_at)}</time>
@@ -48,6 +52,18 @@ export default function BlogIndex({ hero, intro, posts, dateText }: Props) {
         <Clock size={14} className="text-ocean" aria-hidden /> {(f.read_time || "{n} min read").replaceAll("{n}", String(readingMinutes(p.blocks)))}
       </span>
     </div>
+  );
+  const readMore = (
+    <span aria-hidden className="inline-flex items-center gap-2 text-[12px] tracking-[2px] uppercase font-bold text-navy">
+      Read more <ArrowRight size={16} className="text-ocean transition-transform group-hover:translate-x-1" />
+    </span>
+  );
+  const titleHover = "text-navy underline decoration-transparent decoration-2 underline-offset-4 group-hover:decoration-ocean transition-colors";
+  // A post without a cover photo still has a picture-sized place
+  const noPhoto = (
+    <span aria-hidden className="absolute inset-0 flex items-center justify-center bg-[linear-gradient(135deg,#003049,#1f5577)] text-ocean-light">
+      <Fish size={48} strokeWidth={1.25} />
+    </span>
   );
 
   return (
@@ -80,55 +96,69 @@ export default function BlogIndex({ hero, intro, posts, dateText }: Props) {
         </div>
       </section>
 
-      {first ? (
+      {posts.length > 0 ? (
         <section aria-label="Posts" className="mx-auto max-w-6xl px-5 sm:px-8 lg:px-12">
-          {/* The newest post, over the edge of the title area */}
-          <article className="group relative -mt-10 md:-mt-14 overflow-hidden rounded-3xl bg-[#fffaf0] border border-navy/10 shadow-xl">
-            <Link href={`/blog/${first.slug}`} className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-              <div className="aspect-[4/3] sm:aspect-[16/9] lg:aspect-auto lg:min-h-[400px] relative overflow-hidden bg-navy/10">
-                {first.cover_image && (
-                  <Photo
-                    src={first.cover_image}
-                    alt={first.cover_alt}
-                    eager={!intro.image}
-                    sizes="(min-width: 1024px) 560px, 100vw"
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
-                  />
-                )}
-              </div>
-              <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10 xl:p-12">
-                {meta(first)}
-                <StyledHeading as="h2" choice={f.post_style} className="mt-3 font-playfair text-[24px] sm:text-[28px] lg:text-[34px] font-bold text-navy leading-[1.18] text-balance break-words group-hover:text-ocean transition-colors">
-                  {first.title}
-                </StyledHeading>
-                {first.description && <p className="mt-3 md:mt-4 text-[16px] font-normal leading-relaxed text-navy/75">{first.description}</p>}
-                <span aria-hidden className="mt-5 md:mt-6 inline-flex items-center gap-2 text-[12px] tracking-[2px] uppercase font-bold text-navy">
-                  Read more <ArrowRight size={16} className="text-ocean transition-transform group-hover:translate-x-1" />
-                </span>
-              </div>
-            </Link>
-          </article>
+          {wide && (
+            <article className={`group relative ${lift} overflow-hidden rounded-3xl bg-[#fffaf0] border border-navy/10 shadow-xl`}>
+              <Link href={`/blog/${wide.slug}`} className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+                <div className="aspect-[4/3] sm:aspect-[16/9] lg:aspect-auto lg:min-h-[400px] relative overflow-hidden bg-navy/10">
+                  {wide.cover_image ? (
+                    <Photo
+                      src={wide.cover_image}
+                      alt={wide.cover_alt}
+                      eager={!intro.image}
+                      sizes="(min-width: 1024px) 560px, 100vw"
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+                    />
+                  ) : (
+                    noPhoto
+                  )}
+                  {cards.length > 0 && (
+                    <span className="absolute left-4 top-4 rounded-full bg-cream px-3.5 py-1.5 text-[10px] tracking-[2px] uppercase font-bold text-navy shadow">Latest</span>
+                  )}
+                </div>
+                <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10 xl:p-12">
+                  {meta(wide)}
+                  <StyledHeading as="h2" choice={f.post_style} className={`mt-3 font-playfair text-[24px] sm:text-[28px] lg:text-[34px] font-bold leading-[1.18] text-balance break-words ${titleHover}`}>
+                    {wide.title}
+                  </StyledHeading>
+                  {wide.description && <p className="mt-3 md:mt-4 mb-5 md:mb-6 text-[16px] font-normal leading-relaxed text-navy/75">{wide.description}</p>}
+                  {readMore}
+                </div>
+              </Link>
+            </article>
+          )}
 
-          {others.length > 0 && (
-            <div className="mt-10 md:mt-14 grid gap-7 sm:grid-cols-2 lg:grid-cols-3 lg:gap-9">
-              {others.map((p) => (
-                <article key={p.id} className="group flex overflow-hidden rounded-2xl bg-white/55 border border-navy/10 hover:shadow-lg transition-shadow">
-                  <Link href={`/blog/${p.slug}`} className="flex w-full flex-col">
-                    <div className="aspect-[4/3] overflow-hidden bg-navy/10">
-                      {p.cover_image && (
-                        <Photo src={p.cover_image} alt={p.cover_alt} sizes="(min-width: 1024px) 350px, (min-width: 640px) 50vw, 100vw" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                      )}
-                    </div>
-                    <div className="flex flex-1 flex-col p-5 md:p-6">
-                      {meta(p)}
-                      <StyledHeading as="h2" choice={f.post_style} className="mt-2.5 font-playfair text-xl font-bold text-navy leading-snug break-words group-hover:text-ocean transition-colors">
-                        {p.title}
-                      </StyledHeading>
-                      <p className="mt-2 text-[15px] font-normal leading-relaxed text-navy/70 line-clamp-3">{p.description}</p>
-                    </div>
-                  </Link>
-                </article>
-              ))}
+          {cards.length > 0 && (
+            <div className={wide ? "mt-10 md:mt-14" : `relative ${lift}`}>
+              <BlogGrid step={6} above={wide ? 1 : 0} className={`grid gap-6 sm:grid-cols-2 lg:gap-8 ${twoColumns ? "" : "lg:grid-cols-3"}`}>
+                {cards.map((p) => (
+                  <article key={p.id} className={`group flex w-full overflow-hidden rounded-2xl bg-[#fffaf0] border border-navy/10 hover:shadow-xl transition-shadow ${wide ? "shadow-sm" : "shadow-xl"}`}>
+                    <Link href={`/blog/${p.slug}`} className="flex w-full min-w-0 flex-col">
+                      <div className={`relative overflow-hidden bg-navy/10 ${twoColumns ? "aspect-[16/10]" : "aspect-[4/3]"}`}>
+                        {p.cover_image ? (
+                          <Photo
+                            src={p.cover_image}
+                            alt={p.cover_alt}
+                            sizes={`(min-width: 1024px) ${twoColumns ? 540 : 350}px, (min-width: 640px) 50vw, 100vw`}
+                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                          />
+                        ) : (
+                          noPhoto
+                        )}
+                      </div>
+                      <div className="flex flex-1 flex-col p-5 md:p-6">
+                        {meta(p)}
+                        <StyledHeading as="h2" choice={f.post_style} className={`mt-2.5 font-playfair ${twoColumns ? "text-xl md:text-2xl" : "text-xl"} font-bold leading-snug text-balance break-words line-clamp-3 ${titleHover}`}>
+                          {p.title}
+                        </StyledHeading>
+                        {p.description && <p className="mt-2 text-[15px] font-normal leading-relaxed text-navy/70 line-clamp-3">{p.description}</p>}
+                        <div className="mt-auto pt-5">{readMore}</div>
+                      </div>
+                    </Link>
+                  </article>
+                ))}
+              </BlogGrid>
             </div>
           )}
         </section>
