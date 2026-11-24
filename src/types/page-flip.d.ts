@@ -29,7 +29,7 @@ declare module "page-flip" {
 
   export type PageFlipEvent<T> = { data: T; object: PageFlip };
 
-  // Internals MenuBook.tsx hooks into, to turn pages at its own speed
+  // Internals the books hook into: the start of a turn, and (MenuBook.tsx) its speed
   export type FlipPoint = { x: number; y: number };
   export type FlipController = {
     animateFlippingTo(start: FlipPoint, dest: FlipPoint, isTurned: boolean, needReset?: boolean): void;
@@ -51,6 +51,7 @@ declare module "page-flip" {
     getOrientation(): Orientation;
     getFlipController(): FlipController;
     getRender(): FlipRender;
+    getState(): "read" | "flipping" | "user_fold" | "fold_corner";
     getPage(index: number): { setDensity(density: "soft" | "hard"): void };
     on(event: "flip", cb: (e: PageFlipEvent<number>) => void): PageFlip;
     on(event: "init", cb: (e: PageFlipEvent<{ page: number; mode: Orientation }>) => void): PageFlip;
