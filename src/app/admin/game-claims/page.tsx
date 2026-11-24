@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Gamepad2, Fish, Phone, MessageCircle, RefreshCw, Receipt, Check, Clock, BellRing, Trash2 } from "lucide-react";
-import { applyGameClaim, deleteGameClaim, type GameClaimFilter, type GameClaimRow } from "../actions";
+import { Gamepad2, Fish, Phone, MessageCircle, RefreshCw, Receipt, Check, Clock, BellRing, Trash2, Tablet } from "lucide-react";
+import { applyGameClaim, deleteGameClaim, getGameTablet, switchGameTablet, type GameClaimFilter, type GameClaimRow } from "../actions";
 import { actionFailed, confirmDialog } from "../client-helpers";
 import { toast } from "../Toaster";
 import Pagination from "../Pagination";
@@ -77,6 +77,33 @@ export default function AdminGameClaimsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only bumps a counter
   }, []);
 
+  // This browser as the game tablet for customers (null = not known yet)
+  const [tablet, setTablet] = useState<boolean | null>(null);
+  const [switching, setSwitching] = useState(false);
+  useEffect(() => {
+    getGameTablet()
+      .then((res) => res.ok && setTablet(res.data ?? false))
+      .catch(() => {});
+  }, []);
+  const toggleTablet = async () => {
+    const on = !tablet;
+    if (
+      on &&
+      !(await confirmDialog({
+        title: "Use this device as the game tablet?",
+        text: "Do this only on the restaurant's own tablet: customers can then play on it one after the other, each with their own number. Sign out of admin on it afterwards.",
+        confirmText: "Yes, use it",
+      }))
+    )
+      return;
+    setSwitching(true);
+    const res = await switchGameTablet(on);
+    setSwitching(false);
+    if (actionFailed(res)) return;
+    setTablet(on);
+    toast(on ? "This device is now the game tablet. Sign out of admin before giving it to customers." : "This device is no longer the game tablet.");
+  };
+
   const showFilter = (f: GameClaimFilter) => {
     setFilter(f);
     setPage(0);
@@ -96,10 +123,25 @@ export default function AdminGameClaimsPage() {
             Catbo Racing discounts: {RULES}. Search the customer&rsquo;s code and apply it to their bill. One game discount per bill: a group uses one person&rsquo;s code.
           </p>
         </div>
-        <button onClick={reload} className="flex items-center justify-center gap-2 whitespace-nowrap bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 px-4 py-2 rounded-lg transition-all shrink-0">
-          <RefreshCw size={16} />
-          <span className="text-xs font-bold uppercase tracking-wider">Refresh</span>
-        </button>
+        <div className="flex flex-wrap gap-2 shrink-0">
+          {tablet !== null && (
+            <button
+              onClick={toggleTablet}
+              disabled={switching}
+              aria-pressed={tablet}
+              className={`flex items-center justify-center gap-2 whitespace-nowrap border px-4 py-2 rounded-lg transition-all disabled:opacity-60 ${
+                tablet ? "bg-navy border-navy text-white" : "bg-white border-gray-200 hover:bg-gray-50 text-gray-600"
+              }`}
+            >
+              <Tablet size={16} />
+              <span className="text-xs font-bold uppercase tracking-wider">{tablet ? "Game tablet: on" : "Use as game tablet"}</span>
+            </button>
+          )}
+          <button onClick={reload} className="flex items-center justify-center gap-2 whitespace-nowrap bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 px-4 py-2 rounded-lg transition-all shrink-0">
+            <RefreshCw size={16} />
+            <span className="text-xs font-bold uppercase tracking-wider">Refresh</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
