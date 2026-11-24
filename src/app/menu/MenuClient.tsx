@@ -141,7 +141,7 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
   return (
     <>
       <Navbar />
-      {/* The profile flip book invitation, each time the menu opens (not when ordering from a table) */}
+      {/* The menu book invitation, each time the menu opens (not when ordering from a table) */}
       <FlipBookPopup key={openOffers ? "offers" : "menu"} skip={!!tableNumber} /> {/* key: restarts when the link switches between the menu and its offers */}
       <main className="bg-white min-h-screen text-navy">
 

@@ -19,10 +19,12 @@ const nextConfig = {
       },
     ],
   },
-  // The flip book has one address; old /seafood-menu-book links (and Google) move to it permanently
+  // Old /seafood-menu-book links (and Google) move to the menu book permanently
   async redirects() {
     return [
-      { source: "/seafood-menu-book", destination: "/profile", permanent: true },
+      { source: "/seafood-menu-book", destination: "/menu-book", permanent: true },
+      // The menu book PDF used to be named as the profile
+      { source: "/boat-seafood-profile.pdf", destination: "/boat-seafood-menu.pdf", permanent: true },
       // The 360° view moved from /virtual-tour; old links keep working
       { source: "/virtual-tour", destination: "/360-view", permanent: true },
       // The printed game QR code (public/images/qr/game-qr.*): the homepage with Catbo Racing open.

@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, X } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 
-// Shown every time the menu page opens: an invitation to the profile flip book (/profile, Heyzine).
+// Shown every time the menu page opens: an invitation to the menu book (/menu-book, Heyzine).
 // Not shown when a table's QR code opened the menu to order (skip).
 //
 // Two forms, for Google: a popup that covers the page right away on a phone counts as an
@@ -78,17 +78,17 @@ export default function FlipBookPopup({ skip = false }: { skip?: boolean }) {
             </span>
             <p className="text-[10px] tracking-[4px] uppercase text-ocean font-bold mb-2">BOAT Seafood Restaurant</p>
             <h2 id="flipbook-popup-title" className="font-playfair text-[26px] leading-tight font-bold text-navy mb-3">
-              Discover our story
+              Open our menu book
             </h2>
-            <p className="text-navy/75 text-[14px] mb-6">Turn the pages of our profile: our seafood, our kitchen and the BOAT experience.</p>
+            <p className="text-navy/75 text-[14px] mb-6">Turn the pages of our menu: fresh seafood, soups, salads and BOAT specials.</p>
             <div className="flex flex-col gap-2.5">
               <Link
-                href="/profile"
+                href="/menu-book"
                 autoFocus
                 onClick={() => setOpen(null)}
                 className="inline-flex items-center justify-center gap-2 bg-navy text-cream rounded-full px-7 py-3.5 text-[12px] tracking-[3px] uppercase font-bold hover:bg-ocean hover:text-navy transition-colors"
               >
-                <BookOpen size={16} aria-hidden /> View flip book
+                <BookOpen size={16} aria-hidden /> View menu book
               </Link>
               <button type="button" onClick={() => setOpen(null)} className="text-[12px] text-navy/60 underline underline-offset-2 hover:text-navy py-1">
                 Continue to the menu
@@ -103,7 +103,7 @@ export default function FlipBookPopup({ skip = false }: { skip?: boolean }) {
       {open === "banner" && (
         <motion.aside
           key="flipbook-banner"
-          aria-label="Our profile flip book"
+          aria-label="Our menu as a flip book"
           className={`fixed left-3 right-[4.75rem] z-[45] md:left-6 md:right-auto md:max-w-sm md:bottom-6 font-jost ${cartCount > 0 ? "bottom-[6.5rem]" : "bottom-[max(0.75rem,env(safe-area-inset-bottom))]"}`}
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -115,11 +115,11 @@ export default function FlipBookPopup({ skip = false }: { skip?: boolean }) {
               <BookOpen size={17} aria-hidden />
             </span>
             <p className="min-w-0 flex-1 text-[12px] leading-tight text-navy">
-              <b className="block text-[13px]">Discover our story</b>
-              <span className="text-navy/65">Our profile flip book</span>
+              <b className="block text-[13px]">Open our menu book</b>
+              <span className="text-navy/65">Our menu as a flip book</span>
             </p>
             <Link
-              href="/profile"
+              href="/menu-book"
               onClick={() => setOpen(null)}
               className="shrink-0 rounded-full bg-navy text-cream px-3 py-2 text-[10.5px] tracking-[1.5px] uppercase font-bold hover:bg-ocean hover:text-navy transition-colors whitespace-nowrap"
             >

@@ -48,8 +48,8 @@ export default function PageEditor({ slug }: { slug: StudioPageSlug }) {
   const dirtyCount = dirtySections.length + (seoDirty ? 1 : 0);
 
   const h1Count = countH1(slug, data.content);
-  // /profile is a fixed page (its H1 is built in); Header & Footer is not a page
-  const h1Problem = slug !== "site" && slug !== "menu-book" && h1Count !== 1;
+  // /menu-book and /profile are fixed pages (their H1 is built in); Header & Footer is not a page
+  const h1Problem = slug !== "site" && slug !== "menu-book" && slug !== "profile" && h1Count !== 1;
 
   const markJustSaved = (id: string) => setJustSaved((prev) => new Set(prev).add(id));
   const refreshPreview = () => setPreviewVersion((v) => v + 1);
