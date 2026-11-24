@@ -1,5 +1,5 @@
 // Minimal types for page-flip 2.0.7 (StPageFlip), which ships without typings.
-// Only the parts used by src/components/FlipBook.tsx.
+// Only the parts used by src/components/FlipBook.tsx and MenuBook.tsx.
 declare module "page-flip" {
   export type FlipSetting = {
     startPage: number;
@@ -29,6 +29,14 @@ declare module "page-flip" {
 
   export type PageFlipEvent<T> = { data: T; object: PageFlip };
 
+  // Internals MenuBook.tsx hooks into, to turn pages at its own speed
+  export type FlipPoint = { x: number; y: number };
+  export type FlipController = {
+    animateFlippingTo(start: FlipPoint, dest: FlipPoint, isTurned: boolean, needReset?: boolean): void;
+    getCalculation(): { getDirection(): number } | null;
+  };
+  export type FlipRender = { startAnimation(frames: (() => void)[], duration: number, onEnd: () => void): void };
+
   export class PageFlip {
     constructor(root: HTMLElement, setting: Partial<FlipSetting>);
     loadFromHTML(items: NodeListOf<HTMLElement> | HTMLElement[]): void;
@@ -41,6 +49,9 @@ declare module "page-flip" {
     getPageCount(): number;
     getCurrentPageIndex(): number;
     getOrientation(): Orientation;
+    getFlipController(): FlipController;
+    getRender(): FlipRender;
+    getPage(index: number): { setDensity(density: "soft" | "hard"): void };
     on(event: "flip", cb: (e: PageFlipEvent<number>) => void): PageFlip;
     on(event: "init", cb: (e: PageFlipEvent<{ page: number; mode: Orientation }>) => void): PageFlip;
     on(event: "changeOrientation", cb: (e: PageFlipEvent<Orientation>) => void): PageFlip;

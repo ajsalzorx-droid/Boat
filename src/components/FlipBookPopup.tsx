@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, X } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 
-// Shown every time the menu page opens: an invitation to the menu book (/menu-book, Heyzine).
+// Shown every time the menu page opens: an invitation to the menu book (/menu-book).
 // Not shown when a table's QR code opened the menu to order (skip).
 //
 // Two forms, for Google: a popup that covers the page right away on a phone counts as an

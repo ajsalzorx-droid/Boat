@@ -235,3 +235,53 @@ html::-webkit-scrollbar-button {
 }
 
 
+
+/* Menu book (src/components/MenuBook.tsx): page shadow, shade along the spine and the page slider */
+.menu-book-mount .stf__item {
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+}
+.menu-book-mount .stf__item.--soft::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.menu-book-mount .stf__item.--soft.--left::after {
+  background: linear-gradient(to right, transparent 95%, rgba(0, 0, 0, 0.2) 100%);
+}
+.menu-book-mount .stf__item.--soft.--right::after {
+  background: linear-gradient(to left, transparent 95%, rgba(0, 0, 0, 0.15) 100%);
+}
+.menu-book-slider {
+  height: 20px;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.menu-book-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #565656 var(--fill), rgba(120, 120, 120, 0.45) var(--fill));
+}
+.menu-book-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #565656 var(--fill), rgba(120, 120, 120, 0.45) var(--fill));
+}
+.menu-book-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 24px;
+  height: 8px;
+  background: transparent;
+}
+.menu-book-slider::-moz-range-thumb {
+  width: 24px;
+  height: 8px;
+  border: 0;
+  background: transparent;
+}
+.menu-book-slider:focus-visible {
+  outline: 2px solid var(--color-ocean);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
