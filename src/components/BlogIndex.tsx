@@ -70,7 +70,7 @@ export default function BlogIndex({ hero, intro, posts, dateText }: Props) {
     <>
       <section className="relative overflow-hidden bg-navy text-white pt-32 md:pt-44 pb-20 md:pb-28">
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(60rem_30rem_at_85%_-10%,rgba(102,155,188,0.35),transparent_65%),radial-gradient(40rem_24rem_at_0%_110%,rgba(102,155,188,0.18),transparent_60%)]" />
-        <div className={`relative mx-auto max-w-6xl px-5 sm:px-8 lg:px-12 ${intro.image ? "grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-center lg:gap-14 xl:gap-20" : ""}`}>
+        <div className={`relative px-8 md:px-20 ${intro.image ? "grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-center lg:gap-14 xl:gap-20" : ""}`}>
           <div className="max-w-3xl">
             {f.eyebrow && (
               <p className="inline-flex items-center gap-3.5 text-[11px] tracking-[3px] md:tracking-[4px] uppercase text-ocean-light font-bold mb-5 md:mb-6">
@@ -97,7 +97,7 @@ export default function BlogIndex({ hero, intro, posts, dateText }: Props) {
       </section>
 
       {posts.length > 0 ? (
-        <section aria-label="Posts" className="mx-auto max-w-6xl px-5 sm:px-8 lg:px-12">
+        <section aria-label="Posts" className="px-8 md:px-20">
           {wide && (
             <article className={`group relative ${lift} overflow-hidden rounded-3xl bg-[#fffaf0] border border-navy/10 shadow-xl`}>
               <Link href={`/blog/${wide.slug}`} className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
@@ -107,7 +107,7 @@ export default function BlogIndex({ hero, intro, posts, dateText }: Props) {
                       src={wide.cover_image}
                       alt={wide.cover_alt}
                       eager={!intro.image}
-                      sizes="(min-width: 1024px) 560px, 100vw"
+                      sizes="(min-width: 1024px) 50vw, 100vw"
                       className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
                     />
                   ) : (
@@ -140,7 +140,7 @@ export default function BlogIndex({ hero, intro, posts, dateText }: Props) {
                           <Photo
                             src={p.cover_image}
                             alt={p.cover_alt}
-                            sizes={`(min-width: 1024px) ${twoColumns ? 540 : 350}px, (min-width: 640px) 50vw, 100vw`}
+                            sizes={`(min-width: 1024px) ${twoColumns ? 46 : 30}vw, (min-width: 640px) 50vw, 100vw`}
                             className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                           />
                         ) : (
@@ -167,17 +167,19 @@ export default function BlogIndex({ hero, intro, posts, dateText }: Props) {
       )}
 
       {(intro.title || introPieces.length > 0 || rest.length > 0) && (
-        <section aria-label="About" className="mx-auto max-w-3xl px-5 sm:px-8 pt-14 md:pt-20">
-          {intro.title && (
-            <StyledHeading as="h2" choice={intro.titleStyle} className="font-playfair text-2xl md:text-3xl font-bold text-navy mb-5 leading-tight text-balance">
-              {intro.title}
-            </StyledHeading>
-          )}
-          <BlogContent pieces={[...introPieces, ...rest]} />
+        <section aria-label="About" className="px-8 md:px-20 pt-14 md:pt-20">
+          <div className="max-w-3xl">
+            {intro.title && (
+              <StyledHeading as="h2" choice={intro.titleStyle} className="font-playfair text-2xl md:text-3xl font-bold text-navy mb-5 leading-tight text-balance">
+                {intro.title}
+              </StyledHeading>
+            )}
+            <BlogContent pieces={[...introPieces, ...rest]} />
+          </div>
         </section>
       )}
 
-      <section aria-label="Visit us" className="mx-auto max-w-6xl px-5 sm:px-8 lg:px-12 py-14 md:py-20">
+      <section aria-label="Visit us" className="px-8 md:px-20 py-14 md:py-20">
         <div className="rounded-3xl bg-navy px-6 py-9 sm:px-10 md:px-14 md:py-12 text-white text-center md:text-left md:flex md:items-center md:justify-between md:gap-10">
           <div>
             <p className="font-playfair text-2xl md:text-3xl font-bold leading-tight">Hungry for seafood?</p>

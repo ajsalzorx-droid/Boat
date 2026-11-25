@@ -46,7 +46,7 @@ export default function EventsClient({ events }: { events: EventCard[] }) {
         </section>
 
         {/* Special events, added in Admin -> Events; each opens its own page */}
-        <section className="px-5 py-16 sm:px-8 md:px-20 md:py-24">
+        <section className="px-8 py-16 md:px-20 md:py-24">
           {events.length > 0 && (
             <>
               <div className="mb-10 md:mb-16">

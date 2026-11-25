@@ -64,7 +64,7 @@ export default function BlogArticle({ post, date, dateTime, readTime, url, more 
       <header className={`relative overflow-hidden bg-navy text-white ${preview ? "pt-10 md:pt-16" : "pt-32 md:pt-44 short:pt-32"} ${cover ? "pb-24 sm:pb-32 lg:pb-20" : "pb-14 md:pb-20"}`}>
         {/* Soft light behind the title */}
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(60rem_30rem_at_85%_-10%,rgba(102,155,188,0.35),transparent_65%),radial-gradient(40rem_24rem_at_0%_110%,rgba(102,155,188,0.18),transparent_60%)]" />
-        <div className={`relative mx-auto max-w-6xl px-5 sm:px-8 lg:px-12 ${cover ? "lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-center lg:gap-14 xl:gap-20" : ""}`}>
+        <div className={`relative px-8 md:px-20 ${cover ? "lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-center lg:gap-14 xl:gap-20" : ""}`}>
           <div className={cover ? "" : "max-w-3xl"}>
             <nav aria-label="Breadcrumb" className="mb-5 md:mb-7">
               {preview ? (
@@ -102,14 +102,14 @@ export default function BlogArticle({ post, date, dateTime, readTime, url, more 
                 alt={post.cover_alt}
                 fetchPriority="high"
                 decoding="async"
-                className="aspect-[4/5] max-h-[560px] w-full rounded-[1.75rem] object-cover shadow-2xl ring-1 ring-white/15"
+                className="ml-auto aspect-[4/5] max-h-[560px] w-full max-w-[448px] rounded-[1.75rem] object-cover shadow-2xl ring-1 ring-white/15"
               />
             </div>
           )}
         </div>
       </header>
 
-      <div className="mx-auto max-w-6xl px-5 sm:px-8 lg:px-12 pb-16 md:pb-24">
+      <div className="px-8 md:px-20 pb-16 md:pb-24">
         {/* Phones and tablets: the cover overlaps the title area */}
         {cover && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -124,7 +124,7 @@ export default function BlogArticle({ post, date, dateTime, readTime, url, more 
         )}
 
         <div className="pt-8 md:pt-12 lg:pt-16 lg:grid lg:grid-cols-[minmax(0,1fr)_17.5rem] lg:gap-14 xl:gap-20">
-          <article className="min-w-0 mx-auto w-full max-w-2xl lg:mx-0 lg:max-w-none xl:max-w-[44rem]">
+          <article className="min-w-0 mx-auto w-full max-w-2xl lg:mx-0 lg:max-w-none xl:max-w-[44rem] 2xl:max-w-[52rem]">
             {showContents && (
               <details className="lg:hidden group mb-8 rounded-2xl border border-navy/10 bg-white/55">
                 <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-[12px] tracking-[2px] uppercase font-bold text-navy [&::-webkit-details-marker]:hidden">
@@ -189,7 +189,7 @@ export default function BlogArticle({ post, date, dateTime, readTime, url, more 
                   <div className="aspect-[4/3] overflow-hidden rounded-2xl bg-navy/10 mb-4">
                     {m.cover_image && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={blogSrc(m.cover_image, 800)} srcSet={blogSrcSet(m.cover_image)} sizes="(min-width: 1024px) 350px, (min-width: 640px) 50vw, 100vw" alt={m.cover_alt} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                      <img src={blogSrc(m.cover_image, 800)} srcSet={blogSrcSet(m.cover_image)} sizes="(min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw" alt={m.cover_alt} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                     )}
                   </div>
                   <p className="text-[12px] text-navy/60 mb-1.5">{moreDates[i]}</p>
