@@ -1,23 +1,34 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { EventPhoto } from "@/lib/events";
 
-// An event's photos: a grid, and a full-screen viewer (arrows, arrow keys, swipe, Esc). Each photo is
-// a real link to its file, so it also works without JavaScript and Google can find it.
+// An event's photos: a grid (four, the rest behind "View more"), and a full-screen viewer of all of
+// them (arrows, arrow keys, swipe, Esc). Every photo is in the HTML as a real link to its file, so
+// Google can find it; the hidden ones are not downloaded until they are shown.
 
+const FIRST = 4;
 const SWIPE = 45; // px
 
 export default function EventGallery({ photos, title }: { photos: EventPhoto[]; title: string }) {
   const [open, setOpen] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const gridRef = useRef<HTMLUListElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const isOpen = open !== null;
   const count = photos.length;
 
   const go = (step: number) => setOpen((i) => (i === null ? i : (i + step + count) % count));
+
+  const toggleAll = () => {
+    flushSync(() => setShowAll(!showAll));
+    // Back to four: the page got shorter above the button, so bring the photos back into view
+    if (showAll) gridRef.current?.scrollIntoView({ block: "center", behavior: "instant" });
+  };
 
   // showModal keeps the keyboard inside the viewer (and gives it back to the photo when it closes);
   // the page behind does not scroll
@@ -47,9 +58,9 @@ export default function EventGallery({ photos, title }: { photos: EventPhoto[]; 
 
   return (
     <>
-      <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+      <ul ref={gridRef} id="event-photos" className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 lg:gap-5">
         {photos.map((p, i) => (
-          <li key={`${p.src}-${i}`}>
+          <li key={`${p.src}-${i}`} hidden={!showAll && i >= FIRST}>
             <a
               href={p.src}
               onClick={(e) => {
@@ -57,19 +68,34 @@ export default function EventGallery({ photos, title }: { photos: EventPhoto[]; 
                 e.preventDefault();
                 setOpen(i);
               }}
-              className="group relative block aspect-[3/4] cursor-zoom-in overflow-hidden rounded-xl bg-navy/10 outline-offset-4 focus-visible:outline-2 focus-visible:outline-navy"
+              className="group relative block aspect-[3/4] cursor-pointer overflow-hidden rounded-xl bg-navy/10 outline-offset-4 focus-visible:outline-2 focus-visible:outline-navy"
             >
               <Image
                 src={p.src}
                 alt={p.alt}
                 fill
-                sizes="(min-width: 1024px) 24vw, (min-width: 768px) 31vw, 48vw"
+                sizes="(min-width: 768px) 24vw, 48vw"
                 className="object-cover transition-transform duration-700 group-hover:scale-105 motion-reduce:transition-none"
               />
             </a>
           </li>
         ))}
       </ul>
+
+      {count > FIRST && (
+        <div className="mt-8 flex justify-center md:mt-10">
+          <button
+            type="button"
+            onClick={toggleAll}
+            aria-expanded={showAll}
+            aria-controls="event-photos"
+            className="inline-flex items-center justify-center gap-3 rounded-full border border-navy/30 px-8 py-4 text-[11px] font-bold uppercase tracking-[2px] text-navy transition-colors hover:bg-navy hover:text-cream"
+          >
+            {showAll ? "View less" : `View more (${count - FIRST})`}
+            <ChevronDown size={16} aria-hidden className={`transition-transform ${showAll ? "rotate-180" : ""}`} />
+          </button>
+        </div>
+      )}
 
       <dialog
         ref={dialogRef}

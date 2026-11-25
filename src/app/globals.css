@@ -23,6 +23,25 @@ body {
   @apply bg-cream text-navy font-jost font-light overflow-x-hidden antialiased;
 }
 
+/* The hand cursor on everything that can be clicked (Tailwind 4 gives buttons the arrow) and on photos.
+   In the base layer, so a cursor-* class still wins */
+@layer base {
+  a[href],
+  img,
+  img ~ .absolute.inset-0, /* a tint or text laid over a photo */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  select:not(:disabled),
+  input:is([type="submit"], [type="button"], [type="reset"], [type="checkbox"], [type="radio"], [type="file"]):not(:disabled),
+  label:has(input:is([type="checkbox"], [type="radio"], [type="file"]):not(:disabled)) {
+    cursor: pointer;
+  }
+  :disabled img {
+    cursor: inherit;
+  }
+}
+
 /* Base custom styles from original HTML */
 html {
   scroll-behavior: smooth;

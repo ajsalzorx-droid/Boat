@@ -105,7 +105,7 @@ export default function OfferPage() {
           {/* Background elements */}
           <div className="absolute top-0 right-0 w-1/3 h-full bg-ocean/5 -skew-x-12 translate-x-20"></div>
         
-          <div className="relative z-10 max-w-6xl mx-auto">
+          <div className="relative z-10">
             <div className="text-center mb-20">
               <span className="text-[9px] tracking-[5px] uppercase text-ocean font-bold block mb-4">{perks.fields.eyebrow}</span>
               <StyledHeading as="h2" choice={perks.fields.title_style} className="font-playfair text-4xl md:text-6xl font-bold text-white mb-6">{perks.fields.title}</StyledHeading>

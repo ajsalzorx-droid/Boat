@@ -132,7 +132,7 @@ export default async function EventPage({ params }: Props) {
             aria-hidden
             className="pointer-events-none absolute inset-0 bg-[radial-gradient(60rem_30rem_at_85%_-10%,rgba(102,155,188,0.35),transparent_65%),radial-gradient(40rem_24rem_at_0%_110%,rgba(102,155,188,0.18),transparent_60%)]"
           />
-          <div className="relative mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:items-center md:px-12 lg:gap-16 lg:px-20">
+          <div className="relative grid gap-10 px-8 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:items-center md:px-20 lg:gap-16">
             <div className="min-w-0">
               <nav aria-label="Breadcrumb" className="mb-5 md:mb-7">
                 <Link
@@ -172,8 +172,8 @@ export default async function EventPage({ params }: Props) {
         </header>
 
         {paragraphs.length > 0 && (
-          <section aria-label="About this event" className="mx-auto max-w-3xl px-5 pt-14 sm:px-8 md:px-12 md:pt-20 lg:px-8">
-            <div className="space-y-5 text-[17px] font-normal leading-[1.75] text-navy/85">
+          <section aria-label="About this event" className="px-8 pt-14 md:px-20 md:pt-20">
+            <div className="max-w-3xl space-y-5 text-[17px] font-normal leading-[1.75] text-navy/85">
               {paragraphs.map((p, i) => (
                 <p key={i} className="whitespace-pre-line break-words">
                   {p}
@@ -184,7 +184,7 @@ export default async function EventPage({ params }: Props) {
         )}
 
         {photos.length > 0 && (
-          <section id="photos" aria-labelledby="photos-title" className="mx-auto max-w-7xl scroll-mt-24 px-5 pt-14 sm:px-8 md:px-12 md:pt-20 lg:px-20">
+          <section id="photos" aria-labelledby="photos-title" className="scroll-mt-24 px-8 pt-14 md:px-20 md:pt-20">
             <h2 id="photos-title" className="mb-7 font-playfair text-3xl font-bold text-navy md:mb-10 md:text-4xl">
               Photos
             </h2>
@@ -192,7 +192,7 @@ export default async function EventPage({ params }: Props) {
           </section>
         )}
 
-        <section aria-label="Visit us" className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-14 sm:flex-row sm:justify-center sm:px-8 md:py-20">
+        <section aria-label="Visit us" className="flex flex-col gap-3 px-8 py-14 sm:flex-row sm:justify-center md:px-20 md:py-20">
           <Link
             href="/book"
             className="inline-flex items-center justify-center rounded-full bg-navy px-7 py-4 text-[11px] font-bold uppercase tracking-[2px] text-cream transition-colors hover:bg-ocean hover:text-navy"
@@ -208,7 +208,7 @@ export default async function EventPage({ params }: Props) {
         </section>
 
         {others.length > 0 && (
-          <section aria-labelledby="more-events" className="mx-auto max-w-7xl px-5 pb-16 sm:px-8 md:px-12 md:pb-24 lg:px-20">
+          <section aria-labelledby="more-events" className="px-8 pb-16 md:px-20 md:pb-24">
             <h2 id="more-events" className="mb-7 font-playfair text-3xl font-bold text-navy md:mb-10 md:text-4xl">
               More events
             </h2>

@@ -96,7 +96,7 @@ export default function YourFishPage() {
           </div>
 
           {/* Content */}
-          <div className="relative z-10 w-full px-6 md:px-16 lg:px-24 pt-40 pb-28">
+          <div className="relative z-10 w-full px-8 md:px-20 pt-40 pb-28">
             <div className="max-w-[580px]">
               {/* Eyebrow */}
               <motion.div
@@ -200,8 +200,8 @@ export default function YourFishPage() {
         {/* ══════════════════════════════════════════════════════════
             2. HOW IT WORKS
         ══════════════════════════════════════════════════════════ */}
-        <section className="bg-white py-28 px-6 md:px-16 lg:px-24">
-          <div className="max-w-6xl mx-auto">
+        <section className="bg-white py-28 px-8 md:px-20">
+          <div>
             {/* Section header */}
             <motion.div {...fadeUp()} className="text-center mb-20">
               <span className="font-jost text-[10px] tracking-[5px] uppercase text-[#C89B4B] font-semibold block mb-4">
@@ -257,8 +257,8 @@ export default function YourFishPage() {
         {/* ══════════════════════════════════════════════════════════
             3. PREPARATION STYLES
         ══════════════════════════════════════════════════════════ */}
-        <section id="styles" className="bg-[#F7F3EA] py-28 px-6 md:px-16 lg:px-24">
-          <div className="max-w-6xl mx-auto">
+        <section id="styles" className="bg-[#F7F3EA] py-28 px-8 md:px-20">
+          <div>
             {/* Section header */}
             <motion.div {...fadeUp()} className="text-center mb-20">
               <div className="flex items-center justify-center gap-4 mb-5">
@@ -327,8 +327,8 @@ export default function YourFishPage() {
         {/* ══════════════════════════════════════════════════════════
             4. EXPERIENCE / STORY SECTION
         ══════════════════════════════════════════════════════════ */}
-        <section className="bg-white py-28 px-6 md:px-16 lg:px-24">
-          <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+        <section className="bg-white py-28 px-8 md:px-20">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
             {/* Left: text */}
             <motion.div {...fadeUp()}>
               <span className="font-jost text-[10px] tracking-[5px] uppercase text-[#C89B4B] font-semibold block mb-5">
@@ -401,7 +401,7 @@ export default function YourFishPage() {
         {/* ══════════════════════════════════════════════════════════
             5. FINAL CTA
         ══════════════════════════════════════════════════════════ */}
-        <section className="relative overflow-hidden bg-[#0E2A47] py-28 px-6 md:px-16">
+        <section className="relative overflow-hidden bg-[#0E2A47] py-28 px-8 md:px-20">
           {/* subtle radial glow */}
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full bg-[#C89B4B]/5 blur-3xl" />
