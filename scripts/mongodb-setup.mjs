@@ -83,6 +83,30 @@ const SCHEMAS = {
       updated_at: date,
     },
   },
+  // Photo events at /events/<slug> (Admin -> Events)
+  events: {
+    required: ["_id", "slug", "title", "cover_image", "photos", "is_active"],
+    properties: {
+      _id: str,
+      slug: str,
+      title: str,
+      tag: optStr,
+      event_date: optStr, // "2026-11-25" (Dubai) or "" = no date
+      description: optStr,
+      body: optStr,
+      seo_title: optStr,
+      cover_image: str,
+      cover_alt: optStr,
+      photos: {
+        bsonType: "array",
+        items: { bsonType: "object", required: ["src"], properties: { src: str, alt: optStr } },
+      },
+      is_active: bool,
+      old_slugs: { bsonType: "array", items: str },
+      created_at: date,
+      updated_at: date,
+    },
+  },
   // Online bookings from /book: table reservations and fish-preparation requests (Admin -> Bookings)
   bookings: {
     required: ["_id", "type", "name", "phone", "date", "time", "guests", "status", "created_at"],
@@ -215,6 +239,7 @@ const INDEXES = {
   menu_items: [{ key: { category: 1, is_active: 1 } }, { key: { name: 1 } }],
   daily_catch: [{ key: { is_available: 1 } }],
   offers: [{ key: { is_active: 1 } }],
+  events: [{ key: { slug: 1 }, unique: true }],
   bookings: [{ key: { date: 1, time: 1 } }, { key: { type: 1, status: 1 } }],
   orders: [{ key: { status: 1, timestamp: -1 } }, { key: { timestamp: -1 } }],
   admin_users: [{ key: { email: 1 }, unique: true }],

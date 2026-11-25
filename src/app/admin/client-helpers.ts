@@ -2,9 +2,9 @@ import { createImageUpload, type ActionResult, type UploadFolder } from "./actio
 import { toast } from "./Toaster";
 
 // Upload size limits per folder: offer banners are full-screen artwork from the designers, so they
-// get more room (Cloudinary's free plan accepts images up to 10 MB). Stored as WebP either way.
+// get more room, and so do event photos straight from a phone (Cloudinary's free plan accepts images up to 10 MB). Stored as WebP either way.
 const MAX_IMAGE_MB = 5;
-const MAX_IMAGE_MB_BY_FOLDER: Partial<Record<UploadFolder, number>> = { offers: 10 };
+const MAX_IMAGE_MB_BY_FOLDER: Partial<Record<UploadFolder, number>> = { offers: 10, events: 10 };
 
 // SweetAlert2 dialogs in the site colours. The library is loaded on first use, so admin pages
 // that never ask don't download it. Line breaks in the text are kept.

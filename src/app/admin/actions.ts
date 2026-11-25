@@ -10,6 +10,8 @@ import { formatHeadingStyle, isHeadingTag, parseHeadingStyle } from '@/lib/headi
 import { CONTENT_TAG, getSectionDef, type FieldType, type SectionData } from '@/lib/content'
 import { BLOG_LIMITS, BLOG_TAG, isBlogLevel, publishProblems, SLUG_RE, type BlogBlock, type BlogPostInput, type BlogStatus } from '@/lib/blog'
 import { toPost } from '@/lib/blog-data'
+import { EVENT_LIMITS, EVENTS_TAG, isEventImage, type EventPhoto, type SiteEventInput } from '@/lib/events'
+import { newestFirst, toEvent } from '@/lib/events-data'
 import { MENU_TAG } from '@/lib/menu-data'
 import { MENU_CATEGORIES } from '@/data/menu'
 import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/offers'
@@ -262,6 +264,92 @@ export async function setOfferActive(id: string, isActive: boolean) {
         .updateOne({ _id: String(id) }, { $set: { is_active: !!isActive, updated_at: new Date() } })
     )
     refreshSite(MENU_TAG)
+  })
+}
+
+// ---------- Events (public at /events and /events/<slug>) ----------
+// Live as soon as it is saved with "Show on website" ticked. Changing an event's address keeps the
+// old one as a redirect.
+
+const oneLine = (s: string) => s.replace(/\s*\n\s*/g, ' ')
+
+function eventImage(value: unknown, field: string) {
+  const s = text(value, field, 1000)
+  if (s && !isEventImage(s)) fail(`${field}: please upload the image.`)
+  return s
+}
+
+function eventPhotos(value: unknown): EventPhoto[] {
+  const raw = Array.isArray(value) ? value : []
+  if (raw.length > EVENT_LIMITS.photos) fail(`An event can have at most ${EVENT_LIMITS.photos} photos.`)
+  return raw
+    .map((p, i) => ({
+      src: eventImage(p?.src, `Photo ${i + 1}`),
+      alt: oneLine(text(p?.alt, `Photo ${i + 1} description`, EVENT_LIMITS.alt)),
+    }))
+    .filter((p) => p.src)
+}
+
+// All events (hidden ones too), newest first
+export async function listEvents() {
+  return withAdmin(async (db) => (await db.collection('events').find().toArray()).map(toEvent).sort(newestFirst))
+}
+
+export async function saveEvent(id: string | null, input: SiteEventInput) {
+  return withAdmin(async (db) => {
+    day(input?.event_date, 'Date', 'start') // a real date, or empty
+    const row = {
+      title: oneLine(text(input?.title, 'Event name', EVENT_LIMITS.title, true)),
+      slug: text(input?.slug, 'Web address', EVENT_LIMITS.slug, true).toLowerCase(),
+      tag: oneLine(text(input?.tag, 'Badge', EVENT_LIMITS.tag)),
+      event_date: text(input?.event_date, 'Date', 10),
+      description: oneLine(text(input?.description, 'Short summary', EVENT_LIMITS.description, true)),
+      body: text(input?.body, 'Content', EVENT_LIMITS.body).replace(/\r\n/g, '\n'),
+      seo_title: oneLine(text(input?.seo_title, 'Google title', EVENT_LIMITS.seo_title)),
+      cover_image: eventImage(input?.cover_image, 'Cover photo'),
+      cover_alt: oneLine(text(input?.cover_alt, 'Cover description', EVENT_LIMITS.alt)),
+      photos: eventPhotos(input?.photos),
+      is_active: !!input?.is_active,
+    }
+    if (!SLUG_RE.test(row.slug)) fail('Web address: use lowercase letters, numbers and dashes only (e.g. friday-lobster-night).')
+    if (!row.cover_image) fail('Add a cover photo.')
+
+    const events = db.collection<IdDoc>('events')
+    await events.createIndex({ slug: 1 }, { unique: true })
+    const clash = await events.findOne({ $or: [{ slug: row.slug }, { old_slugs: row.slug }], _id: { $ne: String(id ?? '') } })
+    if (clash) fail('Another event already uses this web address. Choose a different one.')
+
+    const now = new Date()
+    if (id) {
+      const before = await events.findOne({ _id: String(id) })
+      if (!before) fail('This event no longer exists. Please refresh.')
+      // The old address keeps working (redirects to the new one)
+      const oldSlugs = new Set<string>((before.old_slugs as string[] | undefined) ?? [])
+      if (before.slug !== row.slug) oldSlugs.add(String(before.slug))
+      oldSlugs.delete(row.slug)
+      found(await events.updateOne({ _id: String(id) }, { $set: { ...row, old_slugs: [...oldSlugs], updated_at: now } }))
+    } else {
+      await events.insertOne({ _id: newId(), ...row, old_slugs: [], created_at: now, updated_at: now })
+    }
+    refreshSite(EVENTS_TAG)
+  })
+}
+
+export async function setEventActive(id: string, isActive: boolean) {
+  return withAdmin(async (db) => {
+    found(
+      await db
+        .collection<IdDoc>('events')
+        .updateOne({ _id: String(id) }, { $set: { is_active: !!isActive, updated_at: new Date() } })
+    )
+    refreshSite(EVENTS_TAG)
+  })
+}
+
+export async function deleteEvent(id: string) {
+  return withAdmin(async (db) => {
+    found(await db.collection<IdDoc>('events').deleteOne({ _id: String(id) }))
+    refreshSite(EVENTS_TAG)
   })
 }
 
@@ -528,7 +616,7 @@ export async function deleteBlogPost(id: string) {
 
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif']
 
-export type UploadFolder = 'menu' | 'daily-catch' | 'offers' | 'seo' | 'content' | 'blog'
+export type UploadFolder = 'menu' | 'daily-catch' | 'offers' | 'events' | 'seo' | 'content' | 'blog'
 
 export type ImageUploadAuth = {
   uploadUrl: string
@@ -550,7 +638,7 @@ const UPLOAD_TRANSFORMATION = 'c_limit,w_1600'
 // leaves the server. The uploaded file's Cloudinary URL is what gets saved in the database.
 export async function createImageUpload(folder: UploadFolder, fileName: string) {
   return withAdmin<ImageUploadAuth>(async () => {
-    if (!['menu', 'daily-catch', 'offers', 'seo', 'content', 'blog'].includes(folder)) fail('Invalid upload folder.')
+    if (!['menu', 'daily-catch', 'offers', 'events', 'seo', 'content', 'blog'].includes(folder)) fail('Invalid upload folder.')
     const ext = String(fileName).split('.').pop()?.toLowerCase() ?? ''
     if (!IMAGE_EXTENSIONS.includes(ext)) fail(`Only ${IMAGE_EXTENSIONS.join(', ')} images are allowed.`)
 

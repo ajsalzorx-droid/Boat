@@ -451,57 +451,20 @@ export const CONTENT_SECTIONS = [
       ...image(pexels('331107', 1260), 'Private event at Boat Seafood Dubai', 'Background image'),
     ],
   },
+  // The cards themselves are the events added in Admin -> Events
   {
     id: 'events_list',
     page: 'events',
     label: 'Special Events',
-    fields: [eyebrow('Upcoming'), text('title', 'Heading', 'Special Events'), headingStyle('title', 'Heading', 'h2'), itemHeading('Event names', 'h3'), text('cta', 'Card link text', 'Inquire Now'), link('cta_link', 'Card link', WHATSAPP)],
-    list: {
-      label: 'Events',
-      itemLabel: 'Event',
-      max: 12,
-      fields: [
-        { key: 'title', label: 'Event name', type: 'text' },
-        { key: 'date', label: 'Date / time', type: 'text' },
-        { key: 'tag', label: 'Badge', type: 'text' },
-        { key: 'description', label: 'Description', type: 'textarea' },
-        ...listImage,
-      ],
-      default: [
-        { title: 'Friday Lobster Night', date: 'Every Friday · 7:00 PM', tag: 'Weekly Special', description: 'Indulge in our signature butter-poached lobster, served with seasonal sides and premium pairings.', image: pexels('11054363', 1260), alt: '' },
-        { title: "Monthly Chef's Table", date: 'Last Saturday of the Month', tag: 'Exclusive', description: "An exclusive 7-course tasting journey through the ocean's rarest treasures, guided by our Head Chef.", image: pexels('1267320'), alt: '' },
-        { title: 'Seafood Festival 2024', date: 'Coming Soon · Nov 15-20', tag: 'Festival', description: "A celebration of coastal flavors featuring live music, outdoor grilling, and the city's largest seafood platter.", image: SOUP_BOWL, alt: '' },
-      ],
-    },
-  },
-  {
-    id: 'events_gallery',
-    page: 'events',
-    label: 'Event Galleries',
     fields: [
-      eyebrow('Past Memories'),
-      ...heading('Event', 'Galleries'),
-      itemHeading('Gallery titles', 'h3'),
-      body("A glimpse into the celebrations and experiences we've hosted at Boat Seafood."),
-      text('cta', 'Button', 'Book Your Event'),
+      eyebrow('At Boat'),
+      text('title', 'Heading', 'Special Events'),
+      headingStyle('title', 'Heading', 'h2'),
+      itemHeading('Event names', 'h3', 'event_title'),
+      text('card_cta', 'Card link text', 'View event', 'The events themselves are added in Admin → Events.'),
+      text('cta', 'Button below the events', 'Inquire Now'),
       link('cta_link', 'Button link', WHATSAPP),
     ],
-    list: {
-      label: 'Galleries',
-      itemLabel: 'Gallery',
-      max: 12,
-      fields: [
-        { key: 'title', label: 'Title', type: 'text' },
-        { key: 'count', label: 'Photo count label', type: 'text' },
-        ...listImage,
-      ],
-      default: [
-        { title: 'Grand Opening Gala', count: '24 Photos', image: pexels('1683545'), alt: '' },
-        { title: 'Corporate Seafood Dinner', count: '18 Photos', image: pexels('262978'), alt: '' },
-        { title: 'Private Yacht Catering', count: '12 Photos', image: pexels('331107'), alt: '' },
-        { title: 'Birthday Celebration', count: '32 Photos', image: pexels('10368144'), alt: '' },
-      ],
-    },
   },
 
   // ================= Offers =================

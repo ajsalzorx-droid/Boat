@@ -37,7 +37,7 @@ export const getSiteContent = safeCache(
   },
   // database unreachable -> built-in text (not cached: the next request tries again)
   () => fillHours(mergeAll([]), hoursText(DEFAULT_BUSINESS.opens, DEFAULT_BUSINESS.closes)),
-  ['site-content-v3'], // v3: "Table Booking" nav label (Nov 2026); renamed so old saved copies aren't used
+  ['site-content-v4'], // v4: Special Events cards (Nov 2026); renamed so old saved copies aren't used
   { tags: [CONTENT_TAG, SEO_TAG] }, // the hours come from the business info (SEO_TAG)
   'page content'
 )
