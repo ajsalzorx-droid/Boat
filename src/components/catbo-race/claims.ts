@@ -16,6 +16,8 @@ import {
   type PlayerSpot,
   CLAIM_CHANCES,
   CLAIM_VALID_HOURS,
+  CLAIM_AWAY_MINUTES,
+  AWAY_ENDED_TEXT,
   CODE_ALPHABET,
   CODE_LENGTH,
   claimScore,
@@ -42,6 +44,12 @@ import {
 // "game_claims": one document per phone number per Dubai day. The phone number also goes into
 // "bot_contacts", the list the offer broadcast reads (src/lib/offer-broadcast.ts): marked as
 // agreeing to offers only when the customer ticked the box (WhatsApp requires that consent).
+//
+// Leaving the game: while the game is open and on screen, the browser checks in every 30 s
+// (claimHeartbeat), and once more as it is closed or hidden. A claim not seen for
+// CLAIM_AWAY_MINUTES is closed the next time it is reached (closeIfAway): no more races today, and
+// the best score so far is its discount. It is the server's clock, so a reload or a new WhatsApp
+// code doesn't bring the races back.
 
 export type ClaimDoc = {
   _id: string // random: the customer's browser keeps it to play its chances
@@ -66,6 +74,8 @@ export type ClaimDoc = {
   created_at: Date
   verified_at?: Date // the number was proved with a WhatsApp code
   device_id?: string // the browser (cookie) it is played on: moves with a new WhatsApp code, else stays
+  active_at?: Date // last seen in the game (claimHeartbeat, a race starting or ending)
+  away_closed_at?: Date // the races ended because the player left the game
   expires_at: Date
   // filled in at the till (Admin -> Game Claims)
   used_at?: Date
@@ -75,7 +85,8 @@ export type ClaimDoc = {
   discount_amount?: number
 }
 
-export type ClaimResult = { ok: true; claim: ClaimView; seed?: number } | { ok: false; error: string }
+// claim, with an error: the claim changed (its races ended), for the game to show
+export type ClaimResult = { ok: true; claim: ClaimView; seed?: number } | { ok: false; error: string; claim?: ClaimView }
 // A race's record, from the browser (race.ts): the world's size, and every jump and cast
 export type RaceRecord = { W: number; H: number; inputs: Input[] }
 
@@ -101,6 +112,7 @@ const STEP_SLACK = 120 // steps (2 s) allowed over the real time, for the networ
 // (a throttled computer, a doctored clock) would be easy to play. Pauses (switching apps) count too
 const SLOW_FACTOR = 1.5
 const SLOW_SLACK_S = 20 // seconds: the network, the start, the race-over card
+const AWAY_MS = CLAIM_AWAY_MINUTES * 60_000
 const OTHER_DEVICE = 'This claim was opened on another phone. Get a new WhatsApp code to carry on here.'
 
 let indexes: Promise<unknown> | null = null
@@ -139,6 +151,7 @@ function toView(d: ClaimDoc): ClaimView {
     metres: d.metres,
     percent: d.percent,
     locked: d.locked,
+    endedAway: !!d.away_closed_at,
     status: expired ? 'expired' : d.status,
     expiresAt: d.expires_at.toISOString(),
   }
@@ -163,6 +176,56 @@ async function deviceId() {
 // The claim may be played only from the browser it was opened in (or moved to with a new code)
 async function onThisDevice(doc: ClaimDoc) {
   return !doc.device_id || doc.device_id === (await cookies()).get(DEVICE_COOKIE)?.value
+}
+
+// ---- Leaving the game ----
+// Still playing (open, no score chosen) and not seen in the game for CLAIM_AWAY_MINUTES. A claim
+// from before this rule has no active_at: it is never closed for it
+const isAway = (d: ClaimDoc, now = Date.now()) =>
+  d.status === 'open' && !d.locked && !!d.active_at && now - d.active_at.getTime() > AWAY_MS && d.expires_at.getTime() > now
+
+// The claim as it is, or closed for being away: its best score so far becomes the discount (as
+// "Claim this score"); with no discount it isn't kept (dropIfNoDiscount), only "played today"
+async function closeIfAway(col: Collection<ClaimDoc>, doc: ClaimDoc): Promise<ClaimDoc> {
+  if (!isAway(doc)) return doc
+  const best = claimScore(scoresOf(doc), null)
+  const closed = await col.findOneAndUpdate(
+    { _id: doc._id, status: 'open', locked: false, active_at: doc.active_at },
+    {
+      $set: {
+        locked: true,
+        away_closed_at: new Date(),
+        chosen_chance: best?.chance ?? null,
+        fish: best?.fish ?? null,
+        metres: best?.metres ?? null,
+        percent: best?.percent ?? 0,
+      },
+    },
+    { returnDocument: 'after' }
+  )
+  if (!closed) return (await col.findOne({ _id: doc._id })) ?? doc // seen again (or closed) at the same moment
+  await dropIfNoDiscount(closed)
+  return closed
+}
+
+const seenNow = (col: Collection<ClaimDoc>, id: string) =>
+  col.updateOne({ _id: id, status: 'open', locked: false }, { $set: { active_at: new Date() } })
+
+// The game is open and on screen (every 30 s), or is being left (closed, hidden): the claim is
+// seen now. Coming back after CLAIM_AWAY_MINUTES, it closes instead
+export async function claimHeartbeat(claimId: string): Promise<ClaimResult> {
+  try {
+    const col = await claims()
+    const found = await col.findOne({ _id: String(claimId) })
+    if (!found) return { ok: false, error: 'This claim was not found.' }
+    if (!(await onThisDevice(found))) return { ok: false, error: OTHER_DEVICE }
+    const doc = await closeIfAway(col, found)
+    if (doc.status === 'open' && !doc.locked) await seenNow(col, doc._id)
+    return { ok: true, claim: toView(doc) }
+  } catch (e) {
+    console.error('claimHeartbeat failed:', e)
+    return { ok: false, error: GENERIC_ERROR }
+  }
 }
 
 // The code from WhatsApp, typed in the game with the customer's name and number. Right: today's
@@ -214,7 +277,7 @@ export async function devGameCode(phoneTyped: string): Promise<{ ok: boolean }> 
   return { ok: true }
 }
 
-const PLAYED_TODAY = `This number has already played its ${CLAIM_CHANCES} races today. Come back tomorrow!`
+const PLAYED_TODAY = 'This number has already played for a discount today. Come back tomorrow!'
 const OTHER_NUMBER_TODAY = 'This phone has already played for a discount with another number today. Come back tomorrow!'
 const PRECHECK_PER_IP = 40 // per VERIFY_WINDOW_MS
 
@@ -278,6 +341,7 @@ async function claimFor(phone: string, otp: Player): Promise<ClaimResult> {
         expires_at: new Date(now.getTime() + CLAIM_VALID_HOURS * 3600000),
         verified_at: now,
         device_id: device,
+        active_at: now,
       }
       try {
         await col.insertOne(fresh)
@@ -290,6 +354,9 @@ async function claimFor(phone: string, otp: Player): Promise<ClaimResult> {
     if (!doc) return { ok: false, error: GENERIC_ERROR }
     if (!tablet) await Promise.all([hit(`claim-new-device:${device}`, NEW_CLAIMS_PER_DEVICE, DAY_MS), hit(`claim-new-ip:${ip}`, NEW_CLAIMS_PER_IP, DAY_MS)])
   }
+
+  // Away from the game too long since it was last played: its races end now (a new code doesn't reopen them)
+  doc = await closeIfAway(col, doc)
 
   // The number joins the customer list; agreeing to offers only if they ticked the box now
   // (an earlier YES is kept, and a NO given on WhatsApp is never overridden without a new tick)
@@ -305,6 +372,7 @@ async function claimFor(phone: string, otp: Player): Promise<ClaimResult> {
   const changes: Partial<ClaimDoc> = {}
   if (doc.device_id !== device) changes.device_id = device
   if (otp.offers && !doc.offers) changes.offers = true
+  if (doc.status === 'open' && !doc.locked) changes.active_at = now // back in the game
   if (Object.keys(changes).length) await col.updateOne({ _id: doc._id }, { $set: changes })
   return { ok: true, claim: toView({ ...doc, ...changes }) }
 }
@@ -312,10 +380,11 @@ async function claimFor(phone: string, otp: Player): Promise<ClaimResult> {
 // The claim as it is now (the game reopened later the same day)
 export async function getClaim(claimId: string): Promise<ClaimResult> {
   try {
-    const doc = await (await claims()).findOne({ _id: String(claimId) })
+    const col = await claims()
+    const doc = await col.findOne({ _id: String(claimId) })
     if (!doc) return { ok: false, error: 'This claim was not found.' }
     if (!(await onThisDevice(doc))) return { ok: false, error: OTHER_DEVICE }
-    return { ok: true, claim: toView(doc) }
+    return { ok: true, claim: toView(await closeIfAway(col, doc)) }
   } catch (e) {
     console.error('getClaim failed:', e)
     return { ok: false, error: GENERIC_ERROR }
@@ -349,9 +418,17 @@ export async function startClaimChance(claimId: string, spot?: PlayerSpot): Prom
     const col = await claims()
     const before = await col.findOne({ _id: String(claimId) })
     if (before && !(await onThisDevice(before))) return { ok: false, error: OTHER_DEVICE }
+    if (before && isAway(before)) return { ok: false, error: AWAY_ENDED_TEXT, claim: toView(await closeIfAway(col, before)) }
     const doc = await col.findOneAndUpdate(
-      { _id: String(claimId), status: 'open', locked: false, chances_used: { $lt: CLAIM_CHANCES }, expires_at: { $gt: now } },
-      { $inc: { chances_used: 1 }, $set: { chance_started_at: now, chance_seed: randomInt(0, 2 ** 31) } },
+      {
+        _id: String(claimId),
+        status: 'open',
+        locked: false,
+        chances_used: { $lt: CLAIM_CHANCES },
+        expires_at: { $gt: now },
+        $or: [{ active_at: { $exists: false } }, { active_at: { $gte: new Date(now.getTime() - AWAY_MS) } }],
+      },
+      { $inc: { chances_used: 1 }, $set: { chance_started_at: now, chance_seed: randomInt(0, 2 ** 31), active_at: now } },
       { returnDocument: 'after' }
     )
     if (!doc) {
@@ -373,6 +450,7 @@ export async function submitClaimScore(claimId: string, chance: number, race: Ra
     const doc = await col.findOne({ _id: String(claimId) })
     if (!doc) return { ok: false, error: 'This claim was not found.' }
     if (!(await onThisDevice(doc))) return { ok: false, error: OTHER_DEVICE }
+    if (isAway(doc)) return { ok: false, error: AWAY_ENDED_TEXT, claim: toView(await closeIfAway(col, doc)) }
     if (doc.status !== 'open' || doc.locked || !doc.chance_started_at || doc.chances_used !== chance || doc.scored_chance === chance || doc.chance_seed === undefined)
       return { ok: false, error: 'This race can no longer be scored.' }
 
@@ -406,7 +484,7 @@ export async function submitClaimScore(claimId: string, chance: number, race: Ra
     const best = claimScore(scores, null)!
     const updated = await col.findOneAndUpdate(
       { _id: doc._id, chances_used: chance, scored_chance: { $ne: chance }, locked: false },
-      { $set: { scored_chance: chance, scores, fish: best.fish, metres: best.metres, percent: best.percent, scored_at: new Date() } },
+      { $set: { scored_chance: chance, scores, fish: best.fish, metres: best.metres, percent: best.percent, scored_at: new Date(), active_at: new Date() } },
       { returnDocument: 'after' }
     )
     if (!updated) return { ok: false, error: 'This race can no longer be scored.' }
@@ -427,6 +505,7 @@ export async function keepClaimScore(claimId: string, chance?: number): Promise<
     const current = await col.findOne({ _id: String(claimId), status: 'open', locked: false })
     if (!current) return getClaim(claimId)
     if (!(await onThisDevice(current))) return { ok: false, error: OTHER_DEVICE }
+    if (isAway(current)) return { ok: true, claim: toView(await closeIfAway(col, current)) } // its best score is kept
     const scores = scoresOf(current)
     const pick = chance ? scores.find((s) => s.chance === Number(chance)) : claimScore(scores, null)
     if (!pick) return { ok: false, error: 'Play a race first.' }

@@ -6,9 +6,9 @@ import { createPortal } from "react-dom";
 import { ChevronDown, ChevronsDown, ChevronsUp, Fish, Flag, Gift, Loader2, LocateFixed, MapPin, MessageCircle, Play, QrCode, RotateCcw, ShieldCheck, Ticket, Trophy, UserPlus, X } from "lucide-react";
 import type { Race, RaceState } from "./race";
 import { CAUSES } from "./sim";
-import { checkNumberToday, devGameCode, getClaim, keepClaimScore, leaveClaim, onGameTablet, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
+import { checkNumberToday, claimHeartbeat, devGameCode, getClaim, keepClaimScore, leaveClaim, onGameTablet, startClaimChance, submitClaimScore, verifyClaimCode } from "./claims";
 import { whatsapp, whatsappAndroid, whatsappApp, WHATSAPP_DISPLAY } from "@/lib/whatsapp";
-import { chancesText, checkPlayer, type RaceScore, CLAIM_CHANCES, CLAIM_VALID_HOURS, checkSpot, DISCOUNT_TIERS, LOCATION_REQUIRED, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, PLAY_AREA, RULES, type ClaimView, type PlayerSpot } from "@/lib/game-claims";
+import { AWAY_ENDED_TEXT, chancesText, checkPlayer, type RaceScore, CLAIM_AWAY_MINUTES, CLAIM_CHANCES, CLAIM_VALID_HOURS, checkSpot, DISCOUNT_TIERS, LOCATION_REQUIRED, discountFor, formatPercent, MIN_FISH, nextTier, OTP_REQUEST_TEXT, PLAY_AREA, RULES, type ClaimView, type PlayerSpot } from "@/lib/game-claims";
 import { dubaiNow } from "@/lib/bookings";
 import { COUNTRIES, fullNumber } from "@/lib/phone-countries";
 import { WhatsAppQr } from "./WhatsAppQr";
@@ -32,6 +32,7 @@ const CLAIM_KEY = "catbo-claim"; // this device's claim today: { id, day }
 const ZAP_MS = 1600; // the shock plays this long before the race-over card shows
 const TABLET_IDLE_MS = 180_000; // the restaurant's tablet, left alone this long: ready for the next customer
 const RESEND_WAIT_S = 30; // before "Resend code" can be used again
+const HEARTBEAT_MS = 30_000; // a discount claim checks in this often while the game is on screen (claims.ts)
 
 const readStoredClaim = () => {
   try {
@@ -142,6 +143,34 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     };
   }, []);
 
+  // Playing for a discount: the server is told the game is still open and on screen, every
+  // HEARTBEAT_MS, and once more when it is hidden (another app or tab, the screen off) or closed.
+  // Away longer than CLAIM_AWAY_MINUTES, the claim's races end (the server decides: claims.ts)
+  const liveClaim = claim && claim.status === "open" && !claim.locked ? claim.claimId : null;
+  useEffect(() => {
+    if (!liveClaim) return;
+    let gone = false;
+    const beat = () =>
+      claimHeartbeat(liveClaim)
+        .then((res) => {
+          const c = res.claim;
+          if (!gone && c?.endedAway) {
+            setClaim(c);
+            setError(null);
+          }
+        })
+        .catch(() => {});
+    beat();
+    const timer = setInterval(() => document.visibilityState === "visible" && beat(), HEARTBEAT_MS);
+    document.addEventListener("visibilitychange", beat); // leaving: the moment it was left; back: closed if away too long
+    return () => {
+      gone = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", beat);
+      beat(); // the game is closed (or the claim is done here)
+    };
+  }, [liveClaim]);
+
   // Hooked an electric eel: the race-over card waits ZAP_MS, so Catbo's shock (race.ts) is seen
   // first. Keyed by the race's end, so each race's eel gets its moment
   const zapKey = state?.phase === "over" && state.cause === CAUSES.eel ? `${state.metres}-${state.fish}` : null;
@@ -170,7 +199,10 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     inTime(submitClaimScore(claim.claimId, pendingChance, { W: record.W, H: record.H, inputs: record.inputs }))
       .then((res) => {
         if (res.ok) setClaim(res.claim);
-        else setError(res.error);
+        else {
+          if (res.claim) setClaim(res.claim);
+          setError(res.error);
+        }
       })
       .catch(() => setError("Your score could not be saved. Please check your connection."))
       .finally(() => {
@@ -375,7 +407,10 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       const res = await inTime(startClaimChance(claim.claimId, LOCATION_REQUIRED ? await locate() : undefined));
-      if (!res.ok) return setError(res.error);
+      if (!res.ok) {
+        if (res.claim) setClaim(res.claim); // the races ended (away too long): the card says so
+        return setError(res.claim?.endedAway ? null : res.error);
+      }
       setClaim(res.claim);
       sentChance.current = null;
       setPendingChance(res.claim.chancesUsed);
@@ -511,7 +546,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
         {state?.phase === "racing" && (
           <div
             aria-hidden={!state.fishHint}
-            className={`absolute right-4 bottom-[calc(max(1.25rem,env(safe-area-inset-bottom))+4.75rem)] kb:right-auto kb:left-[40%] kb:bottom-[56%] pointer-events-none transition-all duration-300 ${
+            className={`absolute right-[max(2.5rem,calc(env(safe-area-inset-right)+1rem))] bottom-[calc(max(1.25rem,env(safe-area-inset-bottom))+4.75rem)] kb:right-auto kb:left-[40%] kb:bottom-[56%] pointer-events-none transition-all duration-300 ${
               state.fishHint ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
             }`}
           >
@@ -535,7 +570,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
               raceRef.current?.cast();
             }}
             aria-label="Drop the fishing line"
-            className="kb:hidden absolute right-4 bottom-[max(1.25rem,env(safe-area-inset-bottom))] w-16 h-16 rounded-full shadow-[0_6px_18px_-6px_rgba(0,48,73,0.6)] active:scale-95 transition-transform touch-none"
+            className="kb:hidden absolute right-[max(2.5rem,calc(env(safe-area-inset-right)+1rem))] bottom-[max(1.25rem,env(safe-area-inset-bottom))] w-16 h-16 rounded-full shadow-[0_6px_18px_-6px_rgba(0,48,73,0.6)] active:scale-95 transition-transform touch-none"
           >
             {/* the restaurant's hook-and-fish artwork: a white disc in a navy ring */}
             <img src={cdn("/catbo/fish-hook.webp")} alt="" width={64} height={64} draggable={false} className="w-full h-full pointer-events-none select-none" />
@@ -578,7 +613,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
               <div className={card} role="alertdialog" aria-labelledby="new-player-title">
                 <p id="new-player-title" className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-2">Start with a new player?</p>
                 <p className="text-navy/75 text-[12.5px] sm:text-[13px] leading-snug mb-4">
-                  {claim.name}&rsquo;s game will be cancelled on this device. Their races left and any discount stay with their phone number: a new WhatsApp code brings them back.
+                  {claim.name}&rsquo;s game will be cancelled on this device. Any discount stays with their phone number, and a new WhatsApp code brings them back. Their races left end if they are away from the game for more than {CLAIM_AWAY_MINUTES} minutes.
                 </p>
                 <div className="flex flex-col gap-2.5">
                   <button type="button" className={button} onClick={nextPlayer}>
@@ -686,6 +721,7 @@ export default function CatboRace({ onClose }: { onClose: () => void }) {
                         {CLAIM_CHANCES} races a day per phone number. You choose one race&rsquo;s score as your discount: races don&rsquo;t add up.
                       </li>
                       <li>Stay in the game until each race ends: a race you leave or pause doesn&rsquo;t count.</li>
+                      <li>Leaving the game for more than {CLAIM_AWAY_MINUTES} minutes (closing it, another app or page, the screen off) ends your races for the day: your best score so far stays as your discount.</li>
                     </ul>
                   </section>
                   <section>
@@ -1048,7 +1084,7 @@ function ClaimCard({
             <>
               <p className="font-playfair text-[20px] sm:text-[24px] leading-tight font-bold text-navy mb-2">Good luck, {c.name}!</p>
               <p className="text-navy/70 text-[12.5px] sm:text-[13px] leading-snug mb-4">
-                {RULES}. You have {c.chancesLeft} {c.chancesLeft === 1 ? "race" : "races"}: after them, you choose which score to use. One discount only. Stay in the game until each race ends: a paused race doesn&rsquo;t count.
+                {RULES}. You have {c.chancesLeft} {c.chancesLeft === 1 ? "race" : "races"}: after them, you choose which score to use. One discount only. Stay in the game until each race ends: a paused race doesn&rsquo;t count. Away from the game for more than {CLAIM_AWAY_MINUTES} minutes, your races end for today.
               </p>
               <button type="button" autoFocus className={`${button} w-full`} disabled={busy} onClick={onStart}>
                 {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Play size={16} className="fill-current" aria-hidden />}
@@ -1130,6 +1166,7 @@ function ClaimCard({
 
           {finished && (
             <div className="mt-1">
+              {c.endedAway && c.status === "open" && <p className="text-navy/75 text-[13px] leading-snug mb-2">{AWAY_ENDED_TEXT}</p>}
               {c.status === "used" ? (
                 <p className="text-navy text-[14px]">This discount has been used on your bill. Thank you! Play for a new one tomorrow.</p>
               ) : c.status === "expired" ? (

@@ -14,6 +14,10 @@ export const chancesText = (n = CLAIM_CHANCES) => (n === 1 ? '1 race a day' : `$
 // What the customer sends to our WhatsApp to get a code (src/lib/game-otp.ts answers it)
 export const OTP_REQUEST_TEXT = 'GET OTP'
 export const CLAIM_VALID_HOURS = 24 // a claim must be used at the till within this many hours of registering
+// Away from the game this long (the game closed, another page or app, the screen off), a claim's
+// races end for the day: its best score so far stays as the discount. Free play has no such rule
+export const CLAIM_AWAY_MINUTES = 5
+export const AWAY_ENDED_TEXT = `You were away from the game for more than ${CLAIM_AWAY_MINUTES} minutes, so your races for today have ended.`
 
 // Fish caught -> discount on the bill. At least MIN_FISH (25) in one race for any discount:
 // 25 fish = 5 %. From there every fish counts, up to 15 % at 50 fish (0.4 % a fish: 30 fish =
@@ -79,6 +83,7 @@ export type ClaimView = {
   metres: number | null
   percent: number
   locked: boolean // a score is chosen: no more races
+  endedAway: boolean // the races ended because the player left the game (CLAIM_AWAY_MINUTES)
   status: ClaimStatus
   expiresAt: string
 }
