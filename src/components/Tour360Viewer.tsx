@@ -22,16 +22,22 @@ const spot = (x: number, y: number) => ({ yaw: (x / 1400 - 0.5) * 2 * Math.PI, p
 // The lowest row of the same preview that may be shown: below it is the tripod or the photographer
 const floorAt = (y: number) => (0.5 - y / 700) * Math.PI;
 
-// One walk, in order: the terrace in front of the restaurant, in through the doors to the dining
-// hall, out along the promenade, then the same way at sunset: the terrace, the promenade, the pier.
-// Each place opens facing the way the walk is going.
+// One walk, in order: the restaurant (the terrace on the waterfront, the front, in to the dining
+// hall and the kitchen), then Waterfront Market next door, where guests can buy their own fish
+// (outside, the lobby, the corridor, the fish, meat, and fruit & vegetable halls).
+// Each place opens facing what it is there to show. The photos (public/images/360, from the
+// 360 camera originals kept outside the site in Boat/360-originals) are 5120 px wide, 3072 on phones.
 const SCENES = [
-  { id: "terrace", start: spot(760, 310), floor: floorAt(650) }, // the front doors
-  { id: "dining-hall", start: spot(600, 340), floor: floorAt(655) }, // just inside, facing the room
-  { id: "promenade", start: spot(720, 320), floor: floorAt(650) }, // outside, looking back at the restaurant
-  { id: "terrace-sunset", start: spot(690, 330), floor: floorAt(590) }, // outside again, evening
-  { id: "promenade-sunset", start: spot(520, 330), floor: floorAt(625) }, // the sun over the creek
-  { id: "pier-sunset", start: spot(560, 350), floor: floorAt(615) }, // at the water's edge
+  { id: "tour-terrace", name: "Terrace", area: "Boat Seafood", start: spot(720, 330), floor: floorAt(645) },
+  { id: "tour-restaurant-front", name: "The restaurant", area: "Boat Seafood", start: spot(760, 340), floor: floorAt(645) },
+  { id: "tour-dining-hall", name: "Dining hall", area: "Boat Seafood", start: spot(640, 370), floor: floorAt(650) },
+  { id: "tour-kitchen", name: "Kitchen", area: "Boat Seafood", start: spot(420, 360), floor: floorAt(640) },
+  { id: "tour-market-outside", name: "Outside the market", area: "Waterfront Market", start: spot(1270, 330), floor: floorAt(585) },
+  { id: "tour-market-lobby", name: "Market entrance", area: "Waterfront Market", start: spot(700, 360), floor: floorAt(590) },
+  { id: "tour-market-corridor", name: "Market hall", area: "Waterfront Market", start: spot(560, 390), floor: floorAt(625) },
+  { id: "tour-fish-market", name: "Fish market", area: "Waterfront Market", start: spot(690, 390), floor: floorAt(640) },
+  { id: "tour-meat-market", name: "Meat market", area: "Waterfront Market", start: spot(500, 380), floor: floorAt(640) },
+  { id: "tour-fruit-vegetables", name: "Fruit & vegetables", area: "Waterfront Market", start: spot(570, 380), floor: floorAt(625) },
 ];
 
 const ZOOM = 20;
@@ -63,6 +69,7 @@ export default function Tour360Viewer({ className }: { className: string }) {
   const [near, setNear] = useState(false);
   const [touch, setTouch] = useState(false); // which hint to show
   const [hint, setHint] = useState(true);
+  const [place, setPlace] = useState(0); // which place is shown (its name and number on the photo)
   const wrapRef = useRef<HTMLDivElement>(null);
   const [full, setFull] = useState(false);
 
@@ -164,6 +171,7 @@ export default function Tour360Viewer({ className }: { className: string }) {
       busy = true;
       scene = (scene + by + SCENES.length) % SCENES.length;
       const next = SCENES[scene];
+      setPlace(scene);
       setHint(false);
       const hasStill = !calm && takeStill();
       try {
@@ -360,6 +368,13 @@ export default function Tour360Viewer({ className }: { className: string }) {
         aria-hidden
         className="absolute inset-0 z-20 w-full h-full pointer-events-none invisible backface-hidden"
       />
+      {/* Where this is, and how far along the walk */}
+      <div aria-live="polite" className="absolute left-3 top-3 md:left-5 md:top-5 z-30 pointer-events-none rounded-xl bg-navy/80 backdrop-blur-sm px-4 py-2.5 text-white">
+        <span className="block font-jost text-[10px] md:text-[11px] uppercase tracking-[2.5px] text-ocean">
+          {SCENES[place].area} · {place + 1} / {SCENES.length}
+        </span>
+        <span className="block font-playfair text-[17px] md:text-[20px] font-bold leading-tight">{SCENES[place].name}</span>
+      </div>
       {/* How to look around: hidden while the visitor drags, back when they let go */}
       <div
         role="status"
