@@ -16,7 +16,11 @@ export type KitchenOrder = {
   total: number
   timestamp: string
   status: 'pending' | 'completed' | 'cancelled'
-  source?: 'booking' | null // a pre-order from a confirmed table booking (otherwise the website menu)
+  source?: 'booking' | 'delivery' | null // a pre-order from a confirmed table booking, a delivery (otherwise the website menu)
+  location?: string | null // delivery: the address
+  cooking_minutes?: number | null // cooking time set when confirmed (deliveries, booking pre-orders)
+  ready_at?: string | null // delivery: confirmed + cooking time
+  cook_at?: string | null // booking pre-order: when to start (cooking time before the guests come)
   booking_date?: string | null // when the guests come, e.g. "Fri, 20 Nov 2026"
   booking_time?: string | null // e.g. "5:00 PM"
 }

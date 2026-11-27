@@ -7,6 +7,7 @@ import { TABLE_AREAS, TABLES, tableLabel } from "@/lib/bookings";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FlipBookPopup from "@/components/FlipBookPopup";
+import DishDetail from "@/components/DishDetail";
 import { scrollPageTo } from "@/components/SmoothScroll";
 import { MENU_CATEGORIES, type MenuItem } from "@/data/menu";
 import Link from "next/link";
@@ -24,7 +25,7 @@ const MENU_PAGE_SIZE = 9;
 // Dishes come from the server (page.tsx), so they are in the HTML Google reads.
 // tableNumber = ?table= from the QR code on the restaurant table. openOffers = ?offers (from the
 // homepage offers popup): start on the Offers tab.
-export default function MenuClient({ initialItems, tableNumber, openOffers = false }: { initialItems: MenuItem[]; tableNumber: string | null; openOffers?: boolean }) {
+export default function MenuClient({ initialItems, tableNumber, openOffers = false, openDish = null }: { initialItems: MenuItem[]; tableNumber: string | null; openOffers?: boolean; openDish?: string | null }) {
   const { cart, addToCart, updateQuantity, clearCart, cartTotal, cartCount, isCartOpen, setIsCartOpen } = useCart();
   const hero = useSection("menu_hero").fields;
   const hasOffers = initialItems.some((item) => item.discount);
@@ -74,6 +75,10 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
     // the new page starts from the top of the menu page
     scrollPageTo(0);
   };
+
+  // The dish whose details are open (a click anywhere on its card)
+  // A shared dish link (?dish=<id>) opens with that dish's details
+  const [viewing, setViewing] = useState<MenuItem | null>(() => (openDish ? initialItems.find((i) => i.id === openDish) ?? null : null));
 
   const handleAddToCart = (item: MenuItem) => {
     addToCart(item);
@@ -142,7 +147,7 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
     <>
       <Navbar />
       {/* The menu book invitation, each time the menu opens (not when ordering from a table) */}
-      <FlipBookPopup key={openOffers ? "offers" : "menu"} skip={!!tableNumber} /> {/* key: restarts when the link switches between the menu and its offers */}
+      <FlipBookPopup key={openOffers ? "offers" : "menu"} skip={!!tableNumber || !!openDish} /> {/* key: restarts when the link switches between the menu and its offers */}
       <main className="bg-white min-h-screen text-navy">
 
         {/* Hero Section */}
@@ -220,7 +225,8 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                 // dishes of the other pages stay in the HTML for Google, hidden from view
-                className={`group flex-col ${onPage ? "flex" : "hidden"}`}
+                className={`group flex-col cursor-pointer ${onPage ? "flex" : "hidden"}`}
+                onClick={() => setViewing(item)}
               >
                 <div className={`relative aspect-[4/3] overflow-hidden mb-6 rounded-sm shadow-sm ${item.discount ? "ring-2 ring-offer ring-offset-4 ring-offset-white" : ""}`}>
                   {/* The page's first row loads right away; the rest only when scrolled near (lazy:
@@ -244,7 +250,13 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
                     </span>
                   ) : null}
                   <button
-                    onClick={() => handleAddToCart(item)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // At a table: straight onto the table's order. Otherwise the dish opens, where
+                      // "Add to order" offers Table Booking or Delivery
+                      if (tableNumber) handleAddToCart(item);
+                      else setViewing(item);
+                    }}
                     aria-label={`Add ${item.name} to order`}
                     className="absolute bottom-3 right-3 md:bottom-4 md:right-4 bg-navy text-cream p-2.5 md:p-4 rounded-full shadow-2xl md:translate-y-4 md:opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 hover:bg-ocean hover:text-navy opacity-100 translate-y-0"
                   >
@@ -254,7 +266,10 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
 
                 <div className="flex justify-between items-start mb-3">
                   <StyledHeading as="h3" choice={hero.dish_style} className="font-playfair text-2xl font-bold text-navy leading-tight">
-                    {item.name}
+                    {/* the keyboard way to the details (a click anywhere on the card works too) */}
+                    <button type="button" className="text-left cursor-pointer hover:text-ocean transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-navy">
+                      {item.name}
+                    </button>
                   </StyledHeading>
                   {item.discount ? (
                     <span className="flex flex-col items-end shrink-0 pl-3">
@@ -331,8 +346,10 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
           )}
         </section>
 
+        {/* The order (cart) is only for ordering at a restaurant table (its QR code); elsewhere
+            dishes are ordered through Table Booking or Delivery (DishDetail) */}
         {/* Cart Indicator (only if items exist) */}
-        {cartCount > 0 && (
+        {tableNumber && cartCount > 0 && (
           <motion.button
             initial={{ y: 100 }}
             animate={{ y: 0 }}
@@ -354,7 +371,7 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
 
         {/* Cart Sidebar */}
         <AnimatePresence>
-          {isCartOpen && (
+          {tableNumber && isCartOpen && (
             <>
               <motion.div
                 initial={{ opacity: 0 }}
@@ -527,6 +544,7 @@ export default function MenuClient({ initialItems, tableNumber, openOffers = fal
           )}
         </AnimatePresence>
       </main>
+      <DishDetail item={viewing} onClose={() => setViewing(null)} tableNumber={tableNumber} />
       <Footer />
     </>
   );

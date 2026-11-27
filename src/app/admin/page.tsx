@@ -6,8 +6,9 @@ import { actionFailed, confirmDialog } from "./client-helpers";
 import { toast } from "./Toaster";
 import Pagination from "./Pagination";
 import BookingOrders from "./BookingOrders";
-import { TrendingUp, Utensils, DollarSign, Clock, Check, AlertCircle, RefreshCw, BellOff, ChevronDown, ChevronUp, User, Phone, Trash2, X, CalendarDays } from "lucide-react";
+import { ChefHat, MapPin, Truck, TrendingUp, Utensils, DollarSign, Clock, Check, AlertCircle, RefreshCw, BellOff, ChevronDown, ChevronUp, User, Phone, Trash2, X, CalendarDays } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { cookingLabel, dubaiClock } from "@/lib/deliveries";
 
 
 // Orders per page (2 rows of 4 on wide screens)
@@ -24,15 +25,17 @@ const FILTERS: { value: Tab; label: string }[] = [
   { value: "pending", label: "Pending" },
   { value: "completed", label: "Completed" },
   { value: "cancelled", label: "Cancelled" },
+  { value: "delivery", label: "Delivery" },
   { value: "bookings", label: "Table Bookings" },
 ];
 
-const LIST_TITLE: Record<Tab, string> = { all: "All Orders", pending: "Active Orders", completed: "Completed Orders", cancelled: "Cancelled Orders", bookings: "Table Bookings" };
+const LIST_TITLE: Record<Tab, string> = { all: "All Orders", pending: "Active Orders", completed: "Completed Orders", cancelled: "Cancelled Orders", delivery: "Delivery Orders", bookings: "Table Bookings" };
 const EMPTY_TEXT: Record<OrderFilter, string> = {
   all: "No orders yet.",
   pending: "No active orders right now.",
   completed: "No completed orders yet.",
   cancelled: "No cancelled orders.",
+  delivery: "No delivery orders yet.",
 };
 
 // How often the live feed checks for new orders
@@ -47,9 +50,14 @@ interface Order {
   total: number;
   timestamp: string;
   status: 'pending' | 'completed' | 'cancelled';
-  source?: 'booking' | null; // a confirmed booking's pre-order
+  source?: 'booking' | 'delivery' | null; // a confirmed booking's pre-order, or a delivery
   booking_date?: string | null;
   booking_time?: string | null;
+  location?: string | null; // delivery: the address
+  location_map?: string | null; // delivery: a map pin from the customer's phone
+  cooking_minutes?: number | null; // set when confirmed
+  ready_at?: string | null; // delivery: when it is ready
+  cook_at?: string | null; // booking pre-order: when to start cooking
 }
 
 export default function AdminDashboard() {
@@ -77,7 +85,7 @@ export default function AdminDashboard() {
   // Refresh on the bookings feed: a new key reloads it
   const [bookingsKey, setBookingsKey] = useState(0);
   const viewRef = useRef(view);
-  const [counts, setCounts] = useState({ all: 0, pending: 0, completed: 0, cancelled: 0, bookings: 0 });
+  const [counts, setCounts] = useState({ all: 0, pending: 0, completed: 0, cancelled: 0, delivery: 0, bookings: 0 });
   const [listTotal, setListTotal] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
@@ -248,14 +256,14 @@ export default function AdminDashboard() {
         </div>
 
         {/* Filter: which orders from the database are listed */}
-        {MENU_ORDERS_FEED && <div role="tablist" aria-label="Show orders" className="grid grid-cols-2 sm:flex gap-1 p-1 mb-6 md:mb-8 bg-gray-100 rounded-lg w-full sm:w-fit">
+        {MENU_ORDERS_FEED && <div role="tablist" aria-label="Show orders" className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1 p-1 mb-6 md:mb-8 bg-gray-100 rounded-lg w-full sm:w-fit">
           {FILTERS.map((f) => (
             <button
               key={f.value}
               role="tab"
               aria-selected={view.filter === f.value}
               onClick={() => show(f.value, 0)}
-              className={`${f.value === "bookings" ? "col-span-2 " : ""}flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${
                 view.filter === f.value ? "bg-white text-navy shadow-sm" : "text-gray-500 hover:text-navy"
               }`}
             >
@@ -309,7 +317,18 @@ export default function AdminDashboard() {
                             <CalendarDays size={11} aria-hidden /> Booking {order.booking_date}{order.booking_time ? `, ${order.booking_time}` : ""}
                           </span>
                         )}
-                        {order.table && order.table !== "Takeaway" && (
+                        {order.source === "delivery" && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">
+                            <Truck size={11} aria-hidden /> Delivery
+                          </span>
+                        )}
+                        {order.cooking_minutes ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-800 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">
+                            <ChefHat size={12} aria-hidden /> {cookingLabel(order.cooking_minutes)}
+                            {order.ready_at ? ` · ready ${dubaiClock(order.ready_at)}` : order.cook_at ? ` · start ${dubaiClock(order.cook_at)}` : ""}
+                          </span>
+                        ) : null}
+                        {order.table && order.table !== "Takeaway" && order.source !== "delivery" && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-navy text-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">
                             <Utensils size={11} aria-hidden /> Table {order.table}
                           </span>
@@ -322,6 +341,20 @@ export default function AdminDashboard() {
                           <span className="inline-flex items-center gap-1 text-xs text-gray-400"><Phone size={12} aria-hidden /> No number</span>
                         )}
                       </div>
+                      {/* Delivery: where to bring it (and the customer's map pin, when shared) */}
+                      {order.source === "delivery" && order.location && (
+                        <p className="mt-2 flex items-start gap-1.5 text-sm text-gray-700 break-words">
+                          <MapPin size={14} className="shrink-0 mt-0.5 text-emerald-600" aria-hidden />
+                          <span className="min-w-0">
+                            {order.location}
+                            {order.location_map && (
+                              <a href={order.location_map} target="_blank" rel="noopener noreferrer" className="ml-2 whitespace-nowrap text-xs font-bold text-ocean hover:underline">
+                                Open map
+                              </a>
+                            )}
+                          </span>
+                        </p>
+                      )}
                     </div>
                     <div className="text-right shrink-0">
                       <div className="flex items-center justify-end gap-1.5 text-gray-400 mb-1">

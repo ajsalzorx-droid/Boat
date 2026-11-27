@@ -52,6 +52,8 @@ import { draftMode } from "next/headers";
 import { CartProvider } from "@/context/CartContext";
 import { ContentProvider } from "@/context/ContentContext";
 import { getSiteContent } from "@/lib/content-data";
+import { DeliveryProvider } from "@/context/DeliveryContext";
+import { getDeliveryApps } from "@/lib/delivery-data";
 import PreviewBadge from "@/components/PreviewBadge";
 
 // Pages are kept ready on the server and rebuilt at most every 60 s (ISR). Saving in the admin or
@@ -69,7 +71,8 @@ export default async function RootLayout({
 }>) {
   // Editable site text (SEO Studio) for every client component, via useSection()
   // SEO Studio preview (draft mode, /api/preview): unpublished changes are shown, caches skipped
-  const [content, { isEnabled: previewing }] = await Promise.all([getSiteContent(), draftMode()]);
+  // and the navbar's delivery apps (Admin -> Delivery Apps)
+  const [content, deliveryApps, { isEnabled: previewing }] = await Promise.all([getSiteContent(), getDeliveryApps(), draftMode()]);
 
   return (
     <html lang="en">
@@ -79,6 +82,7 @@ export default async function RootLayout({
         className={`${playfair.variable} ${jost.variable} ${cormorant.variable} ${outfit.variable} antialiased selection:bg-navy selection:text-cream`}
       >
         <ContentProvider content={content}>
+          <DeliveryProvider apps={deliveryApps}>
           <CartProvider>
             <SmoothScroll>
               {children}
@@ -86,6 +90,7 @@ export default async function RootLayout({
             </SmoothScroll>
             {previewing && <PreviewBadge />}
           </CartProvider>
+          </DeliveryProvider>
         </ContentProvider>
       </body>
     </html>

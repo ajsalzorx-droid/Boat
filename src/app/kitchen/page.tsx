@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Clock, Utensils, AlertCircle, RefreshCw, LogOut, BellOff, User, Phone, CalendarDays, LayoutDashboard } from "lucide-react";
+import { Check, Clock, Utensils, AlertCircle, RefreshCw, LogOut, BellOff, User, Phone, CalendarDays, LayoutDashboard, Truck, ChefHat } from "lucide-react";
+import { cookingLabel, dubaiClock } from "@/lib/deliveries";
 import Link from "next/link";
 import { clearPendingOrders } from "@/app/admin/actions";
 import { logout } from "@/app/admin/login/actions";
@@ -177,10 +178,23 @@ export default function KitchenPage() {
                           <CalendarDays size={11} aria-hidden /> Booking {order.booking_date}{order.booking_time ? `, ${order.booking_time}` : ""}
                         </span>
                       )}
+                      {order.source === "delivery" && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">
+                          <Truck size={11} aria-hidden /> Delivery
+                        </span>
+                      )}
+                      {/* The cooking time set when it was confirmed: a delivery is ready by then, a
+                          booking's pre-order starts then (that long before the guests come) */}
+                      {order.cooking_minutes ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white text-navy px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">
+                          <ChefHat size={12} aria-hidden /> {cookingLabel(order.cooking_minutes)}
+                          {order.ready_at ? ` · ready ${dubaiClock(order.ready_at)}` : order.cook_at ? ` · start ${dubaiClock(order.cook_at)}` : ""}
+                        </span>
+                      ) : null}
                       {order.table === "Takeaway" && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-white/20 text-white/70 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">Takeaway</span>
                       )}
-                      {order.table && order.table !== "Takeaway" && (
+                      {order.table && order.table !== "Takeaway" && order.source !== "delivery" && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-ocean text-navy px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">
                           <Utensils size={11} aria-hidden /> Table {order.table}
                         </span>

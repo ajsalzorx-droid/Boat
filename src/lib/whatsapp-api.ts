@@ -22,10 +22,24 @@ import { randomUUID } from 'node:crypto'
 //     We have received your booking for {{booking}} on {{date}} at {{time}}.
 //     Our team is reviewing it now and will get back to you shortly.
 //     Need help? Call or WhatsApp us at +971 50 748 7220.
+//   WATI_PREORDER_COOKING_TEMPLATE  (optional) a booking with pre-ordered dishes, confirmed with a
+//     cooking time, e.g. booking_confirmed_cooking: booking_confirmed_preorder's variables, then
+//     Cooking time: {{cooking_time}}.   (not set, or not sent: the templates above go instead)
+// Deliveries (Admin -> Delivery, src/lib/deliveries.ts), each optional (not set = not sent):
+//   WATI_DELIVERY_RECEIVED_TEMPLATE  sent as soon as the customer orders, e.g. delivery_received:
+//     Hello {{customer_name}}, thank you for ordering from Boat Seafood Restaurant!
+//     We have received your delivery order: {{dishes}}. Total: {{total}}.
+//     Delivery to: {{location}}. We will confirm it shortly.
+//   WATI_DELIVERY_CONFIRM_TEMPLATE   sent when the admin confirms it, e.g. delivery_confirmed:
+//     Hello {{customer_name}}, your delivery order from Boat Seafood Restaurant is confirmed!
+//     {{dishes}}. Total: {{total}}.
+//     Cooking time: {{cooking_time}}. Ready at about {{ready_time}}, then on its way to {{location}}.
+//     Need help? Call or WhatsApp us at +971 50 748 7220.
 
 const CONFIRM_PARAMS = ['customer_name', 'table_no', 'guests', 'date', 'time']
 const RECEIVED_PARAMS = ['customer_name', 'booking', 'date', 'time']
 const PREORDER_PARAMS = [...CONFIRM_PARAMS, 'dishes', 'total']
+const PREORDER_COOKING_PARAMS = [...PREORDER_PARAMS, 'cooking_time']
 
 export function whatsappApiReady() {
   return !!(process.env.WATI_API_HOST && process.env.WATI_API_TOKEN && process.env.WATI_CONFIRM_TEMPLATE)
@@ -165,17 +179,36 @@ export async function sendTyping(target: string) {
 const named = (names: string[], values: string[]) => Object.fromEntries(names.map((n, i) => [n, values[i]]))
 
 // "We have your request": sent when the customer books. null = WATI_RECEIVED_TEMPLATE not set (skipped)
+// The customer has just proved their number by messaging us ("GET OTP", src/lib/phone-verify.ts),
+// so WhatsApp's 24-hour window is open: a plain text goes free, with no template. The template is
+// the fallback (the text can't go once the window has closed). Not set up at all: null (skipped).
 export async function sendBookingReceived(to: string, parts: string[]): Promise<SendResult | null> {
-  const template = process.env.WATI_RECEIVED_TEMPLATE?.trim()
-  if (!template || !whatsappChatReady()) return null
-  return sendTemplate(to, template, named(RECEIVED_PARAMS, parts))
+  if (!whatsappChatReady()) return null
+  const [name, booking, date, time] = parts
+  const text = `Hello ${name}, thank you for booking with Boat Seafood Restaurant!\n\nWe have received your booking for ${booking} on ${date} at ${time}. Our team is reviewing it now and will get back to you shortly.`
+  return textThenTemplate(to, text, process.env.WATI_RECEIVED_TEMPLATE?.trim() ?? '', named(RECEIVED_PARAMS, parts))
+}
+
+// A free text first; when WhatsApp refuses it (the 24-hour window has closed), the template
+async function textThenTemplate(to: string, text: string, template: string, params: Record<string, string>): Promise<SendResult> {
+  const sent = await sendText(to, text)
+  if (sent.ok || !template) return sent
+  console.error(`WhatsApp text not sent (${sent.error}); sending the "${template}" template instead`)
+  return sendTemplate(to, template, params)
 }
 
 // Booking confirmation: with the dishes and total when the pre-order template is set up
 // With dishes, the pre-order template is tried first. If Wati can't send it (not created or not
 // approved yet: Wati answers 404), the basic template goes instead: it still says how many dishes
 // and the total (message.parts), so the customer always gets a confirmation
-export async function sendConfirmation(to: string, message: { parts: string[]; preorderParts: string[] | null }) {
+export async function sendConfirmation(to: string, message: { parts: string[]; preorderParts: string[] | null }, cookingTime?: string | null) {
+  // With a cooking time: the template that says it, when set up (else the ones below)
+  const cookingTemplate = process.env.WATI_PREORDER_COOKING_TEMPLATE?.trim()
+  if (message.preorderParts && cookingTime && cookingTemplate) {
+    const sent = await sendTemplate(to, cookingTemplate, named(PREORDER_COOKING_PARAMS, [...message.preorderParts, cookingTime]))
+    if (sent.ok) return sent
+    console.error(`Cooking-time template "${cookingTemplate}" not sent (${sent.error}); sending the other confirmation instead`)
+  }
   const preorderTemplate = process.env.WATI_PREORDER_TEMPLATE
   if (message.preorderParts && preorderTemplate) {
     const sent = await sendTemplate(to, preorderTemplate, named(PREORDER_PARAMS, message.preorderParts))
@@ -185,3 +218,29 @@ export async function sendConfirmation(to: string, message: { parts: string[]; p
   return sendTemplate(to, process.env.WATI_CONFIRM_TEMPLATE ?? '', named(CONFIRM_PARAMS, message.parts))
 }
 
+
+// ---------- Deliveries ----------
+
+type DeliveryParams = { customer_name: string; dishes: string; total: string; location: string }
+
+const deliveryTemplate = (name: 'WATI_DELIVERY_RECEIVED_TEMPLATE' | 'WATI_DELIVERY_CONFIRM_TEMPLATE') => process.env[name]?.trim() ?? ''
+
+// Confirming a delivery can send its WhatsApp message from the restaurant's number. The customer
+// proved their number by messaging us, so a plain text goes free within 24 hours of that; the
+// templates are only needed after that
+export const deliveryWhatsappReady = () => whatsappChatReady()
+
+// "We have your order": sent when the customer orders (free text, template as the fallback).
+// null = WhatsApp not set up (skipped)
+export async function sendDeliveryReceived(to: string, params: DeliveryParams): Promise<SendResult | null> {
+  if (!whatsappChatReady()) return null
+  const text = `Hello ${params.customer_name}, thank you for ordering from Boat Seafood Restaurant!\n\nYour delivery order: ${params.dishes}\nTotal: ${params.total}\nDelivery to: ${params.location}\n\nWe will confirm it shortly, with the cooking time.`
+  return textThenTemplate(to, text, deliveryTemplate('WATI_DELIVERY_RECEIVED_TEMPLATE'), params)
+}
+
+// Confirmed, with the cooking time ("30 minutes") and when it is ready ("7:45 PM")
+export async function sendDeliveryConfirmation(to: string, params: DeliveryParams & { cooking_time: string; ready_time: string }): Promise<SendResult> {
+  if (!deliveryWhatsappReady()) return { ok: false, error: 'WhatsApp API is not set up.' }
+  const text = `Hello ${params.customer_name}, your delivery order from Boat Seafood Restaurant is confirmed!\n\n${params.dishes}\nTotal: ${params.total}\nCooking time: ${params.cooking_time}\nReady at about ${params.ready_time}, then on its way to ${params.location}.\n\nNeed help? Just reply to this message.`
+  return textThenTemplate(to, text, deliveryTemplate('WATI_DELIVERY_CONFIRM_TEMPLATE'), params)
+}

@@ -3,12 +3,14 @@
 import { after } from 'next/server'
 import { getDb, newId, toPlain, type IdDoc } from '@/lib/mongodb'
 import { sendBookingReceived } from '@/lib/whatsapp-api'
+import { verifiedPhone, VERIFY_FIRST } from '@/lib/phone-verify'
 import { bestOffer, offerStatus, unitPrice, type Offer } from '@/lib/offers'
 import { getBusinessInfo } from '@/lib/seo-data'
 import { clientIp, hit, looksLikeBot, type FormGuard } from '@/lib/rate-limit'
 import { ANY_TABLE, checkBooking, clashes, MAX_PREORDER_QTY, receivedMessage, tableLabel, whatsappDigits, type BookingInput, type PreorderItem } from '@/lib/bookings'
 
-export type CreateBookingResult = { ok: true } | { ok: false; error: string }
+// verify: the number isn't proved on this device yet: the form asks for the WhatsApp code
+export type CreateBookingResult = { ok: true } | { ok: false; error: string; verify?: true }
 
 const GENERIC_ERROR = 'Could not send your booking. Please try again or call us.'
 
@@ -54,6 +56,9 @@ export async function createBooking(input: BookingInput, guard?: FormGuard): Pro
   const business = await getBusinessInfo()
   const problem = checkBooking(input, { opens: business.opens, closes: business.closes })
   if (problem) return { ok: false, error: problem }
+  // Only for a number proved on this device (src/lib/phone-verify.ts): the WhatsApp messages about
+  // the booking can only ever reach the person who booked
+  if ((await verifiedPhone().catch(() => null)) !== whatsappDigits(input.phone.trim())) return { ok: false, error: VERIFY_FIRST, verify: true }
 
   const fish = input.type === 'fish'
   const table = fish ? null : input.table.trim()
