@@ -12,6 +12,8 @@ import { BLOG_LIMITS, BLOG_TAG, isBlogLevel, publishProblems, SLUG_RE, type Blog
 import { toPost } from '@/lib/blog-data'
 import { EVENT_LIMITS, EVENTS_TAG, isEventImage, type EventPhoto, type SiteEventInput } from '@/lib/events'
 import { newestFirst, toEvent } from '@/lib/events-data'
+import { deliveryAppProblem, DELIVERY_LIMITS, DELIVERY_TAG, type DeliveryApp } from '@/lib/delivery'
+import { DELIVERY_DOC, savedApps, type DeliverySettings } from '@/lib/delivery-data'
 import { MENU_TAG } from '@/lib/menu-data'
 import { MENU_CATEGORIES } from '@/data/menu'
 import { dubaiDay, MAX_OFFER_PERCENT, type Offer, type OfferScope } from '@/lib/offers'
@@ -19,7 +21,8 @@ import { markPlayed } from '@/lib/game-played'
 import { isGameTablet, setGameTablet } from '@/lib/game-tablet'
 import { ANY_TABLE, confirmationMessage, dubaiNow, formatDate, formatTime, tableLabel, visitDate, whatsappDigits, type BookingStatus, type BookingType, type PreorderItem } from '@/lib/bookings'
 import { broadcastOffer, offerBroadcastReady, subscriberCount } from '@/lib/offer-broadcast'
-import { sendConfirmation, whatsappApiReady } from '@/lib/whatsapp-api'
+import { deliveryWhatsappReady, sendConfirmation, sendDeliveryConfirmation, whatsappApiReady } from '@/lib/whatsapp-api'
+import { cookingLabel, DEFAULT_COOKING_MIN, deliveryMessageParams, dubaiClock, isCookingTime, type DeliveryItem, type DeliveryStatus } from '@/lib/deliveries'
 import type { ClaimStatus, RaceScore } from '@/lib/game-claims'
 import type { ClaimDoc } from '@/components/catbo-race/claims'
 import { claimRow, queryDailyCatch, queryGameClaims, queryMenuItems } from '@/lib/admin-lists'
@@ -350,6 +353,37 @@ export async function deleteEvent(id: string) {
   return withAdmin(async (db) => {
     found(await db.collection<IdDoc>('events').deleteOne({ _id: String(id) }))
     refreshSite(EVENTS_TAG)
+  })
+}
+
+// ---------- Delivery apps (the navbar's "Delivery" menu) ----------
+
+// Every app, hidden ones too, in the menu's order (the defaults until the list is first saved)
+export async function listDeliveryApps() {
+  return withAdmin(async (db) => savedApps(await db.collection<DeliverySettings>('site_settings').findOne({ _id: DELIVERY_DOC })))
+}
+
+// The whole list, in this order
+export async function saveDeliveryApps(input: DeliveryApp[]) {
+  return withAdmin(async (db) => {
+    if (!Array.isArray(input)) fail('Nothing to save.')
+    if (input.length > DELIVERY_LIMITS.apps) fail(`At most ${DELIVERY_LIMITS.apps} apps.`)
+    const apps = input.map((a, i) => {
+      const app: DeliveryApp = {
+        name: oneLine(String(a?.name ?? '').trim()),
+        url: String(a?.url ?? '').trim(),
+        color: String(a?.color ?? '').trim().toUpperCase(),
+        visible: a?.visible !== false,
+      }
+      const problem = deliveryAppProblem(app, i + 1)
+      if (problem) fail(problem)
+      return app
+    })
+    await db
+      .collection<DeliverySettings>('site_settings')
+      .updateOne({ _id: DELIVERY_DOC }, { $set: { apps, updated_at: new Date() } }, { upsert: true })
+    refreshSite(DELIVERY_TAG)
+    return apps
   })
 }
 
@@ -739,9 +773,14 @@ export type OrderRow = Plain<{
   total: number
   status: 'pending' | 'completed' | 'cancelled'
   timestamp: string
-  source?: 'booking' | null // a confirmed booking's pre-order (otherwise the website menu)
+  source?: 'booking' | 'delivery' | null // a confirmed booking's pre-order, a delivery (a dish's "Add to order"), otherwise the menu's order form
   booking_date?: string | null // when the guests come, e.g. "Fri, 20 Nov 2026"
   booking_time?: string | null
+  location?: string | null // delivery: the address as typed
+  location_map?: string | null // delivery: a Google Maps pin, when the customer shared their location
+  cooking_minutes?: number | null // cooking time set when confirmed (deliveries, booking pre-orders)
+  ready_at?: string | null // delivery: confirmed + cooking time
+  cook_at?: string | null // booking pre-order: when to start (cooking time before the guests come)
 }>
 
 // ---------- Bookings (table reservations + fish preparation, from /book) ----------
@@ -761,6 +800,7 @@ export type BookingRow = Plain<{
   notes: string | null
   items?: PreorderItem[] | null // dishes pre-ordered from the menu
   items_total?: number | null
+  cooking_minutes?: number | null // the pre-order's cooking time, set when confirmed
   whatsapp_sent_at?: string | null // confirmation sent through the WhatsApp API
   whatsapp_error?: string | null
   status: BookingStatus
@@ -803,13 +843,17 @@ export async function listBookings(page: number, pageSize: number, type: Booking
 // 'failed' = the API refused it (error says why), 'off' = API not set up or not a confirmation
 export type BookingStatusResult = { whatsapp: 'sent' | 'failed' | 'off'; error?: string }
 
-export async function setBookingStatus(id: string, status: BookingStatus) {
+// cookingMinutes: when confirming a booking with pre-ordered dishes, how long they take to cook
+// (the kitchen starts them that long before the guests come; the WhatsApp confirmation says it)
+export async function setBookingStatus(id: string, status: BookingStatus, cookingMinutes?: number) {
   return withAdmin<BookingStatusResult>(async (db) => {
     if (!['new', 'confirmed', 'cancelled'].includes(status)) fail('Invalid booking status.')
+    if (cookingMinutes !== undefined && !isCookingTime(cookingMinutes)) fail('Please choose the cooking time.')
+    const cooking = status === 'confirmed' && cookingMinutes !== undefined
     const bookings = db.collection<IdDoc>('bookings')
-    const before = await bookings.findOneAndUpdate({ _id: String(id) }, { $set: { status, updated_at: new Date() } })
+    const before = await bookings.findOneAndUpdate({ _id: String(id) }, { $set: { status, updated_at: new Date(), ...(cooking && { cooking_minutes: cookingMinutes }) } })
     if (!before) fail('This item no longer exists. Please refresh.')
-    const row = toPlain(before) as unknown as BookingRow
+    const row = { ...(toPlain(before) as unknown as BookingRow), ...(cooking && { cooking_minutes: cookingMinutes }) }
 
     // Pre-ordered dishes go to the kitchen screen when the booking is confirmed (once), and leave it
     // again if the booking is cancelled before they are cooked
@@ -825,6 +869,14 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
   })
 }
 
+// The pre-order's cooking time, and when the kitchen starts it: that long before the guests come
+// (the visit is a Dubai date and time; a visit after midnight is on the next day, see visitDate)
+function preorderTiming(b: BookingRow) {
+  if (!b.cooking_minutes) return { cooking_minutes: null, cook_at: null }
+  const visit = new Date(`${visitDate(b.date, b.time)}T${b.time}:00+04:00`)
+  return { cooking_minutes: b.cooking_minutes, cook_at: new Date(visit.getTime() - b.cooking_minutes * 60_000) }
+}
+
 // A confirmed booking's pre-order as a kitchen order (source 'booking', with when the guests come).
 // Keyed by the booking, so confirming again never adds it twice; a cancelled one comes back, a
 // completed one (already cooked) stays done.
@@ -834,7 +886,7 @@ async function sendPreorderToKitchen(db: Db, b: BookingRow) {
   const id = `booking-${b.id}`
   const existing = await orders.findOne({ _id: id }, { projection: { status: 1 } })
   if (existing) {
-    if (existing.status === 'cancelled') await orders.updateOne({ _id: id }, { $set: { status: 'pending', timestamp: new Date() } })
+    if (existing.status === 'cancelled') await orders.updateOne({ _id: id }, { $set: { status: 'pending', timestamp: new Date(), ...preorderTiming(b) } })
     return
   }
   await orders.updateOne(
@@ -851,6 +903,7 @@ async function sendPreorderToKitchen(db: Db, b: BookingRow) {
         total: b.items_total ?? Math.round(items.reduce((s, i) => s + i.price * i.quantity, 0) * 100) / 100,
         booking_date: formatDate(visitDate(b.date, b.time)),
         booking_time: formatTime(b.time),
+        ...preorderTiming(b),
         timestamp: new Date(),
       },
     },
@@ -866,7 +919,7 @@ async function sendBookingConfirmation(db: Db, b: BookingRow): Promise<BookingSt
     await bookings.updateOne({ _id: b.id }, { $set: { whatsapp_error: NOT_SET_UP } })
     return { whatsapp: 'failed', error: NOT_SET_UP }
   }
-  const sent = await sendConfirmation(whatsappDigits(b.phone), confirmationMessage(b))
+  const sent = await sendConfirmation(whatsappDigits(b.phone), confirmationMessage(b), b.cooking_minutes ? cookingLabel(b.cooking_minutes) : null)
   await bookings.updateOne({ _id: b.id }, { $set: sent.ok ? { whatsapp_sent_at: new Date(), whatsapp_error: null } : { whatsapp_error: sent.error } })
   return sent.ok ? { whatsapp: 'sent' } : { whatsapp: 'failed', error: sent.error }
 }
@@ -883,13 +936,148 @@ export async function resendBookingConfirmation(id: string) {
   })
 }
 
+// Its pre-ordered food leaves the kitchen screen too, if not cooked yet
 export async function deleteBooking(id: string) {
   return withAdmin(async (db) => {
     found(await db.collection<IdDoc>('bookings').deleteOne({ _id: String(id) }))
+    await db.collection('orders').updateMany({ booking_id: String(id), status: 'pending' }, { $set: { status: 'cancelled' } })
   })
 }
 
-export type OrderFilter = 'all' | 'pending' | 'completed' | 'cancelled'
+// ---------- Deliveries (a dish's "Add to order" -> Delivery, src/lib/deliveries.ts) ----------
+
+export type DeliveryRow = Plain<{
+  name: string
+  phone: string
+  location: string
+  location_map?: string | null // Google Maps pin, when the customer shared their location
+  items: DeliveryItem[]
+  items_total: number
+  status: DeliveryStatus
+  cooking_minutes?: number | null // set when confirmed
+  ready_at?: string | null // confirmed time + cooking time
+  received_sent_at?: string | null // "we have your order" WhatsApp
+  whatsapp_sent_at?: string | null // the confirmation WhatsApp
+  whatsapp_error?: string | null
+  created_at: string
+}>
+
+export type DeliveryStatusFilter = 'all' | DeliveryStatus
+
+// One page of deliveries, newest first, plus counts for the filters
+export async function listDeliveries(page: number, pageSize: number, status: DeliveryStatusFilter) {
+  return withAdmin(async (db) => {
+    if (!['all', 'new', 'confirmed', 'cancelled'].includes(status)) fail('Invalid delivery status.')
+    const size = Math.min(Math.max(Math.floor(pageSize) || 9, 1), 100)
+    const skip = Math.max(Math.floor(page) || 0, 0) * size
+    const query = status === 'all' ? {} : { status }
+    const deliveries = db.collection('deliveries')
+    const [docs, total, byStatus] = await Promise.all([
+      deliveries.find(query).sort({ created_at: -1, _id: 1 }).skip(skip).limit(size).toArray(),
+      deliveries.countDocuments(query),
+      deliveries.aggregate<{ _id: DeliveryStatus; count: number }>([{ $group: { _id: '$status', count: { $sum: 1 } } }]).toArray(),
+    ])
+    const counts = { all: 0, new: 0, confirmed: 0, cancelled: 0 }
+    for (const s of byStatus) {
+      if (s._id in counts) counts[s._id] = s.count
+      counts.all += s.count
+    }
+    // whatsappApi: Confirm sends the WhatsApp message itself
+    return { deliveries: docs.map((d) => toPlain(d) as unknown as DeliveryRow), total, counts, whatsappApi: deliveryWhatsappReady() }
+  })
+}
+
+// Confirm (with the cooking time): the food goes to the kitchen screen and the customer gets the
+// confirmation on WhatsApp. Cancel: it leaves the kitchen screen if not cooked yet.
+export async function setDeliveryStatus(id: string, status: DeliveryStatus, cookingMinutes?: number) {
+  return withAdmin<BookingStatusResult>(async (db) => {
+    if (!['new', 'confirmed', 'cancelled'].includes(status)) fail('Invalid delivery status.')
+    if (status === 'confirmed' && !isCookingTime(cookingMinutes)) fail('Please choose the cooking time.')
+    const deliveries = db.collection<IdDoc>('deliveries')
+    const now = new Date()
+    const set: Record<string, unknown> = { status, updated_at: now }
+    if (status === 'confirmed') {
+      set.cooking_minutes = cookingMinutes
+      set.ready_at = new Date(now.getTime() + cookingMinutes! * 60_000)
+    }
+    const before = await deliveries.findOneAndUpdate({ _id: String(id) }, { $set: set })
+    if (!before) fail('This item no longer exists. Please refresh.')
+    const row = { ...(toPlain(before) as unknown as DeliveryRow), ...(status === 'confirmed' && { cooking_minutes: cookingMinutes!, ready_at: (set.ready_at as Date).toISOString() }) }
+
+    if (status === 'confirmed') await sendDeliveryToKitchen(db, row)
+    if (status === 'cancelled')
+      await db.collection('orders').updateMany({ delivery_id: row.id, status: 'pending' }, { $set: { status: 'cancelled' } })
+
+    // Confirming sends the WhatsApp confirmation (once; "Send WhatsApp" tries again if it failed)
+    if (status !== 'confirmed' || before.status === 'confirmed') return { whatsapp: 'off' }
+    return sendDeliveryWhatsapp(db, row)
+  })
+}
+
+// The confirmed delivery as a kitchen order (source 'delivery'), keyed by the delivery so
+// confirming again never adds it twice; a cancelled one comes back, with the new cooking time
+async function sendDeliveryToKitchen(db: Db, d: DeliveryRow) {
+  const orders = db.collection<IdDoc>('orders')
+  const id = `delivery-${d.id}`
+  const timing = { cooking_minutes: d.cooking_minutes ?? null, ready_at: d.ready_at ? new Date(d.ready_at) : null }
+  const existing = await orders.findOne({ _id: id }, { projection: { status: 1 } })
+  if (existing) {
+    if (existing.status === 'cancelled') await orders.updateOne({ _id: id }, { $set: { status: 'pending', timestamp: new Date(), ...timing } })
+    return
+  }
+  await orders.insertOne({
+    _id: id,
+    delivery_id: d.id,
+    source: 'delivery',
+    table: 'Delivery',
+    name: d.name,
+    phone: d.phone,
+    location: d.location,
+    location_map: d.location_map ?? null,
+    items: d.items.map((i) => ({ name: i.name, quantity: i.quantity })),
+    total: d.items_total,
+    status: 'pending',
+    ...timing,
+    timestamp: new Date(),
+  })
+}
+
+async function sendDeliveryWhatsapp(db: Db, d: DeliveryRow): Promise<BookingStatusResult> {
+  const deliveries = db.collection<IdDoc>('deliveries')
+  if (!deliveryWhatsappReady()) {
+    await deliveries.updateOne({ _id: d.id }, { $set: { whatsapp_error: NOT_SET_UP } })
+    return { whatsapp: 'failed', error: NOT_SET_UP }
+  }
+  const sent = await sendDeliveryConfirmation(whatsappDigits(d.phone), {
+    ...deliveryMessageParams(d),
+    cooking_time: cookingLabel(d.cooking_minutes ?? DEFAULT_COOKING_MIN),
+    ready_time: d.ready_at ? dubaiClock(d.ready_at) : '',
+  })
+  await deliveries.updateOne({ _id: d.id }, { $set: sent.ok ? { whatsapp_sent_at: new Date(), whatsapp_error: null } : { whatsapp_error: sent.error } })
+  return sent.ok ? { whatsapp: 'sent' } : { whatsapp: 'failed', error: sent.error }
+}
+
+// "Send WhatsApp" on a confirmed delivery whose message didn't go
+export async function resendDeliveryConfirmation(id: string) {
+  return withAdmin<BookingStatusResult>(async (db) => {
+    const doc = await db.collection<IdDoc>('deliveries').findOne({ _id: String(id) })
+    if (!doc) fail('This item no longer exists. Please refresh.')
+    const d = toPlain(doc!) as unknown as DeliveryRow
+    if (d.status !== 'confirmed') fail('Only confirmed deliveries get the WhatsApp confirmation.')
+    if (d.whatsapp_sent_at) fail('The confirmation was already sent on WhatsApp.')
+    return sendDeliveryWhatsapp(db, d)
+  })
+}
+
+// Its food leaves the kitchen screen too, if not cooked yet (a cooked one stays in the order history)
+export async function deleteDelivery(id: string) {
+  return withAdmin(async (db) => {
+    found(await db.collection<IdDoc>('deliveries').deleteOne({ _id: String(id) }))
+    await db.collection('orders').updateMany({ delivery_id: String(id), status: 'pending' }, { $set: { status: 'cancelled' } })
+  })
+}
+
+export type OrderFilter = 'all' | 'pending' | 'completed' | 'cancelled' | 'delivery'
 
 // Upcoming table bookings (new or confirmed, from today on), soonest first: the dashboard's
 // "Table Bookings" tab, with their pre-ordered food. Confirming stays in Admin -> Bookings.
@@ -912,15 +1100,16 @@ export async function listUpcomingBookings(page: number, pageSize: number) {
 // every matching order (kitchen screen: all pending orders).
 export async function listOrders(page?: number, pageSize?: number, filter: OrderFilter = 'pending') {
   return withAdmin(async (db) => {
-    if (!['all', 'pending', 'completed', 'cancelled'].includes(filter)) fail('Invalid order filter.')
+    if (!['all', 'pending', 'completed', 'cancelled', 'delivery'].includes(filter)) fail('Invalid order filter.')
     const orders = db.collection('orders')
-    const query = filter === 'all' ? {} : { status: filter }
+    // "delivery": every delivery order (any status), newest first
+    const query = filter === 'all' ? {} : filter === 'delivery' ? { source: 'delivery' } : { status: filter }
     let cursor = orders.find(query).sort({ timestamp: -1, _id: 1 })
     if (pageSize !== undefined) {
       const size = Math.min(Math.max(Math.floor(pageSize) || 8, 1), 100)
       cursor = cursor.skip(Math.max(Math.floor(page ?? 0) || 0, 0) * size).limit(size)
     }
-    const [rows, byStatus, bookings] = await Promise.all([
+    const [rows, byStatus, bookings, deliveries] = await Promise.all([
       cursor.toArray(),
       orders
         .aggregate<{ _id: string; count: number; revenue: number }>([
@@ -928,8 +1117,9 @@ export async function listOrders(page?: number, pageSize?: number, filter: Order
         ])
         .toArray(),
       db.collection('bookings').countDocuments(upcomingBookings()), // the "Table Bookings" tab's count
+      orders.countDocuments({ source: 'delivery' }), // the "Delivery" tab's count
     ])
-    const counts = { all: 0, pending: 0, completed: 0, cancelled: 0 }
+    const counts = { all: 0, pending: 0, completed: 0, cancelled: 0, delivery: deliveries }
     let revenue = 0
     for (const s of byStatus) {
       if (s._id === 'pending' || s._id === 'completed' || s._id === 'cancelled') counts[s._id] = s.count

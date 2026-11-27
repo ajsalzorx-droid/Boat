@@ -93,6 +93,28 @@ html::-webkit-scrollbar-button {
   display: none;
 }
 
+/* The navbar's Delivery menu (src/components/Navbar.tsx): a very thin scrollbar when the list is long */
+/* Firefox only: in Chrome these would override the 3px bar below */
+@supports (-moz-appearance: none) {
+  .delivery-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ocean) transparent;
+  }
+}
+.delivery-scroll::-webkit-scrollbar {
+  width: 3px;
+}
+.delivery-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.delivery-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-ocean);
+  border-radius: 9999px;
+}
+.delivery-scroll::-webkit-scrollbar-button {
+  display: none;
+}
+
 /* Menu book pages (src/components/FlipBook.tsx): sizes inside a page use cqw/cqh units,
    so a page scales as a whole, like a printed page, at any book size */
 .flip-page {

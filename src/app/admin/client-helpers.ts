@@ -1,5 +1,6 @@
 import { createImageUpload, type ActionResult, type UploadFolder } from "./actions";
 import { toast } from "./Toaster";
+import { COOKING_TIMES, cookingLabel, DEFAULT_COOKING_MIN } from "@/lib/deliveries";
 
 // Upload size limits per folder: offer banners are full-screen artwork from the designers, so they
 // get more room, and so do event photos straight from a phone (Cloudinary's free plan accepts images up to 10 MB). Stored as WebP either way.
@@ -59,6 +60,28 @@ export async function messageDialog({
 }): Promise<void> {
   const Swal = await swal();
   await Swal.fire({ title, html: textHtml(text), icon, confirmButtonText: "OK", confirmButtonColor: "#003049" });
+}
+
+// "How long will it take to cook?" when confirming a delivery or a booking's pre-order. Resolves
+// the minutes chosen, or null when closed without confirming.
+export async function cookingTimeDialog({ title, text, confirmText = "Confirm" }: { title: string; text?: string; confirmText?: string }): Promise<number | null> {
+  const Swal = await swal();
+  const result = await Swal.fire({
+    title,
+    html: textHtml(text),
+    icon: "question",
+    input: "select",
+    inputLabel: "Cooking time",
+    inputOptions: Object.fromEntries(COOKING_TIMES.map((m) => [String(m), cookingLabel(m)])),
+    inputValue: String(DEFAULT_COOKING_MIN),
+    showCancelButton: true,
+    confirmButtonText: confirmText,
+    cancelButtonText: "Cancel",
+    confirmButtonColor: "#16a34a",
+    cancelButtonColor: "#9ca3af",
+    reverseButtons: true,
+  });
+  return result.isConfirmed ? Number(result.value) : null;
 }
 
 // Shows the error from an admin action (as a toast). Returns true if the action failed.

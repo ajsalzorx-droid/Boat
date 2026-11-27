@@ -9,7 +9,7 @@ export function safeCache<T>(
   read: () => Promise<T>,
   fallback: () => T,
   keyParts: string[],
-  options: { tags: string[] },
+  options: { tags: string[]; revalidate?: number },
   label: string,
 ): () => Promise<T> {
   const cached = unstable_cache(read, keyParts, options)

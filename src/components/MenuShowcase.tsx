@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import type { MenuItem } from "@/data/menu";
 import { useSection } from "@/context/ContentContext";
 import { StyledHeading } from "./ContentText";
+import DishDetail from "./DishDetail";
 import { formatPrice, unitPrice } from "@/lib/offers";
 
 // Desktop grid is 4 columns x 2 rows = 8 cells: 2 tall cards (2 cells each) + 4 normal = 8
@@ -15,6 +17,7 @@ const TALL_POSITIONS = [0, 3];
 // `items` = active dishes, loaded on the server (src/lib/menu-data.ts) so they are in the HTML
 export default function MenuShowcase({ items }: { items: MenuItem[] }) {
   const c = useSection("menu_showcase");
+  const [viewing, setViewing] = useState<MenuItem | null>(null); // a click on a dish opens its details
 
   // Skip duplicate dishes (same name) so the grid shows 6 different items
   const seen = new Set<string>();
@@ -40,7 +43,8 @@ export default function MenuShowcase({ items }: { items: MenuItem[] }) {
         {menuItems.map((item) => (
           <article
             key={item.id}
-            className={`group relative overflow-hidden bg-cream aspect-[4/3] md:aspect-auto
+            onClick={() => setViewing(item)}
+            className={`group relative overflow-hidden bg-cream aspect-[4/3] md:aspect-auto cursor-pointer
               ${item.tall ? "md:row-span-2" : ""}
             `}
           >
@@ -62,7 +66,10 @@ export default function MenuShowcase({ items }: { items: MenuItem[] }) {
                 {item.tag}
               </span>
               <StyledHeading as="h3" choice={c.fields.dish_style} className="font-playfair text-[22px] font-semibold text-navy leading-[1.22] mb-2.5 whitespace-pre-line drop-shadow-sm">
-                {item.name}
+                {/* the keyboard way to the details (a click anywhere on the card works too) */}
+                <button type="button" className="text-left cursor-pointer whitespace-pre-line focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-navy">
+                  {item.name}
+                </button>
               </StyledHeading>
               {/* Prices only for dishes on offer: the old one crossed out, then the offer price */}
               {item.discount ? (
@@ -78,6 +85,8 @@ export default function MenuShowcase({ items }: { items: MenuItem[] }) {
           </article>
         ))}
       </div>
+
+      <DishDetail item={viewing} onClose={() => setViewing(null)} cartHref="/menu" />
 
       <motion.div
         initial={{ opacity: 0, y: 38 }}

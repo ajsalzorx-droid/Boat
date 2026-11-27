@@ -3,7 +3,7 @@
 import { ReactNode, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Menu as MenuIcon, Fish, Percent, PartyPopper, CalendarDays, Gamepad2, Settings, LogOut, PanelLeft, X, ArrowLeft } from "lucide-react";
+import { LayoutDashboard, Menu as MenuIcon, Fish, Percent, PartyPopper, CalendarDays, Gamepad2, Bike, Truck, Settings, LogOut, PanelLeft, X, ArrowLeft } from "lucide-react";
 import { logout } from "./login/actions";
 import Toaster from "./Toaster";
 
@@ -33,6 +33,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { name: "Offers", href: "/admin/offers", icon: Percent },
     { name: "Events", href: "/admin/events", icon: PartyPopper },
     { name: "Bookings", href: "/admin/bookings", icon: CalendarDays },
+    { name: "Delivery", href: "/admin/deliveries", icon: Truck },
+    { name: "Delivery Apps", href: "/admin/delivery", icon: Bike },
     { name: "Game Claims", href: "/admin/game-claims", icon: Gamepad2 },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];
@@ -56,7 +58,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="h-20 flex items-center justify-between px-8 border-b border-white/10">
+        <div className="h-20 shrink-0 flex items-center justify-between px-8 border-b border-white/10">
           <span className="font-playfair text-xl font-bold tracking-widest uppercase whitespace-nowrap">Boat Admin</span>
           <button
             onClick={closeSidebar}
@@ -67,7 +69,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </button>
         </div>
 
-        <nav className="flex-1 py-6 px-4 flex flex-col gap-2">
+        {/* On a short screen the menu scrolls here, so the page itself never grows past the screen */}
+        <nav className="admin-scroll flex-1 min-h-0 overflow-y-auto py-6 px-4 flex flex-col gap-2">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
@@ -89,7 +92,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/10 flex flex-col gap-1">
+        <div className="shrink-0 p-4 border-t border-white/10 flex flex-col gap-1">
           <Link
             href="/"
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-white/60 hover:bg-white/5 hover:text-white transition-colors"

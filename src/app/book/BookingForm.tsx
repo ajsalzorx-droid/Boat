@@ -32,6 +32,7 @@ import {
 } from "@/lib/bookings";
 import { createBooking, takenTables } from "./actions";
 import PreorderPicker, { type PreorderDish } from "./PreorderPicker";
+import PhoneVerify from "@/components/PhoneVerify";
 import Toaster, { toast } from "@/app/admin/Toaster";
 
 const ALL_TABS: { value: BookingType; label: string; icon: typeof Fish; intro: string }[] = [
@@ -70,8 +71,10 @@ export default function BookingForm({
   hours,
   phone,
   dishes,
+  initialItems = [],
 }: {
   initialType: BookingType;
+  initialItems?: BookingInput["items"];
   hours: { opens: string; closes: string };
   phone: string;
   dishes: PreorderDish[];
@@ -79,7 +82,7 @@ export default function BookingForm({
   const styles = useSection("fish_styles").items.map((s) => s.title).filter(Boolean);
   const [type, setType] = useState<BookingType>(FISH_PREP_ENABLED ? initialType : "table");
   const [country, setCountry] = useState<string>(COUNTRIES[0][0]); // the phone number's country code (UAE first)
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState({ ...EMPTY, items: initialItems });
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
   // Dates and times depend on the visitor's current time: worked out after the page loads
@@ -121,12 +124,16 @@ export default function BookingForm({
   const tableOk = freeTables.some((t) => t.id === form.table);
   const chosenTable = tableOk ? form.table : "";
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // A number not yet proved on this device: the "verify your number" step, then the booking goes
+  const [verifying, setVerifying] = useState(false);
+
+  const submit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     const booking: BookingInput = { ...form, phone: form.phone.trim() ? fullNumber(country, form.phone) : "", table: chosenTable, type };
     // Same checks as the server, so mistakes show right away
     const problem = checkBooking(booking, hours);
     if (problem) {
+      setVerifying(false);
       setError(problem);
       return;
     }
@@ -140,9 +147,15 @@ export default function BookingForm({
     }
     if (!res.ok) {
       setStatus("idle");
+      if ("verify" in res && res.verify) {
+        setVerifying(true);
+        return;
+      }
+      setVerifying(false);
       setError(res.error);
       return;
     }
+    setVerifying(false);
     setStatus("done");
   };
 
@@ -216,6 +229,10 @@ export default function BookingForm({
                         </Link>
                       </div>
                     </div>
+                  </motion.div>
+                ) : verifying ? (
+                  <motion.div key="verify" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                    <PhoneVerify phone={fullNumber(country, form.phone)} onVerified={() => submit()} onBack={() => setVerifying(false)} />
                   </motion.div>
                 ) : (
                   <motion.form key={type} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} onSubmit={submit} noValidate className="flex flex-col gap-4">

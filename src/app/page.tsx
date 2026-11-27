@@ -1,6 +1,5 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import Ticker from "@/components/Ticker";
 import Origin from "@/components/Origin";
 import Stats from "@/components/Stats";
 import MenuShowcase from "@/components/MenuShowcase";
@@ -14,6 +13,7 @@ import { whatsapp } from "@/lib/whatsapp";
 import { getBusinessInfo, pageMetadata } from "@/lib/seo-data";
 import { restaurantJsonLd } from "@/lib/seo";
 import { getSiteContent } from "@/lib/content-data";
+import { getGoogleReviews, googleWriteReviewUrl } from "@/lib/google-reviews";
 import { getActiveMenuItems, getAvailableCatch, getLiveOffers, offerBanners, withOffers } from "@/lib/menu-data";
 import OfferBanners from "@/components/OfferBanners";
 import { Heading, StyledHeading } from "@/components/ContentText";
@@ -24,12 +24,13 @@ export const generateMetadata = () => pageMetadata("/");
 // src/app/layout.tsx) and getLiveOffers() checks the date window, so the offers section follows them.
 
 export default async function Home() {
-  const [business, content, dishes, dailyCatch, offers] = await Promise.all([
+  const [business, content, dishes, dailyCatch, offers, google] = await Promise.all([
     getBusinessInfo(),
     getSiteContent(),
     getActiveMenuItems(),
     getAvailableCatch(),
     getLiveOffers(),
+    getGoogleReviews(), // null until the Google Places API is set up (src/lib/google-reviews.ts)
   ]);
   const menuItems = withOffers(dishes, offers);
   const banners = offerBanners(offers);
@@ -48,7 +49,6 @@ export default async function Home() {
         />
         <OfferBanners banners={banners} />
         <Hero />
-        <Ticker />
         <Origin />
         <Stats />
         <DailyCatch items={dailyCatch} />
@@ -85,7 +85,7 @@ export default async function Home() {
         <MenuShowcase items={menuItems} />
         <Experience />
         <Gallery />
-        <Testimonials />
+        <Testimonials google={google} writeUrl={googleWriteReviewUrl()} />
 
         {/* Come Dine With Us — walk-in section */}
         <section className="relative min-h-[92vh] overflow-hidden flex items-center justify-center group">

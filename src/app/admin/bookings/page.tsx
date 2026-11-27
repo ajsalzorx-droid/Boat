@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { listBookings, resendBookingConfirmation, setBookingStatus, deleteBooking, type BookingRow, type BookingStatusFilter, type BookingTypeFilter } from "../actions";
-import { actionFailed, confirmDialog } from "../client-helpers";
+import { actionFailed, confirmDialog, cookingTimeDialog } from "../client-helpers";
 import { toast } from "../Toaster";
 import Pagination from "../Pagination";
-import { CalendarDays, Fish, Users, Phone, Mail, MessageCircle, Check, X, Trash2, RefreshCw, Clock, StickyNote, UtensilsCrossed } from "lucide-react";
+import { CalendarDays, Fish, Users, Phone, Mail, MessageCircle, Check, X, Trash2, RefreshCw, Clock, StickyNote, UtensilsCrossed, ChefHat } from "lucide-react";
 import { formatPrice } from "@/lib/offers";
 import { formatDate, FISH_PREP_ENABLED, formatTime, tableLabel, visitDate, type BookingStatus } from "@/lib/bookings";
+import { cookingLabel } from "@/lib/deliveries";
 
 // Bookings per page (2 rows of 3 on wide screens)
 const PAGE_SIZE = 9;
@@ -90,9 +91,23 @@ export default function AdminBookingsPage() {
       !(await confirmDialog({ title: "Cancel this booking?", text: `The booking for ${b.name} will be marked as cancelled.`, confirmText: "Yes, cancel it", cancelText: "Keep it", danger: true }))
     )
       return;
+    // Every confirm asks the cooking time. With pre-ordered dishes the kitchen starts them that long
+    // before the guests come, and the WhatsApp confirmation says it
+    let cooking: number | undefined;
+    if (status === "confirmed") {
+      const minutes = await cookingTimeDialog({
+        title: `Confirm ${b.name}'s booking?`,
+        text: b.items?.length
+          ? "How long will the pre-ordered dishes take to cook?\nThe kitchen starts them that long before the guests come."
+          : "How long will their food take to cook?",
+        confirmText: "Confirm booking",
+      });
+      if (minutes === null) return;
+      cooking = minutes;
+    }
     // The confirmation goes only from Boat's WhatsApp number (Wati), never from the staff
     // member's own phone. If it can't go yet, the card says so and "Send WhatsApp" tries again
-    const res = await setBookingStatus(b.id, status);
+    const res = await setBookingStatus(b.id, status, cooking);
     if (actionFailed(res)) return;
     const wa = res.ok ? res.data : undefined;
     toast(status === "confirmed" ? `Booking for ${b.name} confirmed` : status === "cancelled" ? `Booking for ${b.name} cancelled` : `Booking for ${b.name} updated`);
@@ -255,6 +270,11 @@ export default function AdminBookingsPage() {
                     </p>
                   </div>
                 )}
+                {b.status === "confirmed" && b.cooking_minutes ? (
+                  <p className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-green-800 font-semibold">
+                    <ChefHat size={15} className="shrink-0" /> Cooking time {cookingLabel(b.cooking_minutes)}
+                  </p>
+                ) : null}
                 {b.notes && (
                   <p className="flex items-start gap-2 text-gray-600 bg-gray-50 rounded-lg p-3 mt-1 whitespace-pre-line break-words">
                     <StickyNote size={14} className="text-gray-400 shrink-0 mt-0.5" /> {b.notes}
